@@ -1,0 +1,3794 @@
+{
+  "DATA": [
+    {
+      "n": "230 Park Ave",
+      "sub": "Manhattan",
+      "st": "Potential Conversion",
+      "ct": "Office-to-Residential",
+      "u": null,
+      "sf": 1406044,
+      "d": "TBD",
+      "sp": "RXR",
+      "ln": "",
+      "lat": 40.754473,
+      "lng": -73.9761172,
+      "rudin": 0,
+      "img": "https://cdn.prod.website-files.com/62a34fe8356b0387e6afbcf9/62a34fe8356b03f3bdafc151_230-park.jpg"
+    },
+    {
+      "n": "20 Exchange Pl",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Office-to-Residential",
+      "u": 720,
+      "sf": 1331453,
+      "d": "2015",
+      "sp": "Dermot Co., PGGM",
+      "ln": "PGGM / UBS",
+      "lat": 40.7055048,
+      "lng": -74.0096559,
+      "rudin": 0,
+      "img": "https://buildingsdb.com/uploads/images/NY/20-exchange-place-building.jpg"
+    },
+    {
+      "n": "5 Times Square",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 1250,
+      "sf": 1169964,
+      "d": "2027",
+      "sp": "RXR / APO / SL Green",
+      "ln": "Corebridge",
+      "lat": 40.7557604,
+      "lng": -73.9873878,
+      "rudin": 0,
+      "img": "https://upload.wikimedia.org/wikipedia/commons/c/c7/5_Times_Square_I_%288156007823%29.jpg"
+    },
+    {
+      "n": "85 Broad St",
+      "sub": "Manhattan",
+      "st": "Potential Conversion",
+      "ct": "Office-to-Residential",
+      "u": null,
+      "sf": 1120500,
+      "d": "TBD",
+      "sp": "",
+      "ln": "",
+      "lat": 40.7041573,
+      "lng": -74.0110821,
+      "rudin": 0,
+      "img": "https://images.skyscrapercenter.com/building/broadst85-1a.jpg"
+    },
+    {
+      "n": "25 Water St",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Office-to-Residential",
+      "u": 1320,
+      "sf": 1110000,
+      "d": "2025",
+      "sp": "Metro Loft / GFP / Rockwood",
+      "ln": "Apollo / GIC",
+      "lat": 40.7026561,
+      "lng": -74.0106874,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2022/12/Rendering-of-25-Water-Street-in-Manhattan-Courtesy-of-CetraRuddy.jpg"
+    },
+    {
+      "n": "1 Wall St",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Office-to-Residential",
+      "u": 566,
+      "sf": 1100000,
+      "d": "2023",
+      "sp": "Macklowe Properties",
+      "ln": "Deutsche Bank",
+      "lat": 40.7063424,
+      "lng": -74.0091775,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2024/07/One-Wall-Street-Hero-Looking-South.jpg"
+    },
+    {
+      "n": "111 Wall St",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 1570,
+      "sf": 1040000,
+      "d": "2027",
+      "sp": "InterVest / Metro Loft",
+      "ln": "Apollo / JPMorgan / TYKO",
+      "lat": 40.7042083,
+      "lng": -74.0069681,
+      "rudin": 0,
+      "img": "https://media.perecredit.com/uploads/2026/01/111-Wall-Street_Source_GENSLER.jpg"
+    },
+    {
+      "n": "80 Pine St",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 713,
+      "sf": 1000000,
+      "d": "2026",
+      "sp": "Bushburg",
+      "ln": "Bridge City Capital / Deutsche Bank",
+      "lat": 40.7059916,
+      "lng": -74.0067745,
+      "rudin": 0,
+      "img": "https://80-pine.com/wp-content/uploads/2023/10/80-Pine-Model-Herp-Full-Exterior.jpg"
+    },
+    {
+      "n": "135 W 50th St",
+      "sub": "Manhattan",
+      "st": "Potential Conversion",
+      "ct": "Office-to-Residential",
+      "u": null,
+      "sf": 924721,
+      "d": "TBD",
+      "sp": "Thakkar Developers",
+      "ln": "",
+      "lat": 40.7609198,
+      "lng": -73.9822843,
+      "rudin": 0,
+      "img": "https://images1.loopnet.com/i2/wh-n9eJVrzq_7ZiY8ir1EdXtRu-ovcC7oQ14BwljJYo/112/image.jpg"
+    },
+    {
+      "n": "235 East 42nd St",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 1602,
+      "sf": 1338000,
+      "d": "2027",
+      "sp": "Metro Loft / David Werner RE",
+      "ln": "Madison Realty / IPA Capital",
+      "lat": 40.7503185,
+      "lng": -73.9724018,
+      "rudin": 0,
+      "img": "https://static2.gensler.com/uploads/hero_element/25019/thumb_desktop/thumbs/MetroLoft-42ndSt-OldPfizer_Hero_1739370175_1024x576.jpg"
+    },
+    {
+      "n": "222 Broadway",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 800,
+      "sf": 794000,
+      "d": "2027",
+      "sp": "GFP Real Estate / TPG",
+      "ln": "BDT & MSD Partners",
+      "lat": 40.7106261,
+      "lng": -74.0083446,
+      "rudin": 0,
+      "img": "https://www.newofficeamerica.com/images/offices/222-broadway-5630-0.jpg"
+    },
+    {
+      "n": "61 Broadway",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 796,
+      "sf": 787000,
+      "d": "2028",
+      "sp": "RXR",
+      "ln": "Aareal / JLL / Apollo / JPMorgan",
+      "lat": 40.7070853,
+      "lng": -74.0125526,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2026/03/61-broadway-scaled.jpg"
+    },
+    {
+      "n": "750 Third Ave",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 680,
+      "sf": 779641,
+      "d": "2028",
+      "sp": "SL Green Realty",
+      "ln": "",
+      "lat": 40.7537472,
+      "lng": -73.9726074,
+      "rudin": 0,
+      "img": "https://slgreen.com/wp-content/uploads/2020/09/SLGreen_750_3rdAve_2022_08_22_webres-e1662493730707-579x1024.jpg"
+    },
+    {
+      "n": "75 Broad St",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": null,
+      "sf": 661283,
+      "d": "TBD",
+      "sp": "",
+      "ln": "",
+      "lat": 40.7047484,
+      "lng": -74.0111874,
+      "rudin": 0,
+      "img": "https://commercialobserver.com/wp-content/uploads/sites/3/2018/10/48-wall-street-photo-costar-group.jpg?quality=80&w=355&h=285&crop=1"
+    },
+    {
+      "n": "1740 Broadway",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 426,
+      "sf": 640000,
+      "d": "TBD",
+      "sp": "Yellowstone Real Estate",
+      "ln": "",
+      "lat": 40.7651015,
+      "lng": -73.9817896,
+      "rudin": 0,
+      "img": "https://commercialobserver.com/wp-content/uploads/sites/3/2017/09/1740-broadway-day-southwest-credit-kevin-chu-and-jessica-paul-photography.jpg?quality=80"
+    },
+    {
+      "n": "330 West 42nd St",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 224,
+      "sf": 560000,
+      "d": "TBD",
+      "sp": "Deco Tower / Resolution RE",
+      "ln": "",
+      "lat": 40.7576238,
+      "lng": -73.9914753,
+      "rudin": 0,
+      "img": "https://upload.wikimedia.org/wikipedia/commons/6/67/Mcgraw-hill-42nd-st_1.jpg"
+    },
+    {
+      "n": "77 Water St",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 648,
+      "sf": 546803,
+      "d": "2027",
+      "sp": "Vanbarton Group",
+      "ln": "TYKO Capital",
+      "lat": 40.704281,
+      "lng": -74.0082994,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2022/08/77-Water-Street-%C2%A9-John-W.-Cahill-CTBUH-2.jpg"
+    },
+    {
+      "n": "20 Broad St",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Office-to-Residential",
+      "u": 533,
+      "sf": 542504,
+      "d": "2018",
+      "sp": "Metro Loft Management",
+      "ln": "Athene Annuity",
+      "lat": 40.7067139,
+      "lng": -74.0113765,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2018/09/20BroadSt_0813_Heroshot_ER_PS2LO.jpg"
+    },
+    {
+      "n": "150 William St",
+      "sub": "Manhattan",
+      "st": "Potential Conversion",
+      "ct": "Office-to-Residential",
+      "u": null,
+      "sf": 540000,
+      "d": "TBD",
+      "sp": "Bushburg",
+      "ln": "",
+      "lat": 40.7094102,
+      "lng": -74.0055705,
+      "rudin": 0,
+      "img": "https://images.skyscrapercenter.com/building/150-william-street_john-w-cahill2.jpg"
+    },
+    {
+      "n": "100 Wall St",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 169,
+      "sf": 515153,
+      "d": "TBD",
+      "sp": "David Werner Real Estate Investments and Lloyd Goldman’s BLDG Management",
+      "ln": "",
+      "lat": 40.7052452,
+      "lng": -74.0070246,
+      "rudin": 0,
+      "img": "https://res.cloudinary.com/marketsphere/image/upload/tq0vnaceil7rwl27jzb0.jpg"
+    },
+    {
+      "n": "175-225 3rd St",
+      "sub": "Brooklyn",
+      "st": "Under Construction",
+      "ct": "Ground-Up New Build",
+      "u": 827,
+      "sf": 990000,
+      "d": "2027",
+      "sp": "Charney / Tavros Capital",
+      "ln": "Charney Companies and Tavros Capital",
+      "lat": 40.6733913,
+      "lng": -73.9845117,
+      "rudin": 0,
+      "img": "https://www.brownstoner.com/wp-content/uploads/2023/02/175-3rd-street-ramp-ingels-6.jpg"
+    },
+    {
+      "n": "42-22 Orchard St",
+      "sub": "Queens",
+      "st": "Under Construction",
+      "ct": "Ground-Up New Build",
+      "u": 824,
+      "sf": null,
+      "d": "2026",
+      "sp": "BLDG Management",
+      "ln": "M&T / US Bank / Bank of China / Hapoalim",
+      "lat": 40.7478644,
+      "lng": -73.938943,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2024/11/j6O1wBGA.jpeg"
+    },
+    {
+      "n": "355 Exterior St",
+      "sub": "Bronx",
+      "st": "Under Construction",
+      "ct": "Ground-Up New Build",
+      "u": 755,
+      "sf": 720785,
+      "d": "2026",
+      "sp": "Beitel Group",
+      "ln": "SCALE Lending",
+      "lat": 40.8162979,
+      "lng": -73.9316946,
+      "rudin": 0,
+      "img": "https://www.multihousingnews.com/wp-content/uploads/sites/57/2025/07/thumbnail_Exterior-Street-Loan_CreditJ-Frankl-Architects.jpg?w=553"
+    },
+    {
+      "n": "410-488 W 207th St",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Ground-Up New Build",
+      "u": 727,
+      "sf": 700000,
+      "d": "2026",
+      "sp": "Taconic Partners",
+      "ln": "",
+      "lat": 40.8637821,
+      "lng": -73.9180723,
+      "rudin": 0,
+      "img": "https://images.squarespace-cdn.com/content/v1/61eafef4e143eb07f08c8b22/6fd6877b-1d9b-4a7a-874d-0c4cf3f42dd7/final+render+copy+8.jpg"
+    },
+    {
+      "n": "280 Kent Ave",
+      "sub": "Brooklyn",
+      "st": "Under Construction",
+      "ct": "Ground-Up New Build",
+      "u": 680,
+      "sf": 1170000,
+      "d": "2027",
+      "sp": "Two Trees Management",
+      "ln": "M&T Bank",
+      "lat": 40.7154996,
+      "lng": -73.9672643,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2025/12/504120400_122132743958793118_6657598880070724942_n.jpg"
+    },
+    {
+      "n": "650 First Avenue",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Office-to-Residential",
+      "u": 111,
+      "sf": 100000,
+      "d": "Lease-up",
+      "sp": "Lalezarian Properties",
+      "ln": "",
+      "lat": 40.7457608,
+      "lng": -73.971586,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2024/10/image00348-scaled.jpeg"
+    },
+    {
+      "n": "Anagram Turtle Bay",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Ground-Up New Build",
+      "u": 194,
+      "sf": 175000,
+      "d": "Lease-up",
+      "sp": "MAG / Global Holdings",
+      "ln": "Bank OZK",
+      "lat": 40.754599,
+      "lng": -73.968401,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2025/04/01-Exterior-Hero_0414.jpg"
+    },
+    {
+      "n": "The Dian (162 E 36th)",
+      "sub": "Manhattan",
+      "st": "Completed Conversion",
+      "ct": "Ground-Up New Build",
+      "u": 160,
+      "sf": null,
+      "d": "Lease-up",
+      "sp": "Ranco Capital / Gilardian Family",
+      "ln": "Affinius Capital",
+      "lat": 40.7470409,
+      "lng": -73.9775209,
+      "rudin": 0,
+      "img": "https://photos.zillowstatic.com/fp/c70d30ed365cd70ad7d4db7a3b94c184-full.webp"
+    },
+    {
+      "n": "830 Third Ave",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 188,
+      "sf": 150000,
+      "d": "2027",
+      "sp": "Namdar Realty Group",
+      "ln": "IPA Capital Markets",
+      "lat": 40.7564053,
+      "lng": -73.9707437,
+      "rudin": 0,
+      "img": "https://www.multihousingnews.com/wp-content/uploads/sites/57/2026/01/830-3rd-Ave.-in-Manhattan-edited.jpg"
+    },
+    {
+      "n": "6 East 43rd St",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 441,
+      "sf": 368850,
+      "d": "2027",
+      "sp": "Vanbarton Group",
+      "ln": "Brookfield",
+      "lat": 40.7536684,
+      "lng": -73.9794718,
+      "rudin": 0,
+      "img": "https://newyorkyimby.com/wp-content/uploads/2025/11/thumbnail_6-E.-43rd-St._Manhattan.jpg"
+    },
+    {
+      "n": "767 Third Ave",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 337,
+      "sf": 282000,
+      "d": "2027",
+      "sp": "Metro Loft / Quantum Pacific",
+      "ln": "Bank Hapoalim",
+      "lat": 40.754263,
+      "lng": -73.9714985,
+      "rudin": 0,
+      "img": "https://images.skyscrapercenter.com/building/767thirdavenue_ext-overall_(c)nathaniel__lindsey.jpg"
+    },
+    {
+      "n": "675 Third Ave",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 464,
+      "sf": 335000,
+      "d": "2027",
+      "sp": "Metro Loft / David Werner RE",
+      "ln": "Northwind Group",
+      "lat": 40.7509006,
+      "lng": -73.973911,
+      "rudin": 0,
+      "img": "https://images1.loopnet.com/i2/4AMiTd6Txoh1ISnp9zDNM4hPkDo6zakuTqqzuHa_tBY/112/image.jpg"
+    },
+    {
+      "n": "Tower 57 (135 E 57th)",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 350,
+      "sf": 450000,
+      "d": "2027",
+      "sp": "TF Cornerstone",
+      "ln": "",
+      "lat": 40.7546377,
+      "lng": -73.9747113,
+      "rudin": 0,
+      "img": "https://costar.brightspotcdn.com/dims4/default/752644b/2147483647/strip/true/crop/2100x1400+0+0/resize/2100x1400!/quality/100/?url=http%3A%2F%2Fcostar-brightspot.s3.us-east-1.amazonaws.com%2Fc7%2Fb2%2F0906724841ac86d8ea66bd2601b2%2Ftower-57-costar.jpg"
+    },
+    {
+      "n": "1011 First Ave (1005)",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 420,
+      "sf": 398200,
+      "d": "2027",
+      "sp": "Vanbarton Group",
+      "ln": "Eldridge",
+      "lat": 40.7573856,
+      "lng": -73.963599,
+      "rudin": 0,
+      "img": "https://assets.bwbx.io/images/users/iqjWHBFdfxIU/izZrIbrLr.r4/v0/1200x1667.jpg"
+    },
+    {
+      "n": "845 Third Ave",
+      "sub": "Manhattan",
+      "st": "Under Construction",
+      "ct": "Office-to-Residential",
+      "u": 411,
+      "sf": 350000,
+      "d": "2028",
+      "sp": "Rudin / Quantum Pacific / Metro Loft",
+      "ln": "Bank Hapoalim",
+      "lat": 40.7566468,
+      "lng": -73.9698044,
+      "rudin": 1,
+      "img": "https://media.bizj.us/view/img/12330307/845-third-avenue*320xx1200-1793-0-75.jpg"
+    },
+    {
+      "n": "355 Lexington Ave",
+      "sub": "Manhattan",
+      "st": "Planned Conversion",
+      "ct": "Office-to-Residential",
+      "u": 297,
+      "sf": 200290,
+      "d": "TBD",
+      "sp": "Rudin Management",
+      "ln": "",
+      "lat": 40.7501487,
+      "lng": -73.9764633,
+      "rudin": 1,
+      "img": "https://www.rudin.com/sites/default/files/2025-12/_offices-355-Lexington-Avenue-new-york-rudin-1.jpeg",
+      "aff_pct": 25,
+      "mkt_u": 222,
+      "aff_u": 75,
+      "aff_bands": [
+        {
+          "pct_units": 5,
+          "ami": 40,
+          "studio": 1134,
+          "one_br": 1215,
+          "two_br": 1458
+        },
+        {
+          "pct_units": 10,
+          "ami": 80,
+          "studio": 2268,
+          "one_br": 2430,
+          "two_br": 2916
+        },
+        {
+          "pct_units": 10,
+          "ami": 100,
+          "studio": 2835,
+          "one_br": 3037,
+          "two_br": 3645
+        }
+      ],
+      "avg_sf": 674
+    }
+  ],
+  "COMP_COORDS": {
+    "20 Broad": [
+      40.7067,
+      -74.0117
+    ],
+    "55 Broad St": [
+      40.7047,
+      -74.0107
+    ],
+    "7 Dey": [
+      40.7112,
+      -74.01
+    ],
+    "SoMA": [
+      40.7026,
+      -74.0103
+    ],
+    "Pearl House": [
+      40.7068,
+      -74.012
+    ],
+    "Aqua House": [
+      40.7075,
+      -74.009
+    ],
+    "19 Dutch": [
+      40.7085,
+      -74.0075
+    ],
+    "606W30": [
+      40.752,
+      -74.0005
+    ],
+    "509 Third": [
+      40.753,
+      -73.971
+    ],
+    "Anagram Turtle Bay": [
+      40.755,
+      -73.9685
+    ],
+    "650 First Ave": [
+      40.7477,
+      -73.9722
+    ],
+    "162 East 36th Street": [
+      40.747,
+      -73.9762
+    ],
+    "Aalto57": [
+      40.757,
+      -73.964
+    ],
+    "Gemma": [
+      40.752,
+      -73.998
+    ],
+    "House 39": [
+      40.753,
+      -73.992
+    ],
+    "The Gilroy": [
+      40.756,
+      -73.987
+    ],
+    "The Maverick": [
+      40.748,
+      -74.002
+    ],
+    "225 West 28th Maverick Chelsea": [
+      40.748,
+      -74.002
+    ],
+    "Ruby Chelsea": [
+      40.746,
+      -74
+    ],
+    "The Ellery": [
+      40.762,
+      -73.989
+    ],
+    "Summit NYC": [
+      40.76,
+      -73.977
+    ],
+    "Wrey": [
+      40.756,
+      -73.968
+    ],
+    "355 Lexington Ave": [
+      40.7501487,
+      -73.9764633
+    ]
+  },
+  "AGG": {
+    "ut_stats": {
+      "ST": {
+        "gr": {
+          "avg": 4399.62,
+          "med": 4300,
+          "min": 3020,
+          "max": 12303.38,
+          "n": 1312
+        },
+        "psf": {
+          "avg": 111.23,
+          "med": 107.42,
+          "min": 58.18,
+          "max": 292.36,
+          "n": 1031
+        },
+        "sf": {
+          "avg": 474.35,
+          "med": 447,
+          "min": 310,
+          "max": 792,
+          "n": 1031
+        }
+      },
+      "ST+HO": {
+        "gr": {
+          "avg": 4832.59,
+          "med": 4625,
+          "min": 3907.62,
+          "max": 11819.62,
+          "n": 363
+        },
+        "psf": {
+          "avg": 102.21,
+          "med": 98.44,
+          "min": 61.14,
+          "max": 282.54,
+          "n": 363
+        },
+        "sf": {
+          "avg": 571.65,
+          "med": 551,
+          "min": 502,
+          "max": 844,
+          "n": 363
+        }
+      },
+      "1BD": {
+        "gr": {
+          "avg": 6043.36,
+          "med": 5988.5,
+          "min": 3436,
+          "max": 12249.62,
+          "n": 1218
+        },
+        "psf": {
+          "avg": 108.67,
+          "med": 108.06,
+          "min": 53.38,
+          "max": 261.09,
+          "n": 881
+        },
+        "sf": {
+          "avg": 654.09,
+          "med": 625,
+          "min": 498,
+          "max": 1115,
+          "n": 881
+        }
+      },
+      "1BD+HO": {
+        "gr": {
+          "avg": 6015.99,
+          "med": 5830.19,
+          "min": 4042,
+          "max": 8450,
+          "n": 172
+        },
+        "psf": {
+          "avg": 84.98,
+          "med": 83.23,
+          "min": 57.25,
+          "max": 117.25,
+          "n": 172
+        },
+        "sf": {
+          "avg": 865.13,
+          "med": 849,
+          "min": 648,
+          "max": 1638,
+          "n": 172
+        }
+      },
+      "1BD+2HO": {
+        "gr": {
+          "avg": 7661.38,
+          "med": 7700,
+          "min": 6834,
+          "max": 8445,
+          "n": 29
+        },
+        "psf": {
+          "avg": 77.76,
+          "med": 76.31,
+          "min": 55.98,
+          "max": 106.62,
+          "n": 29
+        },
+        "sf": {
+          "avg": 1196.41,
+          "med": 1100,
+          "min": 928,
+          "max": 1671,
+          "n": 29
+        }
+      },
+      "2BD": {
+        "gr": {
+          "avg": 9228.67,
+          "med": 9143.75,
+          "min": 4363,
+          "max": 15770,
+          "n": 352
+        },
+        "psf": {
+          "avg": 104.82,
+          "med": 103.72,
+          "min": 49.39,
+          "max": 173.77,
+          "n": 269
+        },
+        "sf": {
+          "avg": 1035.16,
+          "med": 1045,
+          "min": 720,
+          "max": 1489,
+          "n": 269
+        }
+      },
+      "2B+HO": {
+        "gr": {
+          "avg": 9025,
+          "med": 9025,
+          "min": 8975,
+          "max": 9075,
+          "n": 2
+        },
+        "psf": {
+          "avg": 86.92,
+          "med": 86.92,
+          "min": 86.44,
+          "max": 87.4,
+          "n": 2
+        },
+        "sf": {
+          "avg": 1246,
+          "med": 1246,
+          "min": 1246,
+          "max": 1246,
+          "n": 2
+        }
+      },
+      "3BD": {
+        "gr": {
+          "avg": 10905.13,
+          "med": 9695,
+          "min": 5400,
+          "max": 21050,
+          "n": 75
+        },
+        "psf": {
+          "avg": 94.6,
+          "med": 92.84,
+          "min": 47.6,
+          "max": 156.8,
+          "n": 56
+        },
+        "sf": {
+          "avg": 1287.62,
+          "med": 1279,
+          "min": 610,
+          "max": 2146,
+          "n": 56
+        }
+      }
+    },
+    "pt_ut_stats": {
+      "Conversion": {
+        "ST": {
+          "gr": {
+            "avg": 4418.1,
+            "med": 4075,
+            "min": 3020,
+            "max": 12303.38,
+            "n": 333
+          },
+          "psf": {
+            "avg": 110.34,
+            "med": 105.22,
+            "min": 59.6,
+            "max": 292.36,
+            "n": 331
+          }
+        },
+        "ST+HO": {
+          "gr": {
+            "avg": 5089.62,
+            "med": 4807.62,
+            "min": 3907.62,
+            "max": 11819.62,
+            "n": 208
+          },
+          "psf": {
+            "avg": 108.89,
+            "med": 104.55,
+            "min": 74.31,
+            "max": 282.54,
+            "n": 208
+          }
+        },
+        "1BD": {
+          "gr": {
+            "avg": 5305.94,
+            "med": 4982.62,
+            "min": 3923.75,
+            "max": 12249.62,
+            "n": 193
+          },
+          "psf": {
+            "avg": 104.55,
+            "med": 100.48,
+            "min": 53.38,
+            "max": 261.09,
+            "n": 193
+          }
+        },
+        "1BD+HO": {
+          "gr": {
+            "avg": 5584.72,
+            "med": 5571.5,
+            "min": 4042,
+            "max": 8450,
+            "n": 66
+          },
+          "psf": {
+            "avg": 84.21,
+            "med": 82.52,
+            "min": 60.22,
+            "max": 117.25,
+            "n": 66
+          }
+        },
+        "1BD+2HO": {
+          "gr": {
+            "avg": 7595.62,
+            "med": 7747.5,
+            "min": 6880,
+            "max": 8195,
+            "n": 8
+          },
+          "psf": {
+            "avg": 74.24,
+            "med": 75.41,
+            "min": 55.98,
+            "max": 84,
+            "n": 8
+          }
+        },
+        "2BD": {
+          "gr": {
+            "avg": 7784.95,
+            "med": 7450,
+            "min": 5400,
+            "max": 12303.38,
+            "n": 41
+          },
+          "psf": {
+            "avg": 101.21,
+            "med": 99.49,
+            "min": 74.4,
+            "max": 134.71,
+            "n": 41
+          }
+        },
+        "3BD": {
+          "gr": {
+            "avg": 8868.59,
+            "med": 8995,
+            "min": 6995,
+            "max": 9695,
+            "n": 17
+          },
+          "psf": {
+            "avg": 86.41,
+            "med": 86.98,
+            "min": 77.04,
+            "max": 94.05,
+            "n": 17
+          }
+        }
+      },
+      "Primary": {
+        "ST": {
+          "gr": {
+            "avg": 4795.91,
+            "med": 4765,
+            "min": 4250,
+            "max": 5885,
+            "n": 80
+          },
+          "psf": {
+            "avg": 125.87,
+            "med": 125.73,
+            "min": 105.21,
+            "max": 148.67,
+            "n": 23
+          }
+        },
+        "ST+HO": {
+          "gr": {
+            "avg": 5124,
+            "med": 5124,
+            "min": 5099,
+            "max": 5149,
+            "n": 2
+          },
+          "psf": {
+            "avg": 94.16,
+            "med": 94.16,
+            "min": 93.7,
+            "max": 94.62,
+            "n": 2
+          }
+        },
+        "1BD": {
+          "gr": {
+            "avg": 6415.44,
+            "med": 6504,
+            "min": 5383,
+            "max": 8320,
+            "n": 106
+          },
+          "psf": {
+            "avg": 104.12,
+            "med": 99.57,
+            "min": 81.44,
+            "max": 149.46,
+            "n": 63
+          }
+        },
+        "2BD": {
+          "gr": {
+            "avg": 10650.02,
+            "med": 10300,
+            "min": 8400,
+            "max": 15115,
+            "n": 40
+          },
+          "psf": {
+            "avg": 97.32,
+            "med": 95.24,
+            "min": 86.54,
+            "max": 113.42,
+            "n": 29
+          }
+        },
+        "3BD": {
+          "gr": {
+            "avg": 11685.12,
+            "med": 10214,
+            "min": 9100,
+            "max": 17260,
+            "n": 8
+          },
+          "psf": {
+            "avg": 95.75,
+            "med": 91.06,
+            "min": 88.89,
+            "max": 108.89,
+            "n": 7
+          }
+        }
+      },
+      "Market": {
+        "ST": {
+          "gr": {
+            "avg": 4357.52,
+            "med": 4300,
+            "min": 3158,
+            "max": 9000,
+            "n": 899
+          },
+          "psf": {
+            "avg": 111.16,
+            "med": 108.7,
+            "min": 58.18,
+            "max": 226.89,
+            "n": 677
+          }
+        },
+        "ST+HO": {
+          "gr": {
+            "avg": 4479.35,
+            "med": 4435,
+            "min": 3983,
+            "max": 5515,
+            "n": 153
+          },
+          "psf": {
+            "avg": 93.22,
+            "med": 94.62,
+            "min": 61.14,
+            "max": 107.02,
+            "n": 153
+          }
+        },
+        "1BD": {
+          "gr": {
+            "avg": 6155.3,
+            "med": 6050,
+            "min": 3436,
+            "max": 9150,
+            "n": 919
+          },
+          "psf": {
+            "avg": 110.4,
+            "med": 110.13,
+            "min": 68.84,
+            "max": 169.29,
+            "n": 625
+          }
+        },
+        "1BD+HO": {
+          "gr": {
+            "avg": 6284.52,
+            "med": 6077,
+            "min": 5230,
+            "max": 8395,
+            "n": 106
+          },
+          "psf": {
+            "avg": 85.46,
+            "med": 84.25,
+            "min": 57.25,
+            "max": 117.13,
+            "n": 106
+          }
+        },
+        "1BD+2HO": {
+          "gr": {
+            "avg": 7686.43,
+            "med": 7640,
+            "min": 6834,
+            "max": 8445,
+            "n": 21
+          },
+          "psf": {
+            "avg": 79.1,
+            "med": 78.07,
+            "min": 67.39,
+            "max": 106.62,
+            "n": 21
+          }
+        },
+        "2BD": {
+          "gr": {
+            "avg": 9237.3,
+            "med": 9195,
+            "min": 4363,
+            "max": 15770,
+            "n": 271
+          },
+          "psf": {
+            "avg": 106.66,
+            "med": 106.3,
+            "min": 49.39,
+            "max": 173.77,
+            "n": 199
+          }
+        },
+        "2B+HO": {
+          "gr": {
+            "avg": 9025,
+            "med": 9025,
+            "min": 8975,
+            "max": 9075,
+            "n": 2
+          },
+          "psf": {
+            "avg": 86.92,
+            "med": 86.92,
+            "min": 86.44,
+            "max": 87.4,
+            "n": 2
+          }
+        },
+        "3BD": {
+          "gr": {
+            "avg": 11472.76,
+            "med": 10200,
+            "min": 5400,
+            "max": 21050,
+            "n": 50
+          },
+          "psf": {
+            "avg": 98.7,
+            "med": 93.13,
+            "min": 47.6,
+            "max": 156.8,
+            "n": 32
+          }
+        }
+      }
+    },
+    "bldg_stats": {
+      "162 East 36th Street": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 5080.38,
+              "med": 5090,
+              "min": 4400,
+              "max": 5820,
+              "n": 13
+            },
+            "psf": {
+              "avg": 117.78,
+              "med": 122.16,
+              "min": 102.52,
+              "max": 133.03,
+              "n": 13
+            },
+            "sf": {
+              "avg": 517.69,
+              "med": 525,
+              "min": 500,
+              "max": 535,
+              "n": 13
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6688.12,
+              "med": 6490,
+              "min": 6190,
+              "max": 7325,
+              "n": 8
+            },
+            "psf": {
+              "avg": 110.67,
+              "med": 105.97,
+              "min": 102.4,
+              "max": 121.68,
+              "n": 8
+            },
+            "sf": {
+              "avg": 725.62,
+              "med": 717.5,
+              "min": 715,
+              "max": 750,
+              "n": 8
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 10646.67,
+              "med": 9990,
+              "min": 9850,
+              "max": 12100,
+              "n": 3
+            },
+            "psf": {
+              "avg": 120.81,
+              "med": 114.17,
+              "min": 112.57,
+              "max": 135.7,
+              "n": 3
+            },
+            "sf": {
+              "avg": 1056.67,
+              "med": 1050,
+              "min": 1050,
+              "max": 1070,
+              "n": 3
+            }
+          }
+        }
+      },
+      "19 Dutch": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4072.59,
+              "med": 4091,
+              "min": 3563,
+              "max": 4425,
+              "n": 17
+            },
+            "psf": {
+              "avg": 123.85,
+              "med": 125.29,
+              "min": 101.01,
+              "max": 136.15,
+              "n": 17
+            },
+            "sf": {
+              "avg": 395.65,
+              "med": 390,
+              "min": 390,
+              "max": 486,
+              "n": 17
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5868.57,
+              "med": 5791,
+              "min": 5102,
+              "max": 6712,
+              "n": 53
+            },
+            "psf": {
+              "avg": 117.27,
+              "med": 115.29,
+              "min": 102.36,
+              "max": 142.78,
+              "n": 53
+            },
+            "sf": {
+              "avg": 603.77,
+              "med": 624,
+              "min": 552,
+              "max": 660,
+              "n": 53
+            }
+          }
+        }
+      },
+      "20 Broad": {
+        "pt": "Conversion",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 3876.68,
+              "med": 3845,
+              "min": 3158,
+              "max": 5550,
+              "n": 190
+            },
+            "psf": {
+              "avg": 97.65,
+              "med": 96.07,
+              "min": 66.77,
+              "max": 135.09,
+              "n": 190
+            },
+            "sf": {
+              "avg": 485.03,
+              "med": 473.5,
+              "min": 358,
+              "max": 792,
+              "n": 190
+            }
+          },
+          "ST+HO": {
+            "gr": {
+              "avg": 4222.89,
+              "med": 4195,
+              "min": 3983,
+              "max": 5026,
+              "n": 35
+            },
+            "psf": {
+              "avg": 82.22,
+              "med": 81.93,
+              "min": 63.86,
+              "max": 97.12,
+              "n": 35
+            },
+            "sf": {
+              "avg": 618.49,
+              "med": 621,
+              "min": 580,
+              "max": 809,
+              "n": 35
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 4860.61,
+              "med": 4821.5,
+              "min": 4168,
+              "max": 6340,
+              "n": 84
+            },
+            "psf": {
+              "avg": 93.98,
+              "med": 92.66,
+              "min": 79.91,
+              "max": 125.34,
+              "n": 84
+            },
+            "sf": {
+              "avg": 623.81,
+              "med": 618,
+              "min": 498,
+              "max": 742,
+              "n": 84
+            }
+          },
+          "1BD+HO": {
+            "gr": {
+              "avg": 6525.45,
+              "med": 6204.5,
+              "min": 5460,
+              "max": 8450,
+              "n": 44
+            },
+            "psf": {
+              "avg": 76.22,
+              "med": 73.7,
+              "min": 57.25,
+              "max": 98.3,
+              "n": 44
+            },
+            "sf": {
+              "avg": 1047.73,
+              "med": 1040.5,
+              "min": 781,
+              "max": 1638,
+              "n": 44
+            }
+          },
+          "1BD+2HO": {
+            "gr": {
+              "avg": 7601,
+              "med": 7548,
+              "min": 6834,
+              "max": 8445,
+              "n": 25
+            },
+            "psf": {
+              "avg": 75.47,
+              "med": 75.41,
+              "min": 55.98,
+              "max": 87.47,
+              "n": 25
+            },
+            "sf": {
+              "avg": 1219.2,
+              "med": 1208,
+              "min": 1094,
+              "max": 1671,
+              "n": 25
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 7019,
+              "med": 7019,
+              "min": 7019,
+              "max": 7019,
+              "n": 1
+            },
+            "psf": {
+              "avg": 78.72,
+              "med": 78.72,
+              "min": 78.72,
+              "max": 78.72,
+              "n": 1
+            },
+            "sf": {
+              "avg": 1070,
+              "med": 1070,
+              "min": 1070,
+              "max": 1070,
+              "n": 1
+            }
+          }
+        }
+      },
+      "509 Third": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4390.67,
+              "med": 4300,
+              "min": 4170,
+              "max": 5420,
+              "n": 30
+            },
+            "psf": {
+              "avg": 103.44,
+              "med": 101.71,
+              "min": 95.33,
+              "max": 122.72,
+              "n": 30
+            },
+            "sf": {
+              "avg": 509.83,
+              "med": 513,
+              "min": 477,
+              "max": 540,
+              "n": 30
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5585.13,
+              "med": 5540,
+              "min": 4999,
+              "max": 6800,
+              "n": 30
+            },
+            "psf": {
+              "avg": 102.99,
+              "med": 101.59,
+              "min": 81.89,
+              "max": 130.17,
+              "n": 30
+            },
+            "sf": {
+              "avg": 654.7,
+              "med": 653,
+              "min": 589,
+              "max": 806,
+              "n": 30
+            }
+          },
+          "1BD+HO": {
+            "gr": {
+              "avg": 5975,
+              "med": 5980,
+              "min": 5920,
+              "max": 6020,
+              "n": 4
+            },
+            "psf": {
+              "avg": 90.99,
+              "med": 90.91,
+              "min": 90.87,
+              "max": 91.27,
+              "n": 4
+            },
+            "sf": {
+              "avg": 788,
+              "med": 788,
+              "min": 781,
+              "max": 795,
+              "n": 4
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 8566.25,
+              "med": 8495,
+              "min": 7200,
+              "max": 10430,
+              "n": 20
+            },
+            "psf": {
+              "avg": 102.51,
+              "med": 100.69,
+              "min": 93.64,
+              "max": 124.41,
+              "n": 20
+            },
+            "sf": {
+              "avg": 1002.7,
+              "med": 1006,
+              "min": 922,
+              "max": 1127,
+              "n": 20
+            }
+          }
+        }
+      },
+      "55 Broad St": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4316.81,
+              "med": 4075,
+              "min": 3890,
+              "max": 5500,
+              "n": 54
+            },
+            "psf": {
+              "avg": 118.8,
+              "med": 117.45,
+              "min": 96.86,
+              "max": 157.61,
+              "n": 54
+            },
+            "sf": {
+              "avg": 440.7,
+              "med": 409,
+              "min": 378,
+              "max": 625,
+              "n": 54
+            }
+          },
+          "ST+HO": {
+            "gr": {
+              "avg": 5072.78,
+              "med": 5095,
+              "min": 4495,
+              "max": 5395,
+              "n": 9
+            },
+            "psf": {
+              "avg": 97.48,
+              "med": 98.78,
+              "min": 80.39,
+              "max": 106.13,
+              "n": 9
+            },
+            "sf": {
+              "avg": 625.78,
+              "med": 632,
+              "min": 571,
+              "max": 671,
+              "n": 9
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5332,
+              "med": 5280,
+              "min": 4701,
+              "max": 6675,
+              "n": 58
+            },
+            "psf": {
+              "avg": 111.83,
+              "med": 111.03,
+              "min": 94.07,
+              "max": 142.28,
+              "n": 58
+            },
+            "sf": {
+              "avg": 574.43,
+              "med": 579,
+              "min": 529,
+              "max": 840,
+              "n": 58
+            }
+          },
+          "1BD+HO": {
+            "gr": {
+              "avg": 7577.08,
+              "med": 7620,
+              "min": 6825,
+              "max": 8395,
+              "n": 12
+            },
+            "psf": {
+              "avg": 101.9,
+              "med": 106.45,
+              "min": 84.23,
+              "max": 117.13,
+              "n": 12
+            },
+            "sf": {
+              "avg": 912.25,
+              "med": 859,
+              "min": 732,
+              "max": 1139,
+              "n": 12
+            }
+          },
+          "1BD+2HO": {
+            "gr": {
+              "avg": 8038.75,
+              "med": 8020,
+              "min": 7870,
+              "max": 8245,
+              "n": 4
+            },
+            "psf": {
+              "avg": 92.1,
+              "med": 87.81,
+              "min": 86.17,
+              "max": 106.62,
+              "n": 4
+            },
+            "sf": {
+              "avg": 1054,
+              "med": 1096,
+              "min": 928,
+              "max": 1096,
+              "n": 4
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 8515.53,
+              "med": 7870,
+              "min": 7225,
+              "max": 11650,
+              "n": 19
+            },
+            "psf": {
+              "avg": 110.73,
+              "med": 107.56,
+              "min": 98.75,
+              "max": 124.82,
+              "n": 19
+            },
+            "sf": {
+              "avg": 918.79,
+              "med": 878,
+              "min": 863,
+              "max": 1120,
+              "n": 19
+            }
+          },
+          "2B+HO": {
+            "gr": {
+              "avg": 9025,
+              "med": 9025,
+              "min": 8975,
+              "max": 9075,
+              "n": 2
+            },
+            "psf": {
+              "avg": 86.92,
+              "med": 86.92,
+              "min": 86.44,
+              "max": 87.4,
+              "n": 2
+            },
+            "sf": {
+              "avg": 1246,
+              "med": 1246,
+              "min": 1246,
+              "max": 1246,
+              "n": 2
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 11533.33,
+              "med": 11600,
+              "min": 11300,
+              "max": 11700,
+              "n": 3
+            },
+            "psf": {
+              "avg": 113.81,
+              "med": 114.47,
+              "min": 111.51,
+              "max": 115.46,
+              "n": 3
+            },
+            "sf": {
+              "avg": 1216,
+              "med": 1216,
+              "min": 1216,
+              "max": 1216,
+              "n": 3
+            }
+          }
+        }
+      },
+      "606W30": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4509.5,
+              "med": 4497.5,
+              "min": 3795,
+              "max": 5050,
+              "n": 100
+            },
+            "psf": {
+              "avg": 126.34,
+              "med": 126.69,
+              "min": 105.91,
+              "max": 148.88,
+              "n": 86
+            },
+            "sf": {
+              "avg": 426.24,
+              "med": 430,
+              "min": 400,
+              "max": 485,
+              "n": 86
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6788.76,
+              "med": 6995,
+              "min": 5625,
+              "max": 8000,
+              "n": 109
+            },
+            "psf": {
+              "avg": 113.99,
+              "med": 112.56,
+              "min": 94.49,
+              "max": 134.58,
+              "n": 94
+            },
+            "sf": {
+              "avg": 713.73,
+              "med": 671,
+              "min": 632,
+              "max": 849,
+              "n": 94
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 10142.74,
+              "med": 10222.5,
+              "min": 8900,
+              "max": 11325,
+              "n": 62
+            },
+            "psf": {
+              "avg": 110.14,
+              "med": 109.95,
+              "min": 94.66,
+              "max": 123.43,
+              "n": 58
+            },
+            "sf": {
+              "avg": 1101.79,
+              "med": 1101,
+              "min": 1045,
+              "max": 1179,
+              "n": 58
+            }
+          }
+        }
+      },
+      "650 First Ave": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4616.61,
+              "med": 4522.5,
+              "min": 4195,
+              "max": 5300,
+              "n": 18
+            },
+            "psf": null,
+            "sf": null
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6390.56,
+              "med": 6295,
+              "min": 5050,
+              "max": 7850,
+              "n": 27
+            },
+            "psf": null,
+            "sf": null
+          },
+          "2BD": {
+            "gr": {
+              "avg": 8745.83,
+              "med": 8547.5,
+              "min": 8195,
+              "max": 9995,
+              "n": 6
+            },
+            "psf": null,
+            "sf": null
+          }
+        }
+      },
+      "7 Dey": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4933,
+              "med": 5080,
+              "min": 4375,
+              "max": 5250,
+              "n": 5
+            },
+            "psf": {
+              "avg": 104.55,
+              "med": 105,
+              "min": 98.29,
+              "max": 110.77,
+              "n": 5
+            },
+            "sf": {
+              "avg": 567.6,
+              "med": 594,
+              "min": 500,
+              "max": 630,
+              "n": 5
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6251.43,
+              "med": 5900,
+              "min": 5490,
+              "max": 7575,
+              "n": 7
+            },
+            "psf": {
+              "avg": 110.67,
+              "med": 109.8,
+              "min": 95.33,
+              "max": 129.86,
+              "n": 7
+            },
+            "sf": {
+              "avg": 680.71,
+              "med": 700,
+              "min": 550,
+              "max": 832,
+              "n": 7
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 8800,
+              "med": 8800,
+              "min": 8800,
+              "max": 8800,
+              "n": 1
+            },
+            "psf": {
+              "avg": 109.32,
+              "med": 109.32,
+              "min": 109.32,
+              "max": 109.32,
+              "n": 1
+            },
+            "sf": {
+              "avg": 966,
+              "med": 966,
+              "min": 966,
+              "max": 966,
+              "n": 1
+            }
+          }
+        }
+      },
+      "Aalto57": {
+        "pt": "Primary",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4795.73,
+              "med": 4835,
+              "min": 4250,
+              "max": 5550,
+              "n": 15
+            },
+            "psf": {
+              "avg": 115.71,
+              "med": 117.45,
+              "min": 105.21,
+              "max": 122.34,
+              "n": 15
+            },
+            "sf": {
+              "avg": 497.67,
+              "med": 494,
+              "min": 461,
+              "max": 549,
+              "n": 15
+            }
+          },
+          "ST+HO": {
+            "gr": {
+              "avg": 5234,
+              "med": 5149,
+              "min": 5099,
+              "max": 5454,
+              "n": 3
+            },
+            "psf": {
+              "avg": 96.18,
+              "med": 94.62,
+              "min": 93.7,
+              "max": 100.23,
+              "n": 3
+            },
+            "sf": {
+              "avg": 653,
+              "med": 653,
+              "min": 653,
+              "max": 653,
+              "n": 3
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6641.21,
+              "med": 6561.5,
+              "min": 5383,
+              "max": 8588,
+              "n": 80
+            },
+            "psf": {
+              "avg": 97.33,
+              "med": 96.73,
+              "min": 81.44,
+              "max": 124.16,
+              "n": 80
+            },
+            "sf": {
+              "avg": 820.61,
+              "med": 812,
+              "min": 704,
+              "max": 883,
+              "n": 80
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 9747.59,
+              "med": 9600,
+              "min": 8400,
+              "max": 11734,
+              "n": 29
+            },
+            "psf": {
+              "avg": 96.25,
+              "med": 95.24,
+              "min": 86.54,
+              "max": 108.4,
+              "n": 29
+            },
+            "sf": {
+              "avg": 1214.14,
+              "med": 1189,
+              "min": 1115,
+              "max": 1300,
+              "n": 29
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 11717.77,
+              "med": 11200,
+              "min": 9100,
+              "max": 14755,
+              "n": 13
+            },
+            "psf": {
+              "avg": 101.6,
+              "med": 99.85,
+              "min": 88.89,
+              "max": 114.97,
+              "n": 13
+            },
+            "sf": {
+              "avg": 1378.46,
+              "med": 1346,
+              "min": 1072,
+              "max": 1540,
+              "n": 13
+            }
+          }
+        }
+      },
+      "Anagram Turtle Bay": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4955.33,
+              "med": 5020,
+              "min": 4350,
+              "max": 5090,
+              "n": 15
+            },
+            "psf": {
+              "avg": 137.43,
+              "med": 135.91,
+              "min": 130.5,
+              "max": 149.85,
+              "n": 15
+            },
+            "sf": {
+              "avg": 433,
+              "med": 445,
+              "min": 400,
+              "max": 445,
+              "n": 15
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 7371.11,
+              "med": 7005,
+              "min": 6745,
+              "max": 8585,
+              "n": 27
+            },
+            "psf": {
+              "avg": 126.67,
+              "med": 121.8,
+              "min": 112.42,
+              "max": 151.55,
+              "n": 27
+            },
+            "sf": {
+              "avg": 700.19,
+              "med": 700,
+              "min": 598,
+              "max": 755,
+              "n": 27
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 13148.33,
+              "med": 13390,
+              "min": 12195,
+              "max": 13800,
+              "n": 6
+            },
+            "psf": {
+              "avg": 158.63,
+              "med": 159.38,
+              "min": 136.38,
+              "max": 173.77,
+              "n": 6
+            },
+            "sf": {
+              "avg": 998,
+              "med": 963,
+              "min": 953,
+              "max": 1073,
+              "n": 6
+            }
+          }
+        }
+      },
+      "Aqua House": {
+        "pt": "Conversion",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 3847.62,
+              "med": 3750,
+              "min": 3020,
+              "max": 4700,
+              "n": 231
+            },
+            "psf": {
+              "avg": 107,
+              "med": 105.94,
+              "min": 75.99,
+              "max": 136.15,
+              "n": 229
+            },
+            "sf": {
+              "avg": 437.07,
+              "med": 433,
+              "min": 379,
+              "max": 679,
+              "n": 229
+            }
+          },
+          "ST+HO": {
+            "gr": {
+              "avg": 4883.33,
+              "med": 5100,
+              "min": 4300,
+              "max": 5250,
+              "n": 3
+            },
+            "psf": {
+              "avg": 69.43,
+              "med": 72.51,
+              "min": 61.14,
+              "max": 74.64,
+              "n": 3
+            },
+            "sf": {
+              "avg": 844,
+              "med": 844,
+              "min": 844,
+              "max": 844,
+              "n": 3
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5266.64,
+              "med": 5250,
+              "min": 4120,
+              "max": 7905,
+              "n": 121
+            },
+            "psf": {
+              "avg": 106.42,
+              "med": 106.79,
+              "min": 78.03,
+              "max": 132.57,
+              "n": 121
+            },
+            "sf": {
+              "avg": 599.98,
+              "med": 591,
+              "min": 524,
+              "max": 1013,
+              "n": 121
+            }
+          },
+          "1BD+HO": {
+            "gr": {
+              "avg": 6151.18,
+              "med": 6095,
+              "min": 5308,
+              "max": 7102,
+              "n": 45
+            },
+            "psf": {
+              "avg": 83.57,
+              "med": 82.12,
+              "min": 72.86,
+              "max": 92.94,
+              "n": 45
+            },
+            "sf": {
+              "avg": 883.76,
+              "med": 917,
+              "min": 849,
+              "max": 917,
+              "n": 45
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 7173.45,
+              "med": 7500,
+              "min": 5400,
+              "max": 7854,
+              "n": 29
+            },
+            "psf": {
+              "avg": 105.08,
+              "med": 106.05,
+              "min": 74.4,
+              "max": 121.62,
+              "n": 29
+            },
+            "sf": {
+              "avg": 834.14,
+              "med": 740,
+              "min": 740,
+              "max": 1013,
+              "n": 29
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 9148.68,
+              "med": 9595,
+              "min": 5400,
+              "max": 9900,
+              "n": 37
+            },
+            "psf": {
+              "avg": 89.71,
+              "med": 90.07,
+              "min": 77.04,
+              "max": 106.23,
+              "n": 37
+            },
+            "sf": {
+              "avg": 1226.92,
+              "med": 1279,
+              "min": 610,
+              "max": 1279,
+              "n": 37
+            }
+          }
+        }
+      },
+      "Gemma": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4910.55,
+              "med": 4695,
+              "min": 4295,
+              "max": 6395,
+              "n": 33
+            },
+            "psf": {
+              "avg": 165.64,
+              "med": 164.07,
+              "min": 144.43,
+              "max": 193.35,
+              "n": 16
+            },
+            "sf": {
+              "avg": 356.88,
+              "med": 332.5,
+              "min": 310,
+              "max": 415,
+              "n": 16
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 7012.26,
+              "med": 6995,
+              "min": 6495,
+              "max": 7995,
+              "n": 19
+            },
+            "psf": {
+              "avg": 157.6,
+              "med": 164.59,
+              "min": 143.01,
+              "max": 169.29,
+              "n": 7
+            },
+            "sf": {
+              "avg": 525,
+              "med": 510,
+              "min": 510,
+              "max": 545,
+              "n": 7
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 8620,
+              "med": 8495,
+              "min": 7195,
+              "max": 11840,
+              "n": 19
+            },
+            "psf": {
+              "avg": 149.8,
+              "med": 149.8,
+              "min": 141.73,
+              "max": 157.87,
+              "n": 2
+            },
+            "sf": {
+              "avg": 900,
+              "med": 900,
+              "min": 900,
+              "max": 900,
+              "n": 2
+            }
+          }
+        }
+      },
+      "House 39": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4299.12,
+              "med": 4363.5,
+              "min": 3747,
+              "max": 4867,
+              "n": 8
+            },
+            "psf": {
+              "avg": 116.72,
+              "med": 116.19,
+              "min": 90.3,
+              "max": 146.01,
+              "n": 6
+            },
+            "sf": {
+              "avg": 462.17,
+              "med": 462.5,
+              "min": 400,
+              "max": 524,
+              "n": 6
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5409.22,
+              "med": 5253,
+              "min": 3436,
+              "max": 7634,
+              "n": 27
+            },
+            "psf": {
+              "avg": 103.68,
+              "med": 102.35,
+              "min": 72.5,
+              "max": 134.92,
+              "n": 20
+            },
+            "sf": {
+              "avg": 681.55,
+              "med": 681.5,
+              "min": 671,
+              "max": 694,
+              "n": 20
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 5882.53,
+              "med": 5323,
+              "min": 4363,
+              "max": 8600,
+              "n": 15
+            },
+            "psf": {
+              "avg": 77.11,
+              "med": 82.32,
+              "min": 49.39,
+              "max": 110,
+              "n": 13
+            },
+            "sf": {
+              "avg": 945,
+              "med": 1027,
+              "min": 720,
+              "max": 1102,
+              "n": 13
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 5789.25,
+              "med": 5516.5,
+              "min": 5429,
+              "max": 6695,
+              "n": 4
+            },
+            "psf": {
+              "avg": 47.6,
+              "med": 47.6,
+              "min": 47.6,
+              "max": 47.6,
+              "n": 1
+            },
+            "sf": {
+              "avg": 1386,
+              "med": 1386,
+              "min": 1386,
+              "max": 1386,
+              "n": 1
+            }
+          }
+        }
+      },
+      "Pearl House": {
+        "pt": "Conversion",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4626.54,
+              "med": 4175.69,
+              "min": 3400,
+              "max": 12303.38,
+              "n": 264
+            },
+            "psf": {
+              "avg": 109.68,
+              "med": 103.24,
+              "min": 58.18,
+              "max": 292.36,
+              "n": 264
+            },
+            "sf": {
+              "avg": 525.45,
+              "med": 450,
+              "min": 432,
+              "max": 790,
+              "n": 264
+            }
+          },
+          "ST+HO": {
+            "gr": {
+              "avg": 4889.52,
+              "med": 4660,
+              "min": 3907.62,
+              "max": 11819.62,
+              "n": 313
+            },
+            "psf": {
+              "avg": 104.95,
+              "med": 99.92,
+              "min": 74.31,
+              "max": 282.54,
+              "n": 313
+            },
+            "sf": {
+              "avg": 561.47,
+              "med": 550,
+              "min": 502,
+              "max": 687,
+              "n": 313
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5400.36,
+              "med": 5074,
+              "min": 3923.75,
+              "max": 12249.62,
+              "n": 189
+            },
+            "psf": {
+              "avg": 105.93,
+              "med": 103.93,
+              "min": 53.38,
+              "max": 261.09,
+              "n": 189
+            },
+            "sf": {
+              "avg": 630.59,
+              "med": 597,
+              "min": 529,
+              "max": 882,
+              "n": 189
+            }
+          },
+          "1BD+HO": {
+            "gr": {
+              "avg": 5313.47,
+              "med": 5385,
+              "min": 4042,
+              "max": 7686.25,
+              "n": 67
+            },
+            "psf": {
+              "avg": 88.29,
+              "med": 84.03,
+              "min": 63.28,
+              "max": 117.25,
+              "n": 67
+            },
+            "sf": {
+              "avg": 728.87,
+              "med": 794,
+              "min": 648,
+              "max": 875,
+              "n": 67
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 7502.34,
+              "med": 7144.81,
+              "min": 6000,
+              "max": 12303.38,
+              "n": 48
+            },
+            "psf": {
+              "avg": 95.73,
+              "med": 93.34,
+              "min": 76.52,
+              "max": 134.71,
+              "n": 48
+            },
+            "sf": {
+              "avg": 936.38,
+              "med": 907,
+              "min": 907,
+              "max": 1188,
+              "n": 48
+            }
+          }
+        }
+      },
+      "Ruby Chelsea": {
+        "pt": "Primary",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4841.02,
+              "med": 4840,
+              "min": 4450,
+              "max": 5250,
+              "n": 148
+            },
+            "psf": {
+              "avg": 128,
+              "med": 128,
+              "min": 123.98,
+              "max": 132.03,
+              "n": 2
+            },
+            "sf": {
+              "avg": 481.5,
+              "med": 481.5,
+              "min": 472,
+              "max": 491,
+              "n": 2
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6660.6,
+              "med": 6600,
+              "min": 5560,
+              "max": 9150,
+              "n": 145
+            },
+            "psf": {
+              "avg": 118.92,
+              "med": 121.04,
+              "min": 91.54,
+              "max": 136.93,
+              "n": 9
+            },
+            "sf": {
+              "avg": 728,
+              "med": 728,
+              "min": 631,
+              "max": 864,
+              "n": 9
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 12897.33,
+              "med": 13718.5,
+              "min": 10300,
+              "max": 15770,
+              "n": 18
+            },
+            "psf": {
+              "avg": 125.5,
+              "med": 127.09,
+              "min": 120,
+              "max": 129.41,
+              "n": 3
+            },
+            "sf": {
+              "avg": 1313.67,
+              "med": 1425,
+              "min": 1027,
+              "max": 1489,
+              "n": 3
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 19828.2,
+              "med": 20252,
+              "min": 17260,
+              "max": 21050,
+              "n": 5
+            },
+            "psf": {
+              "avg": 156.8,
+              "med": 156.8,
+              "min": 156.8,
+              "max": 156.8,
+              "n": 1
+            },
+            "sf": {
+              "avg": 1611,
+              "med": 1611,
+              "min": 1611,
+              "max": 1611,
+              "n": 1
+            }
+          }
+        }
+      },
+      "SoMA": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4560.52,
+              "med": 4277.5,
+              "min": 3840,
+              "max": 8575,
+              "n": 58
+            },
+            "psf": {
+              "avg": 117.45,
+              "med": 118.13,
+              "min": 113.39,
+              "max": 120.59,
+              "n": 7
+            },
+            "sf": {
+              "avg": 506.43,
+              "med": 545,
+              "min": 410,
+              "max": 545,
+              "n": 7
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6814.17,
+              "med": 6600,
+              "min": 5275,
+              "max": 8715,
+              "n": 23
+            },
+            "psf": null,
+            "sf": null
+          },
+          "2BD": {
+            "gr": {
+              "avg": 10453.33,
+              "med": 10385,
+              "min": 10250,
+              "max": 10750,
+              "n": 6
+            },
+            "psf": null,
+            "sf": null
+          },
+          "3BD": {
+            "gr": {
+              "avg": 11841.11,
+              "med": 11795,
+              "min": 10500,
+              "max": 12995,
+              "n": 9
+            },
+            "psf": null,
+            "sf": null
+          }
+        }
+      },
+      "Summit NYC": {
+        "pt": "Primary",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 5242.89,
+              "med": 5087.5,
+              "min": 4580,
+              "max": 6505,
+              "n": 38
+            },
+            "psf": {
+              "avg": 137.98,
+              "med": 136.05,
+              "min": 123.78,
+              "max": 164.34,
+              "n": 38
+            },
+            "sf": {
+              "avg": 455.53,
+              "med": 450,
+              "min": 420,
+              "max": 475,
+              "n": 38
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6707.7,
+              "med": 6587.5,
+              "min": 5425,
+              "max": 8475,
+              "n": 50
+            },
+            "psf": {
+              "avg": 127.14,
+              "med": 127.43,
+              "min": 99.41,
+              "max": 162.95,
+              "n": 50
+            },
+            "sf": {
+              "avg": 637.04,
+              "med": 652,
+              "min": 556,
+              "max": 830,
+              "n": 50
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 11272.41,
+              "med": 10850,
+              "min": 9375,
+              "max": 14850,
+              "n": 27
+            },
+            "psf": {
+              "avg": 113.16,
+              "med": 108.4,
+              "min": 94.94,
+              "max": 150.38,
+              "n": 27
+            },
+            "sf": {
+              "avg": 1196.11,
+              "med": 1185,
+              "min": 1185,
+              "max": 1215,
+              "n": 27
+            }
+          }
+        }
+      },
+      "The Ellery": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4809.8,
+              "med": 4725,
+              "min": 4300,
+              "max": 5600,
+              "n": 25
+            },
+            "psf": {
+              "avg": 121.03,
+              "med": 121.03,
+              "min": 119.74,
+              "max": 122.32,
+              "n": 2
+            },
+            "sf": {
+              "avg": 466,
+              "med": 466,
+              "min": 466,
+              "max": 466,
+              "n": 2
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6379.73,
+              "med": 6150,
+              "min": 4622,
+              "max": 8450,
+              "n": 95
+            },
+            "psf": {
+              "avg": 106.25,
+              "med": 106.25,
+              "min": 102.71,
+              "max": 109.78,
+              "n": 2
+            },
+            "sf": {
+              "avg": 742,
+              "med": 742,
+              "min": 634,
+              "max": 850,
+              "n": 2
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 9466.52,
+              "med": 8850,
+              "min": 7980,
+              "max": 13750,
+              "n": 33
+            },
+            "psf": {
+              "avg": 113.81,
+              "med": 113.81,
+              "min": 113.81,
+              "max": 113.81,
+              "n": 1
+            },
+            "sf": {
+              "avg": 1250,
+              "med": 1250,
+              "min": 1250,
+              "max": 1250,
+              "n": 1
+            }
+          }
+        }
+      },
+      "The Gilroy": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4183.26,
+              "med": 4095,
+              "min": 3695,
+              "max": 4850,
+              "n": 39
+            },
+            "psf": {
+              "avg": 102.1,
+              "med": 99.7,
+              "min": 90.17,
+              "max": 119.75,
+              "n": 39
+            },
+            "sf": {
+              "avg": 492.46,
+              "med": 486,
+              "min": 440,
+              "max": 594,
+              "n": 39
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 5860,
+              "med": 5895,
+              "min": 5150,
+              "max": 6795,
+              "n": 25
+            },
+            "psf": {
+              "avg": 113.6,
+              "med": 112.71,
+              "min": 90.88,
+              "max": 131.15,
+              "n": 25
+            },
+            "sf": {
+              "avg": 625.12,
+              "med": 576,
+              "min": 560,
+              "max": 806,
+              "n": 25
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 8915,
+              "med": 9250,
+              "min": 7755,
+              "max": 9750,
+              "n": 9
+            },
+            "psf": {
+              "avg": 96.84,
+              "med": 98.4,
+              "min": 83.22,
+              "max": 104.09,
+              "n": 9
+            },
+            "sf": {
+              "avg": 1103.56,
+              "med": 1124,
+              "min": 1025,
+              "max": 1128,
+              "n": 9
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 19995,
+              "med": 19995,
+              "min": 19995,
+              "max": 19995,
+              "n": 1
+            },
+            "psf": {
+              "avg": 111.81,
+              "med": 111.81,
+              "min": 111.81,
+              "max": 111.81,
+              "n": 1
+            },
+            "sf": {
+              "avg": 2146,
+              "med": 2146,
+              "min": 2146,
+              "max": 2146,
+              "n": 1
+            }
+          }
+        }
+      },
+      "The Maverick": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 5756.5,
+              "med": 4750,
+              "min": 4526,
+              "max": 9000,
+              "n": 4
+            },
+            "psf": {
+              "avg": 141.38,
+              "med": 114.1,
+              "min": 83.14,
+              "max": 226.89,
+              "n": 3
+            },
+            "sf": {
+              "avg": 550.67,
+              "med": 476,
+              "min": 476,
+              "max": 700,
+              "n": 3
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 6715.25,
+              "med": 6725,
+              "min": 5710,
+              "max": 8000,
+              "n": 40
+            },
+            "psf": {
+              "avg": 112.56,
+              "med": 116.07,
+              "min": 72.11,
+              "max": 131.82,
+              "n": 17
+            },
+            "sf": {
+              "avg": 710.53,
+              "med": 672,
+              "min": 583,
+              "max": 1115,
+              "n": 17
+            }
+          },
+          "3BD": {
+            "gr": {
+              "avg": 16000,
+              "med": 16000,
+              "min": 16000,
+              "max": 16000,
+              "n": 1
+            },
+            "psf": null,
+            "sf": null
+          }
+        }
+      },
+      "Wrey": {
+        "pt": "Market",
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 5339.29,
+              "med": 5395,
+              "min": 4970,
+              "max": 5880,
+              "n": 7
+            },
+            "psf": null,
+            "sf": null
+          },
+          "1BD": {
+            "gr": {
+              "avg": 8275,
+              "med": 8275,
+              "min": 8275,
+              "max": 8275,
+              "n": 1
+            },
+            "psf": null,
+            "sf": null
+          },
+          "2BD": {
+            "gr": {
+              "avg": 12700,
+              "med": 12700,
+              "min": 12700,
+              "max": 12700,
+              "n": 1
+            },
+            "psf": null,
+            "sf": null
+          },
+          "3BD": {
+            "gr": {
+              "avg": 13795,
+              "med": 13795,
+              "min": 13095,
+              "max": 14495,
+              "n": 2
+            },
+            "psf": null,
+            "sf": null
+          }
+        }
+      },
+      "355 Lexington Ave": {
+        "pt": "Conversion",
+        "underwritten": true,
+        "total_n": 222,
+        "units": {
+          "ST": {
+            "gr": {
+              "avg": 4828,
+              "n": 44
+            },
+            "psf": {
+              "avg": 113
+            }
+          },
+          "ST+HO": {
+            "gr": {
+              "avg": 6272,
+              "n": 77
+            },
+            "psf": {
+              "avg": 114.18
+            }
+          },
+          "1BD": {
+            "gr": {
+              "avg": 7263,
+              "n": 47
+            },
+            "psf": {
+              "avg": 129
+            }
+          },
+          "1BD+HO": {
+            "gr": {
+              "avg": 8665,
+              "n": 33
+            },
+            "psf": {
+              "avg": 111.42
+            }
+          },
+          "1BD+2HO": {
+            "gr": {
+              "avg": 10921,
+              "n": 8
+            },
+            "psf": {
+              "avg": 98
+            }
+          },
+          "2BD": {
+            "gr": {
+              "avg": 11450,
+              "n": 13
+            },
+            "psf": {
+              "avg": 133
+            }
+          }
+        }
+      }
+    },
+    "trend": {
+      "Q3 2024": {
+        "ST": 4768,
+        "ST+HO": 5432,
+        "1BD": 6011,
+        "1BD+HO": 5708,
+        "2BD": 9453,
+        "3BD": 9532
+      },
+      "Q4 2024": {
+        "ST": 4164,
+        "ST+HO": 4687,
+        "1BD": 6084,
+        "1BD+HO": 5961,
+        "2BD": 9090,
+        "3BD": 8995
+      },
+      "Q1 2025": {
+        "ST": 4347,
+        "ST+HO": 4486,
+        "1BD": 6021,
+        "1BD+HO": 6094,
+        "1BD+2HO": 8048,
+        "2BD": 9193,
+        "3BD": 10214
+      },
+      "Q2 2025": {
+        "ST": 4317,
+        "ST+HO": 4393,
+        "1BD": 6282,
+        "1BD+HO": 6362,
+        "1BD+2HO": 7872,
+        "2BD": 9236,
+        "2B+HO": 9025,
+        "3BD": 11407
+      },
+      "Q3 2025": {
+        "ST": 4376,
+        "ST+HO": 4491,
+        "1BD": 6196,
+        "1BD+HO": 6504,
+        "1BD+2HO": 7746,
+        "2BD": 9839,
+        "3BD": 11592
+      },
+      "Q4 2025": {
+        "ST": 4371,
+        "ST+HO": 4660,
+        "1BD": 6190,
+        "1BD+HO": 6381,
+        "1BD+2HO": 7150,
+        "2BD": 9965,
+        "3BD": 12614
+      },
+      "Q1 2026": {
+        "ST": 4193,
+        "ST+HO": 4511,
+        "1BD": 6171,
+        "1BD+HO": 6060,
+        "1BD+2HO": 7482,
+        "2BD": 8913,
+        "3BD": 12304
+      },
+      "Q2 2026": {
+        "ST": 4372,
+        "ST+HO": 4447,
+        "1BD": 5935,
+        "1BD+HO": 6010,
+        "1BD+2HO": 8445,
+        "2BD": 9500,
+        "3BD": 11938
+      }
+    },
+    "quarters": [
+      "Q3 2024",
+      "Q4 2024",
+      "Q1 2025",
+      "Q2 2025",
+      "Q3 2025",
+      "Q4 2025",
+      "Q1 2026",
+      "Q2 2026"
+    ],
+    "pt_order": [
+      "Conversion",
+      "Primary",
+      "Market"
+    ],
+    "ut_order": [
+      "ST",
+      "ST+HO",
+      "1BD",
+      "1BD+HO",
+      "1BD+2HO",
+      "2BD",
+      "2B+HO",
+      "3BD"
+    ]
+  },
+  "BSTATS": {
+    "162 East 36th Street": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 5080,
+          "n": 13,
+          "avg_psf": 117.78
+        },
+        "1BD": {
+          "avg": 6688,
+          "n": 8,
+          "avg_psf": 110.67
+        },
+        "2BD": {
+          "avg": 10647,
+          "n": 3,
+          "avg_psf": 120.81
+        }
+      }
+    },
+    "19 Dutch": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4073,
+          "n": 17,
+          "avg_psf": 123.85
+        },
+        "1BD": {
+          "avg": 5869,
+          "n": 53,
+          "avg_psf": 117.27
+        }
+      }
+    },
+    "20 Broad": {
+      "type": "Conversion",
+      "units": {
+        "ST": {
+          "avg": 3877,
+          "n": 190,
+          "avg_psf": 97.65
+        },
+        "ST+HO": {
+          "avg": 4223,
+          "n": 35,
+          "avg_psf": 82.22
+        },
+        "1BD": {
+          "avg": 4861,
+          "n": 84,
+          "avg_psf": 93.98
+        },
+        "1BD+HO": {
+          "avg": 6525,
+          "n": 44,
+          "avg_psf": 76.22
+        },
+        "1BD+2HO": {
+          "avg": 7601,
+          "n": 25,
+          "avg_psf": 75.47
+        },
+        "2BD": {
+          "avg": 7019,
+          "n": 1,
+          "avg_psf": 78.72
+        }
+      }
+    },
+    "225 West 28th Maverick Chelsea": {
+      "type": "Market",
+      "units": {}
+    },
+    "509 Third": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4391,
+          "n": 30,
+          "avg_psf": 103.44
+        },
+        "1BD": {
+          "avg": 5585,
+          "n": 30,
+          "avg_psf": 102.99
+        },
+        "1BD+HO": {
+          "avg": 5975,
+          "n": 4,
+          "avg_psf": 90.99
+        },
+        "2BD": {
+          "avg": 8566,
+          "n": 20,
+          "avg_psf": 102.51
+        }
+      }
+    },
+    "55 Broad St": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4317,
+          "n": 54,
+          "avg_psf": 118.8
+        },
+        "ST+HO": {
+          "avg": 5073,
+          "n": 9,
+          "avg_psf": 97.48
+        },
+        "1BD": {
+          "avg": 5332,
+          "n": 58,
+          "avg_psf": 111.83
+        },
+        "1BD+HO": {
+          "avg": 7577,
+          "n": 12,
+          "avg_psf": 101.9
+        },
+        "1BD+2HO": {
+          "avg": 8039,
+          "n": 4,
+          "avg_psf": 92.1
+        },
+        "2BD": {
+          "avg": 8516,
+          "n": 19,
+          "avg_psf": 110.73
+        },
+        "2B+HO": {
+          "avg": 9025,
+          "n": 2,
+          "avg_psf": 86.92
+        },
+        "3BD": {
+          "avg": 11533,
+          "n": 3,
+          "avg_psf": 113.81
+        }
+      }
+    },
+    "606W30": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4510,
+          "n": 100,
+          "avg_psf": 126.34
+        },
+        "1BD": {
+          "avg": 6789,
+          "n": 109,
+          "avg_psf": 113.99
+        },
+        "2BD": {
+          "avg": 10143,
+          "n": 62,
+          "avg_psf": 110.14
+        }
+      }
+    },
+    "650 First Ave": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4617,
+          "n": 18,
+          "avg_psf": null
+        },
+        "1BD": {
+          "avg": 6391,
+          "n": 27,
+          "avg_psf": null
+        },
+        "2BD": {
+          "avg": 8746,
+          "n": 6,
+          "avg_psf": null
+        }
+      }
+    },
+    "7 Dey": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4933,
+          "n": 5,
+          "avg_psf": 104.55
+        },
+        "1BD": {
+          "avg": 6251,
+          "n": 7,
+          "avg_psf": 110.67
+        },
+        "2BD": {
+          "avg": 8800,
+          "n": 1,
+          "avg_psf": 109.32
+        }
+      }
+    },
+    "Aalto57": {
+      "type": "Primary",
+      "units": {
+        "ST": {
+          "avg": 4796,
+          "n": 15,
+          "avg_psf": 115.71
+        },
+        "ST+HO": {
+          "avg": 5234,
+          "n": 3,
+          "avg_psf": 96.18
+        },
+        "1BD": {
+          "avg": 6641,
+          "n": 80,
+          "avg_psf": 97.33
+        },
+        "2BD": {
+          "avg": 9748,
+          "n": 29,
+          "avg_psf": 96.25
+        },
+        "3BD": {
+          "avg": 11718,
+          "n": 13,
+          "avg_psf": 101.6
+        }
+      }
+    },
+    "Anagram Turtle Bay": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4955,
+          "n": 15,
+          "avg_psf": 137.43
+        },
+        "1BD": {
+          "avg": 7371,
+          "n": 27,
+          "avg_psf": 126.67
+        },
+        "2BD": {
+          "avg": 13148,
+          "n": 6,
+          "avg_psf": 158.63
+        }
+      }
+    },
+    "Aqua House": {
+      "type": "Conversion",
+      "units": {
+        "ST": {
+          "avg": 3848,
+          "n": 231,
+          "avg_psf": 107
+        },
+        "ST+HO": {
+          "avg": 4883,
+          "n": 3,
+          "avg_psf": 69.43
+        },
+        "1BD": {
+          "avg": 5267,
+          "n": 121,
+          "avg_psf": 106.42
+        },
+        "1BD+HO": {
+          "avg": 6151,
+          "n": 45,
+          "avg_psf": 83.57
+        },
+        "2BD": {
+          "avg": 7173,
+          "n": 29,
+          "avg_psf": 105.08
+        },
+        "3BD": {
+          "avg": 9149,
+          "n": 37,
+          "avg_psf": 89.71
+        }
+      }
+    },
+    "Gemma": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4911,
+          "n": 33,
+          "avg_psf": 165.64
+        },
+        "1BD": {
+          "avg": 7012,
+          "n": 19,
+          "avg_psf": 157.6
+        },
+        "2BD": {
+          "avg": 8620,
+          "n": 19,
+          "avg_psf": 149.8
+        }
+      }
+    },
+    "House 39": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4299,
+          "n": 8,
+          "avg_psf": 116.72
+        },
+        "1BD": {
+          "avg": 5409,
+          "n": 27,
+          "avg_psf": 103.68
+        },
+        "2BD": {
+          "avg": 5883,
+          "n": 15,
+          "avg_psf": 77.11
+        },
+        "3BD": {
+          "avg": 5789,
+          "n": 4,
+          "avg_psf": 47.6
+        }
+      }
+    },
+    "Pearl House": {
+      "type": "Conversion",
+      "units": {
+        "ST": {
+          "avg": 4627,
+          "n": 264,
+          "avg_psf": 109.68
+        },
+        "ST+HO": {
+          "avg": 4890,
+          "n": 313,
+          "avg_psf": 104.95
+        },
+        "1BD": {
+          "avg": 5400,
+          "n": 189,
+          "avg_psf": 105.93
+        },
+        "1BD+HO": {
+          "avg": 5313,
+          "n": 67,
+          "avg_psf": 88.29
+        },
+        "2BD": {
+          "avg": 7502,
+          "n": 48,
+          "avg_psf": 95.73
+        }
+      }
+    },
+    "Ruby Chelsea": {
+      "type": "Primary",
+      "units": {
+        "ST": {
+          "avg": 4841,
+          "n": 148,
+          "avg_psf": 128
+        },
+        "1BD": {
+          "avg": 6661,
+          "n": 145,
+          "avg_psf": 118.92
+        },
+        "2BD": {
+          "avg": 12897,
+          "n": 18,
+          "avg_psf": 125.5
+        },
+        "3BD": {
+          "avg": 19828,
+          "n": 5,
+          "avg_psf": 156.8
+        }
+      }
+    },
+    "SoMA": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4561,
+          "n": 58,
+          "avg_psf": 117.45
+        },
+        "1BD": {
+          "avg": 6814,
+          "n": 23,
+          "avg_psf": null
+        },
+        "2BD": {
+          "avg": 10453,
+          "n": 6,
+          "avg_psf": null
+        },
+        "3BD": {
+          "avg": 11841,
+          "n": 9,
+          "avg_psf": null
+        }
+      }
+    },
+    "Summit NYC": {
+      "type": "Primary",
+      "units": {
+        "ST": {
+          "avg": 5243,
+          "n": 38,
+          "avg_psf": 137.98
+        },
+        "1BD": {
+          "avg": 6708,
+          "n": 50,
+          "avg_psf": 127.14
+        },
+        "2BD": {
+          "avg": 11272,
+          "n": 27,
+          "avg_psf": 113.16
+        }
+      }
+    },
+    "The Ellery": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4810,
+          "n": 25,
+          "avg_psf": 121.03
+        },
+        "1BD": {
+          "avg": 6380,
+          "n": 95,
+          "avg_psf": 106.25
+        },
+        "2BD": {
+          "avg": 9467,
+          "n": 33,
+          "avg_psf": 113.81
+        }
+      }
+    },
+    "The Gilroy": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 4183,
+          "n": 39,
+          "avg_psf": 102.1
+        },
+        "1BD": {
+          "avg": 5860,
+          "n": 25,
+          "avg_psf": 113.6
+        },
+        "2BD": {
+          "avg": 8915,
+          "n": 9,
+          "avg_psf": 96.84
+        },
+        "3BD": {
+          "avg": 19995,
+          "n": 1,
+          "avg_psf": 111.81
+        }
+      }
+    },
+    "The Maverick": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 5756,
+          "n": 4,
+          "avg_psf": 141.38
+        },
+        "1BD": {
+          "avg": 6715,
+          "n": 40,
+          "avg_psf": 112.56
+        },
+        "3BD": {
+          "avg": 16000,
+          "n": 1,
+          "avg_psf": null
+        }
+      }
+    },
+    "Wrey": {
+      "type": "Market",
+      "units": {
+        "ST": {
+          "avg": 5339,
+          "n": 7,
+          "avg_psf": null
+        },
+        "1BD": {
+          "avg": 8275,
+          "n": 1,
+          "avg_psf": null
+        },
+        "2BD": {
+          "avg": 12700,
+          "n": 1,
+          "avg_psf": null
+        },
+        "3BD": {
+          "avg": 13795,
+          "n": 2,
+          "avg_psf": null
+        }
+      }
+    },
+    "355 Lexington Ave": {
+      "type": "Conversion",
+      "underwritten": true,
+      "note": "Underwritten rents per Eastdil model (7/1/2026) — not yet leased",
+      "units": {
+        "ST": {
+          "avg": 4828,
+          "n": 44,
+          "avg_psf": 113
+        },
+        "ST+HO": {
+          "avg": 6272,
+          "n": 77,
+          "avg_psf": 114.18
+        },
+        "1BD": {
+          "avg": 7263,
+          "n": 47,
+          "avg_psf": 129
+        },
+        "1BD+HO": {
+          "avg": 8665,
+          "n": 33,
+          "avg_psf": 111.42
+        },
+        "1BD+2HO": {
+          "avg": 10921,
+          "n": 8,
+          "avg_psf": 98
+        },
+        "2BD": {
+          "avg": 11450,
+          "n": 13,
+          "avg_psf": 133
+        }
+      }
+    }
+  },
+  "NAME_MAP": {
+    "25 Water St": "SoMA",
+    "650 First Avenue": "650 First Ave",
+    "The Dian (162 E 36th)": "162 East 36th Street",
+    "20 Broad St": "20 Broad",
+    "355 Lexington Ave": "355 Lexington Ave"
+  }
+}

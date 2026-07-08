@@ -1,0 +1,265 @@
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f6f5f1;
+  color: #1c2521;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.admin-nav {
+  width: 220px;
+  flex-shrink: 0;
+  background: #0d1a15;
+  color: #e8dec8;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-nav-title {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 20px 16px;
+  color: #a8b8b2;
+}
+
+.admin-nav a {
+  display: block;
+  padding: 10px 20px;
+  font-size: 14px;
+  color: #d8d0bd;
+  border-left: 3px solid transparent;
+}
+
+.admin-nav a:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-nav a.active {
+  border-left-color: #00614a;
+  background: rgba(0, 97, 74, 0.35);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-nav-spacer {
+  flex: 1;
+}
+
+.admin-nav-footer {
+  padding: 12px 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-nav-footer a,
+.admin-nav-footer button {
+  color: #d8d0bd;
+  font-size: 13px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.admin-main {
+  flex: 1;
+  padding: 28px 32px;
+  overflow-x: auto;
+}
+
+.admin-main h1 {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.admin-sub {
+  font-size: 13px;
+  color: #5c6b64;
+  margin-bottom: 20px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e1ded4;
+  border-radius: 8px;
+}
+
+table.admin-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+table.admin-table th {
+  text-align: left;
+  background: #efece2;
+  padding: 8px 10px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5c6b64;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+
+table.admin-table td {
+  padding: 4px 6px;
+  border-top: 1px solid #eee;
+  vertical-align: top;
+}
+
+table.admin-table input[type="text"],
+table.admin-table input[type="number"],
+table.admin-table select,
+table.admin-table textarea {
+  width: 100%;
+  min-width: 90px;
+  padding: 5px 6px;
+  border: 1px solid #d8d4c8;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+}
+
+table.admin-table textarea {
+  min-height: 32px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+table.admin-table tr.dirty td {
+  background: #fff8e6;
+}
+
+.admin-row-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.admin-btn {
+  border: 1px solid #00614a;
+  background: #00614a;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.admin-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.admin-btn.secondary {
+  background: #fff;
+  color: #00614a;
+}
+
+.admin-btn.danger {
+  background: #fff;
+  color: #a13a3a;
+  border-color: #a13a3a;
+}
+
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.admin-error {
+  color: #a13a3a;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.admin-login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0d1a15;
+}
+
+.admin-login-card {
+  background: #fff;
+  padding: 32px;
+  border-radius: 10px;
+  width: 320px;
+}
+
+.admin-login-card h1 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.admin-login-card p {
+  font-size: 13px;
+  color: #5c6b64;
+  margin-bottom: 20px;
+}
+
+.admin-login-card input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #d8d4c8;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.admin-login-card button {
+  width: 100%;
+  padding: 10px;
+  background: #00614a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.admin-field-block {
+  background: #fff;
+  border: 1px solid #e1ded4;
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.admin-field-block label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #3a4640;
+}
+
+.admin-field-block input[type="text"],
+.admin-field-block input[type="url"] {
+  width: 100%;
+  max-width: 520px;
+  padding: 7px 9px;
+  border: 1px solid #d8d4c8;
+  border-radius: 5px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.admin-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #efece2;
+  color: #5c6b64;
+  margin-left: 6px;
+}

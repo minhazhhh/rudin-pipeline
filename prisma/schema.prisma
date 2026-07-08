@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Pipeline (public dashboard: map + table of buildings/projects) ───
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  borough       String // sub
+  status        String // st: Completed Conversion | Under Construction | Planned Conversion | Potential Conversion | Ground-Up New Build | Lease-up
+  category      String // ct: Office-to-Residential | Ground-Up New Build
+  units         Int?
+  sqft          Int?
+  deliveryLabel String // d: year like "2027", or "TBD", "Lease-up"
+  sponsor       String
+  lender        String
+  lat           Float
+  lng           Float
+  isRudin       Boolean @default(false)
+  imageUrl      String
+
+  // optional affordability breakdown (rare, e.g. 355 Lexington Ave)
+  affPct  Float?
+  mktU    Int?
+  affU    Int?
+  avgSf   Int?
+  affBands Json? // [{ pctUnits, ami, studio, oneBr, twoBr }]
+
+  // cross-reference into the comps dataset below
+  compBuildingName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Comps / rent analytics (underwriting comparison tab) ───
+
+model CompBuilding {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  propertyType String // Conversion | Primary | Market
+  lat          Float?
+  lng          Float?
+  underwritten Boolean @default(false)
+  note         String?
+  totalN       Int?
+
+  stats CompBuildingStat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompBuildingStat {
+  id         String       @id @default(cuid())
+  buildingId String
+  building   CompBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unitType   String // ST | ST+HO | 1BD | 1BD+HO | 1BD+2HO | 2BD | 2B+HO | 3BD
+
+  avgRent Float?
+  medRent Float?
+  minRent Float?
+  maxRent Float?
+  nRent   Int?
+
+  avgPsf Float?
+  medPsf Float?
+  minPsf Float?
+  maxPsf Float?
+  nPsf   Int?
+
+  avgSf Float?
+  medSf Float?
+  minSf Float?
+  maxSf Float?
+  nSf   Int?
+
+  @@unique([buildingId, unitType])
+}
+
+// AGG.ut_stats — aggregate across ALL comp buildings, by unit type
+model OverallUnitStat {
+  id       String @id @default(cuid())
+  unitType String @unique
+
+  avgRent Float?
+  medRent Float?
+  minRent Float?
+  maxRent Float?
+  nRent   Int?
+
+  avgPsf Float?
+  medPsf Float?
+  minPsf Float?
+  maxPsf Float?
+  nPsf   Int?
+
+  avgSf Float?
+  medSf Float?
+  minSf Float?
+  maxSf Float?
+  nSf   Int?
+}
+
+// AGG.pt_ut_stats — aggregate by property type x unit type
+model TypeUnitStat {
+  id           String @id @default(cuid())
+  propertyType String // Conversion | Primary | Market
+  unitType     String
+
+  avgRent Float?
+  medRent Float?
+  minRent Float?
+  maxRent Float?
+  nRent   Int?
+
+  avgPsf Float?
+  medPsf Float?
+  minPsf Float?
+  maxPsf Float?
+  nPsf   Int?
+
+  @@unique([propertyType, unitType])
+}
+
+// AGG.trend — quarterly avg rent by unit type, for the trend chart
+model TrendPoint {
+  id           String @id @default(cuid())
+  quarter      String // "Q3 2024"
+  quarterOrder Int // sort key, e.g. 20243
+  unitType     String
+  avgRent      Float
+
+  @@unique([quarter, unitType])
+}
+
+// ─── App config ───
+
+model SyncConfig {
+  id                        Int       @id @default(1)
+  projectsSheetUrl          String?
+  compBuildingsSheetUrl     String?
+  compBuildingStatsSheetUrl String?
+  overallStatsSheetUrl      String?
+  typeStatsSheetUrl         String?
+  trendSheetUrl             String?
+  lastSyncedAt              DateTime?
+}
