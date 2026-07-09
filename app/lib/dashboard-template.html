@@ -1950,6 +1950,7 @@ function addCompToPeek(p) {
       <button class="cd-tab" onclick="cdTab('bytype',this)">By Property Type</button>
       <button class="cd-tab" onclick="cdTab('bybldg',this)">By Building</button>
       <button class="cd-tab" onclick="cdTab('trend',this)">Trend</button>
+      <button class="cd-tab" onclick="cdTab('report',this)">Custom Report</button>
     </div>
   </div>
   <div style="flex:1;overflow-y:auto;padding:20px;max-width:1400px;margin:0 auto;width:100%">
@@ -1957,6 +1958,7 @@ function addCompToPeek(p) {
     <div id="cd-bytype" class="cd-pane"></div>
     <div id="cd-bybldg" class="cd-pane"></div>
     <div id="cd-trend" class="cd-pane"></div>
+    <div id="cd-report" class="cd-pane"></div>
   </div>
 </div>
 
@@ -1976,7 +1978,8 @@ function openCompDash() {
       {name: 'Overview', fn: buildCDOverview},
       {name: 'By Property Type', fn: buildCDByType},
       {name: 'By Building', fn: buildCDBldg},
-      {name: 'Trend', fn: buildCDTrend}
+      {name: 'Trend', fn: buildCDTrend},
+      {name: 'Custom Report', fn: buildCDReport}
     ];
     const errors = [];
     builders.forEach(b => {
@@ -2552,6 +2555,186 @@ function buildCDTrend() {
       }
     });
     cdCharts['trend'] = [trendChartInst];
+  }
+
+  render();
+}
+
+// ── CUSTOM REPORT ────────────────────────────────────────────────────────────
+function buildCDReport() {
+  const el = document.getElementById('cd-report');
+  const allBldgs = Object.keys(AGG.bldg_stats).sort();
+  const allUTs = AGG.ut_order.filter(t => allBldgs.some(b => AGG.bldg_stats[b]?.units?.[t]));
+
+  let mode = 'buildings'; // 'buildings' | 'trend'
+  let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf) — buildings mode only
+  const selBldgs = new Set(['355 Lexington Ave'].filter(b => allBldgs.includes(b)));
+  const selUTs = new Set(['ST', '1BD', '2BD'].filter(t => allUTs.includes(t)));
+  let qFrom = AGG.quarters[0];
+  let qTo = AGG.quarters[AGG.quarters.length - 1];
+
+  function filteredQs() {
+    const fi = AGG.quarters.indexOf(qFrom);
+    const ti = AGG.quarters.indexOf(qTo);
+    return AGG.quarters.slice(fi < 0 ? 0 : fi, ti < 0 ? AGG.quarters.length : ti + 1);
+  }
+
+  function chip(label, active, color, onClick) {
+    const c = color || '#888';
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:pointer;border:1px solid ${active ? c : 'var(--line)'};background:${active ? c : 'transparent'};color:${active ? '#fff' : 'var(--ink-soft)'};font-family:inherit;transition:all 160ms;white-space:nowrap`;
+    btn.onclick = onClick;
+    return btn;
+  }
+
+  function render() {
+    let h = '';
+
+    h += `<div class="cd-card" style="margin-bottom:16px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <div style="display:flex;gap:6px" id="cd-report-mode"></div>
+        ${mode === 'buildings' ? `<div style="display:flex;gap:6px;margin-left:12px" id="cd-report-metric"></div>` : ''}
+      </div>
+
+      ${mode === 'buildings' ? `
+        <div style="margin-bottom:10px">
+          <span class="eyebrow">Buildings</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs"></div>
+        </div>
+      ` : `
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="eyebrow">From</span>
+            <select id="cd-report-from" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+              ${AGG.quarters.map(q => `<option value="${q}"${q === qFrom ? ' selected' : ''}>${q}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="eyebrow">To</span>
+            <select id="cd-report-to" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+              ${AGG.quarters.map(q => `<option value="${q}"${q === qTo ? ' selected' : ''}>${q}</option>`).join('')}
+            </select>
+          </div>
+          <div style="font-size:10px;color:var(--ink-faint)">Market-wide avg rent by quarter — no $/SF or per-building breakdown available for historical periods.</div>
+        </div>
+      `}
+
+      <div style="margin-bottom:4px">
+        <span class="eyebrow">Unit Types</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
+      </div>
+    </div>
+
+    <div class="cd-card">
+      <div class="cd-ph">${mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building') : 'Avg Rent by Quarter'}</div>
+      <canvas id="cd-report-chart" height="280"></canvas>
+      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px">Gaps in the chart mean no data is available for that building/unit-type combination.</div>
+    </div>`;
+
+    el.innerHTML = h;
+
+    // Mode toggle
+    const modeWrap = document.getElementById('cd-report-mode');
+    modeWrap.appendChild(chip('Compare Buildings', mode === 'buildings', 'var(--accent)', () => { mode = 'buildings'; render(); }));
+    modeWrap.appendChild(chip('Trend Over Time', mode === 'trend', 'var(--accent)', () => { mode = 'trend'; render(); }));
+
+    // Metric toggle (buildings mode only)
+    if (mode === 'buildings') {
+      const metricWrap = document.getElementById('cd-report-metric');
+      metricWrap.appendChild(chip('Avg Rent', metric === 'gr', 'var(--gold)', () => { metric = 'gr'; render(); }));
+      metricWrap.appendChild(chip('$/SF', metric === 'psf', 'var(--gold)', () => { metric = 'psf'; render(); }));
+    }
+
+    // Building chips (buildings mode only)
+    if (mode === 'buildings') {
+      const bWrap = document.getElementById('cd-report-bldgs');
+      allBldgs.forEach(b => {
+        const pt = AGG.bldg_stats[b]?.pt || 'Market';
+        const c = PT_COLORS[pt] || '#6b7b75';
+        bWrap.appendChild(chip(b, selBldgs.has(b), c, () => {
+          selBldgs.has(b) ? selBldgs.delete(b) : selBldgs.add(b);
+          render();
+        }));
+      });
+    } else {
+      document.getElementById('cd-report-from').onchange = function () {
+        qFrom = this.value;
+        if (AGG.quarters.indexOf(qFrom) > AGG.quarters.indexOf(qTo)) qTo = qFrom;
+        render();
+      };
+      document.getElementById('cd-report-to').onchange = function () {
+        qTo = this.value;
+        if (AGG.quarters.indexOf(qTo) < AGG.quarters.indexOf(qFrom)) qFrom = qTo;
+        render();
+      };
+    }
+
+    // Unit type chips (shared)
+    const utWrap = document.getElementById('cd-report-uts');
+    allUTs.forEach(t => {
+      const c = UT_COLORS[t] || '#888';
+      utWrap.appendChild(chip(t, selUTs.has(t), c, () => {
+        selUTs.has(t) ? selUTs.delete(t) : selUTs.add(t);
+        render();
+      }));
+    });
+
+    drawReportChart();
+  }
+
+  let reportChartInst = null;
+  function drawReportChart() {
+    const canvas = document.getElementById('cd-report-chart');
+    if (!canvas) return;
+    if (reportChartInst) reportChartInst.destroy();
+
+    const uts = allUTs.filter(t => selUTs.has(t));
+    let labels, datasets;
+
+    if (mode === 'buildings') {
+      labels = allBldgs.filter(b => selBldgs.has(b));
+      datasets = uts.map(t => {
+        const c = UT_COLORS[t] || '#888';
+        return {
+          label: t,
+          data: labels.map(b => AGG.bldg_stats[b]?.units?.[t]?.[metric]?.avg ?? null),
+          backgroundColor: c,
+          borderColor: c,
+          borderWidth: 1
+        };
+      });
+    } else {
+      const qs = filteredQs();
+      labels = qs;
+      datasets = uts.map(t => {
+        const c = UT_COLORS[t] || '#888';
+        return {
+          label: t,
+          data: qs.map(q => AGG.trend[q]?.[t] ?? null),
+          backgroundColor: c,
+          borderColor: c,
+          borderWidth: 1
+        };
+      });
+    }
+
+    reportChartInst = new Chart(canvas, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        plugins: {
+          legend: { labels: { font: { size: 10, family: "'Basis Grotesque',sans-serif" }, boxWidth: 12, color: '#3d4a45' } },
+          tooltip: { callbacks: { label: x => x.dataset.label + ': ' + (mode === 'buildings' && metric === 'psf' ? fmtP(x.raw) : fmtR(x.raw)) } }
+        },
+        scales: {
+          y: { ticks: { callback: v => (mode === 'buildings' && metric === 'psf' ? '$' + Number(v).toFixed(0) : '$' + v.toLocaleString()), font: { size: 10 }, color: '#6b7b75' }, grid: { color: 'rgba(0,0,0,.04)' } },
+          x: { ticks: { font: { size: 10 }, color: '#6b7b75' }, grid: { display: false } }
+        },
+        responsive: true, maintainAspectRatio: true, animation: { duration: 300 }
+      }
+    });
+    cdCharts['report'] = [reportChartInst];
   }
 
   render();
