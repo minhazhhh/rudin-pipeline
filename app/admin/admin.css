@@ -125,7 +125,7 @@
      the content then gets clipped by body's overflow-x:hidden ("sliding
      into obscured sides of the page"). */
   min-width: 0;
-  padding: 28px 32px;
+  padding: 24px 24px;
   overflow-x: auto;
   overflow-y: auto;
 }
@@ -151,7 +151,30 @@
   overflow-x: auto;
   background: var(--paper-raised);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 0;
+  /* Keep the scrollbar always visible (not the macOS overlay style that
+     hides until you touch the trackpad) so it's obvious there are more
+     columns to the right instead of the table looking cut off. */
+  scrollbar-width: auto;
+  scrollbar-color: var(--ink-faint) var(--line-soft);
+}
+
+.admin-table-wrap::-webkit-scrollbar {
+  height: 12px;
+}
+
+.admin-table-wrap::-webkit-scrollbar-track {
+  background: var(--line-soft);
+  border-top: 1px solid var(--line);
+}
+
+.admin-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border: 2px solid var(--line-soft);
+}
+
+.admin-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-soft);
 }
 
 table.admin-table {
@@ -186,12 +209,12 @@ table.admin-table input[type="number"],
 table.admin-table select,
 table.admin-table textarea {
   width: 100%;
-  min-width: 80px;
+  min-width: 56px;
   box-sizing: border-box;
-  padding: 5px 6px;
+  padding: 4px 5px;
   border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 12.5px;
+  border-radius: 0;
+  font-size: 12px;
   font-family: inherit;
   background: #fff;
   color: var(--ink);
@@ -228,7 +251,7 @@ table.admin-table tr.dirty td {
   background: var(--accent);
   color: #fff;
   padding: 5px 10px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
@@ -284,7 +307,7 @@ table.admin-table tr.dirty td {
   background: var(--paper-raised);
   color: var(--ink);
   padding: 36px 32px 32px;
-  border-radius: 8px;
+  border-radius: 0;
   width: 340px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
@@ -319,7 +342,7 @@ table.admin-table tr.dirty td {
   box-sizing: border-box;
   padding: 10px 11px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 0;
   font-size: 14px;
   font-family: inherit;
   margin-bottom: 12px;
@@ -339,7 +362,7 @@ table.admin-table tr.dirty td {
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 5px;
+  border-radius: 0;
   font-size: 14px;
   font-family: inherit;
   font-weight: 600;
@@ -356,7 +379,7 @@ table.admin-table tr.dirty td {
 .admin-field-block {
   background: var(--paper-raised);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 16px 18px;
   margin-bottom: 16px;
 }
@@ -376,7 +399,7 @@ table.admin-table tr.dirty td {
   box-sizing: border-box;
   padding: 7px 9px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 0;
   font-size: 13px;
   font-family: inherit;
   margin-bottom: 10px;
@@ -394,7 +417,7 @@ table.admin-table tr.dirty td {
   display: inline-block;
   font-size: 11px;
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--accent-soft);
   color: var(--accent);
   margin-left: 6px;
