@@ -167,18 +167,26 @@
 
 .admin-table-wrap {
   max-width: 100%;
-  overflow-x: auto;
+  /* Bound the table's height so its own scrollbars sit right at the edge
+     of the visible rows instead of at the bottom of a table that's been
+     stretched to fit all N rows (which could be 1000+ px below the fold —
+     the horizontal scrollbar was technically there, just invisible until
+     you scrolled almost to the end of the data). This makes both the
+     sticky header and the horizontal scroll hint always on-screen. */
+  max-height: calc(100vh - 260px);
+  overflow: auto;
   background: var(--paper-raised);
   border: 1px solid var(--line);
   border-radius: 0;
   /* Keep the scrollbar always visible (not the macOS overlay style that
-     hides until you touch the trackpad) so it's obvious there are more
-     columns to the right instead of the table looking cut off. */
+     hides until you touch the trackpad) so it's obvious there's more
+     content in every direction instead of the table looking cut off. */
   scrollbar-width: auto;
   scrollbar-color: var(--ink-faint) var(--line-soft);
 }
 
 .admin-table-wrap::-webkit-scrollbar {
+  width: 12px;
   height: 12px;
 }
 
