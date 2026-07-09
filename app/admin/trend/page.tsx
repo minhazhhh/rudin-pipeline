@@ -4,11 +4,11 @@ import EditableTable, { Column, Row } from "../components/EditableTable";
 export const dynamic = "force-dynamic";
 
 const COLUMNS: Column[] = [
-  { key: "quarter", label: "Quarter", type: "text", width: "82px", placeholder: "Q3 2024" },
-  { key: "quarterOrder", label: "Sort Order", type: "number", width: "72px", placeholder: "e.g. 20243" },
-  { key: "unitType", label: "Unit Type", type: "text", width: "72px" },
-  { key: "avgRent", label: "Avg Rent", type: "number", width: "72px" },
-  { key: "avgPsf", label: "Avg $/SF", type: "number", width: "72px" },
+  { key: "quarter", label: "Quarter", type: "text", width: "20.4%", placeholder: "Q3 2024" },
+  { key: "quarterOrder", label: "Sort Order", type: "number", width: "17.9%", placeholder: "e.g. 20243" },
+  { key: "unitType", label: "Unit Type", type: "text", width: "17.9%" },
+  { key: "avgRent", label: "Avg Rent", type: "number", width: "17.9%" },
+  { key: "avgPsf", label: "Avg $/SF", type: "number", width: "17.9%" },
 ];
 
 const EMPTY_ROW: Row = {

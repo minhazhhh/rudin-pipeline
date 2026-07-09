@@ -141,7 +141,11 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
                   {c.label}
                 </th>
               ))}
-              <th style={{ width: "128px" }} />
+              {/* No width set here on purpose: the data columns above are sized in
+                  percentages that sum to ~92%, so this trailing actions column
+                  automatically fills the remaining ~8% — keeping Save/Delete
+                  flush against the table's right edge with no horizontal overflow. */}
+              <th />
             </tr>
           </thead>
           <tbody>

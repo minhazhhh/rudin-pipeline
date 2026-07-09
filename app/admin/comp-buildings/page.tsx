@@ -4,13 +4,13 @@ import EditableTable, { Column, Row } from "../components/EditableTable";
 export const dynamic = "force-dynamic";
 
 const COLUMNS: Column[] = [
-  { key: "name", label: "Name", type: "text", width: "170px" },
-  { key: "propertyType", label: "Property Type", type: "text", width: "120px", placeholder: "Conversion / Primary / Market" },
-  { key: "lat", label: "Lat", type: "number", width: "80px" },
-  { key: "lng", label: "Lng", type: "number", width: "80px" },
-  { key: "underwritten", label: "Underwritten", type: "boolean", width: "58px" },
-  { key: "note", label: "Note", type: "text", width: "180px" },
-  { key: "totalN", label: "Total Leases (n)", type: "number", width: "80px" },
+  { key: "name", label: "Name", type: "text", width: "20.4%" },
+  { key: "propertyType", label: "Property Type", type: "text", width: "14.4%", placeholder: "Conversion / Primary / Market" },
+  { key: "lat", label: "Lat", type: "number", width: "9.6%" },
+  { key: "lng", label: "Lng", type: "number", width: "9.6%" },
+  { key: "underwritten", label: "Underwritten", type: "boolean", width: "6.9%" },
+  { key: "note", label: "Note", type: "text", width: "21.6%" },
+  { key: "totalN", label: "Total Leases (n)", type: "number", width: "9.6%" },
 ];
 
 const EMPTY_ROW: Row = {
