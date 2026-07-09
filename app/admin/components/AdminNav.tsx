@@ -25,7 +25,10 @@ export default function AdminNav() {
 
   return (
     <nav className="admin-nav">
-      <div className="admin-nav-title">Rudin Pipeline</div>
+      <div className="admin-nav-brand">
+        <div className="admin-nav-logo">RUDIN</div>
+        <div className="admin-nav-title">Pipeline Admin</div>
+      </div>
       {LINKS.map((l) => (
         <Link key={l.href} href={l.href} className={pathname?.startsWith(l.href) ? "active" : ""}>
           {l.label}

@@ -1,48 +1,91 @@
+@import "../fonts.css";
+
+:root {
+  --ink: #15201c;
+  --ink-soft: #3d4a45;
+  --ink-faint: #6b7b75;
+  --paper: #fafaf8;
+  --paper-raised: #ffffff;
+  --line: #e2e4df;
+  --line-soft: #edeee9;
+  --accent: #0d4d3a;
+  --accent-soft: #e8efe9;
+  --accent-line: rgba(13, 77, 58, 0.18);
+  --gold: #a8895a;
+  --red: #7a3530;
+  --near-black: #0a0a0a;
+  --radius: 2px;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .admin-shell {
   display: flex;
   min-height: 100vh;
-  background: #f6f5f1;
-  color: #1c2521;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Basis Grotesque", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Force light-mode form control rendering regardless of OS dark mode —
      otherwise unstyled input text color follows the browser's dark UA
      stylesheet while the background here stays white, making text invisible. */
   color-scheme: light;
 }
 
+/* ---------- SIDEBAR / BRAND ---------- */
+
 .admin-nav {
   width: 220px;
   flex-shrink: 0;
-  background: #0d1a15;
-  color: #e8dec8;
-  padding: 20px 0;
+  background: var(--near-black);
+  color: #d8d0bd;
+  padding: 0 0 16px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+}
+
+.admin-nav-brand {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 12px;
+}
+
+.admin-nav-logo {
+  font-family: "RudinLust", Georgia, serif;
+  font-size: 22px;
+  font-weight: normal;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: #fff;
+  user-select: none;
 }
 
 .admin-nav-title {
-  font-size: 13px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0 20px 16px;
-  color: #a8b8b2;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .admin-nav a {
   display: block;
   padding: 10px 20px;
-  font-size: 14px;
-  color: #d8d0bd;
-  border-left: 3px solid transparent;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.62);
+  border-left: 2px solid transparent;
+  transition: color 180ms var(--ease), background 180ms var(--ease);
 }
 
 .admin-nav a:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .admin-nav a.active {
-  border-left-color: #00614a;
-  background: rgba(0, 97, 74, 0.35);
+  border-left-color: var(--gold);
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
   font-weight: 600;
 }
@@ -53,41 +96,62 @@
 
 .admin-nav-footer {
   padding: 12px 20px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .admin-nav-footer a,
 .admin-nav-footer button {
-  color: #d8d0bd;
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12.5px;
+  font-family: inherit;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
 }
 
+.admin-nav-footer a:hover,
+.admin-nav-footer button:hover {
+  color: #fff;
+}
+
+/* ---------- MAIN CONTENT ---------- */
+
 .admin-main {
   flex: 1;
+  /* Critical flexbox fix: without min-width:0 a flex child won't shrink
+     below its content's intrinsic width, so a wide table pushes this
+     column past the viewport instead of scrolling inside admin-table-wrap —
+     the content then gets clipped by body's overflow-x:hidden ("sliding
+     into obscured sides of the page"). */
+  min-width: 0;
   padding: 28px 32px;
   overflow-x: auto;
+  overflow-y: auto;
 }
 
 .admin-main h1 {
-  font-size: 20px;
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   margin-bottom: 4px;
+  color: var(--ink);
 }
 
 .admin-sub {
   font-size: 13px;
-  color: #5c6b64;
+  color: var(--ink-faint);
   margin-bottom: 20px;
 }
 
+/* ---------- TABLE ---------- */
+
 .admin-table-wrap {
+  max-width: 100%;
   overflow-x: auto;
-  background: #fff;
-  border: 1px solid #e1ded4;
-  border-radius: 8px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
 table.admin-table {
@@ -98,20 +162,22 @@ table.admin-table {
 
 table.admin-table th {
   text-align: left;
-  background: #efece2;
+  background: var(--line-soft);
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #5c6b64;
+  color: var(--ink-faint);
   white-space: nowrap;
   position: sticky;
   top: 0;
+  border-bottom: 1px solid var(--line);
 }
 
 table.admin-table td {
   padding: 4px 6px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--line-soft);
   vertical-align: top;
 }
 
@@ -120,14 +186,23 @@ table.admin-table input[type="number"],
 table.admin-table select,
 table.admin-table textarea {
   width: 100%;
-  min-width: 90px;
+  min-width: 80px;
+  box-sizing: border-box;
   padding: 5px 6px;
-  border: 1px solid #d8d4c8;
+  border: 1px solid var(--line);
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-family: inherit;
   background: #fff;
-  color: #1c2521;
+  color: var(--ink);
+}
+
+table.admin-table input:focus,
+table.admin-table select:focus,
+table.admin-table textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-line);
 }
 
 table.admin-table textarea {
@@ -137,7 +212,7 @@ table.admin-table textarea {
 }
 
 table.admin-table tr.dirty td {
-  background: #fff8e6;
+  background: #fbf6ea;
 }
 
 .admin-row-actions {
@@ -146,14 +221,22 @@ table.admin-table tr.dirty td {
   white-space: nowrap;
 }
 
+/* ---------- BUTTONS ---------- */
+
 .admin-btn {
-  border: 1px solid #00614a;
-  background: #00614a;
+  border: 1px solid var(--accent);
+  background: var(--accent);
   color: #fff;
   padding: 5px 10px;
   border-radius: 4px;
   font-size: 12px;
+  font-family: inherit;
   cursor: pointer;
+  transition: opacity 150ms var(--ease);
+}
+
+.admin-btn:hover:not(:disabled) {
+  opacity: 0.88;
 }
 
 .admin-btn:disabled {
@@ -163,13 +246,13 @@ table.admin-table tr.dirty td {
 
 .admin-btn.secondary {
   background: #fff;
-  color: #00614a;
+  color: var(--accent);
 }
 
 .admin-btn.danger {
   background: #fff;
-  color: #a13a3a;
-  border-color: #a13a3a;
+  color: var(--red);
+  border-color: var(--red);
 }
 
 .admin-toolbar {
@@ -181,66 +264,99 @@ table.admin-table tr.dirty td {
 }
 
 .admin-error {
-  color: #a13a3a;
+  color: var(--red);
   font-size: 12px;
   margin-top: 6px;
 }
+
+/* ---------- LOGIN ---------- */
 
 .admin-login-shell {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0d1a15;
+  background: var(--near-black);
   color-scheme: light;
 }
 
 .admin-login-card {
-  background: #fff;
-  color: #1c2521;
-  padding: 32px;
-  border-radius: 10px;
-  width: 320px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  padding: 36px 32px 32px;
+  border-radius: 8px;
+  width: 340px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.admin-login-logo {
+  font-family: "RudinLust", Georgia, serif;
+  font-size: 26px;
+  font-weight: normal;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--ink);
+  margin-bottom: 14px;
+  user-select: none;
 }
 
 .admin-login-card h1 {
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   margin-bottom: 4px;
-  color: #1c2521;
+  color: var(--ink);
 }
 
 .admin-login-card p {
   font-size: 13px;
-  color: #5c6b64;
+  color: var(--ink-faint);
   margin-bottom: 20px;
 }
 
 .admin-login-card input {
   width: 100%;
-  padding: 9px 10px;
-  border: 1px solid #d8d4c8;
-  border-radius: 6px;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
   font-size: 14px;
+  font-family: inherit;
   margin-bottom: 12px;
-  color: #1c2521;
+  color: var(--ink);
   background: #fff;
+}
+
+.admin-login-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-line);
 }
 
 .admin-login-card button {
   width: 100%;
   padding: 10px;
-  background: #00614a;
+  background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
   cursor: pointer;
+  transition: opacity 150ms var(--ease);
 }
 
+.admin-login-card button:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+/* ---------- FIELD BLOCKS (sync/settings page) ---------- */
+
 .admin-field-block {
-  background: #fff;
-  border: 1px solid #e1ded4;
-  border-radius: 8px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
   padding: 16px 18px;
   margin-bottom: 16px;
 }
@@ -250,20 +366,28 @@ table.admin-table tr.dirty td {
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 4px;
-  color: #3a4640;
+  color: var(--ink-soft);
 }
 
 .admin-field-block input[type="text"],
 .admin-field-block input[type="url"] {
   width: 100%;
   max-width: 520px;
+  box-sizing: border-box;
   padding: 7px 9px;
-  border: 1px solid #d8d4c8;
+  border: 1px solid var(--line);
   border-radius: 5px;
   font-size: 13px;
+  font-family: inherit;
   margin-bottom: 10px;
-  color: #1c2521;
+  color: var(--ink);
   background: #fff;
+}
+
+.admin-field-block input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-line);
 }
 
 .admin-badge {
@@ -271,7 +395,7 @@ table.admin-table tr.dirty td {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 10px;
-  background: #efece2;
-  color: #5c6b64;
+  background: var(--accent-soft);
+  color: var(--accent);
   margin-left: 6px;
 }

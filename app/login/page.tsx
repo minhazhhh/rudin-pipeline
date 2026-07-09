@@ -33,7 +33,8 @@ function LoginForm() {
   return (
     <div className="admin-login-shell">
       <form className="admin-login-card" onSubmit={onSubmit}>
-        <h1>Rudin Pipeline Admin</h1>
+        <div className="admin-login-logo">RUDIN</div>
+        <h1>Pipeline Admin</h1>
         <p>Enter the admin password to edit pipeline data.</p>
         <input
           type="password"
