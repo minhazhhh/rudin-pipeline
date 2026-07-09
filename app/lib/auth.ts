@@ -17,7 +17,7 @@ function sign(value: string): string {
   return crypto.createHmac("sha256", secret()).update(value).digest("hex");
 }
 
-function timingSafeEqualStr(a: string, b: string): boolean {
+export function timingSafeEqualStr(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
   if (bufA.length !== bufB.length) return false;
