@@ -199,6 +199,15 @@
 table.admin-table {
   border-collapse: collapse;
   width: 100%;
+  /* Every column (including the trailing actions column) has an explicit
+     pixel width now, so use fixed layout: column widths are exactly what's
+     specified, and any leftover width (on wide screens, now that there's
+     no sidebar eating space) is distributed proportionally across all
+     columns instead of one unspecified column ballooning to absorb it —
+     which is what made the Save/Delete column float in a sea of blank
+     space before. When columns add up to more than the viewport (e.g. the
+     Projects page), admin-table-wrap's overflow-x still scrolls normally. */
+  table-layout: fixed;
   font-size: 13px;
 }
 

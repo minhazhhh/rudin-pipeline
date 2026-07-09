@@ -141,7 +141,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
                   {c.label}
                 </th>
               ))}
-              <th />
+              <th style={{ width: "128px" }} />
             </tr>
           </thead>
           <tbody>
