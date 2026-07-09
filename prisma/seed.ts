@@ -33,7 +33,7 @@ function quarterOrder(q: string): number {
   return Number(m[2]) * 10 + Number(m[1]);
 }
 
-async function main() {
+export async function seedAll() {
   console.log("Seeding projects...");
   for (const p of legacy.DATA) {
     await prisma.project.create({
@@ -194,9 +194,13 @@ async function main() {
   console.log("Done.");
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Only run standalone (e.g. `npx tsx prisma/seed.ts`) — not when imported by
+// prisma/seed-if-empty.ts as part of the build.
+if (process.argv[1]?.endsWith("seed.ts") || process.argv[1]?.endsWith("seed.js")) {
+  seedAll()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}
