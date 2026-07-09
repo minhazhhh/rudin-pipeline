@@ -2024,6 +2024,13 @@ function cdTab(name, btn) {
 
 function fmtR(n) { return n&&n>0?'$'+Math.round(n).toLocaleString():'—'; }
 function fmtP(n) { return n&&n>0?'$'+Number(n).toFixed(2):'—'; }
+function linkBtn(label, onClick) {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  btn.style.cssText = 'font-size:9.5px;color:var(--ink-faint);background:none;border:none;text-decoration:underline;cursor:pointer;font-family:inherit;margin-left:10px;padding:0';
+  btn.onclick = onClick;
+  return btn;
+}
 function heatClass(val, all) {
   if (!val||!all.length) return '';
   const mn=Math.min(...all),mx=Math.max(...all);
@@ -2434,6 +2441,7 @@ function buildCDTrend() {
         </select>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:8px" id="cd-trend-toggles"></div>
+      <span id="cd-trend-uts-actions"></span>
       <div style="display:flex;gap:6px" id="cd-trend-metric"></div>
       <div style="margin-left:auto;font-size:10.5px;color:var(--ink-faint)">${qs.length} quarters &middot; ${qs[0]} &ndash; ${qs[qs.length-1]}</div>
     </div>`;
@@ -2524,6 +2532,10 @@ function buildCDTrend() {
       };
       tw.appendChild(btn);
     });
+
+    const utActions = document.getElementById('cd-trend-uts-actions');
+    utActions.appendChild(linkBtn('Select All', () => { uts.forEach(t => activeUTs.add(t)); render(); }));
+    utActions.appendChild(linkBtn('Clear', () => { activeUTs.clear(); render(); }));
 
     // Metric toggle
     const mw = document.getElementById('cd-trend-metric');
@@ -2657,24 +2669,24 @@ function buildCDReport() {
 
       ${mode === 'buildings' ? `
         <div style="margin-bottom:10px">
-          <span class="eyebrow">Buildings</span>
+          <span class="eyebrow">Buildings</span><span id="cd-report-bldgs-actions"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs"></div>
         </div>
         <div style="margin-bottom:4px">
-          <span class="eyebrow">Unit Types</span>
+          <span class="eyebrow">Unit Types</span><span id="cd-report-uts-actions"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
         </div>
       ` : mode === 'trend' ? `
         ${quarterPicker('cd-report')}
         <div style="font-size:10px;color:var(--ink-faint);margin-bottom:10px">Market-wide across all comp buildings — no per-building breakdown for historical periods.</div>
         <div style="margin-bottom:4px">
-          <span class="eyebrow">Unit Types</span>
+          <span class="eyebrow">Unit Types</span><span id="cd-report-uts-actions"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
         </div>
       ` : `
         ${quarterPicker('cd-report')}
         <div style="margin-bottom:10px">
-          <span class="eyebrow">Buildings</span>
+          <span class="eyebrow">Buildings</span><span id="cd-report-bldgs-time-actions"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs-time"></div>
           <div style="font-size:10px;color:var(--ink-faint);margin-top:6px">Only buildings with real quarterly lease data are listed here — coverage varies a lot by building, so expect gaps.</div>
         </div>
@@ -2724,6 +2736,15 @@ function buildCDReport() {
           render();
         }));
       });
+      const bActions = document.getElementById('cd-report-bldgs-actions');
+      bActions.appendChild(linkBtn('Reset', () => {
+        selBldgs.clear();
+        if (allBldgs[0]) selBldgs.add(allBldgs[0]);
+        render();
+      }));
+      const utActions = document.getElementById('cd-report-uts-actions');
+      utActions.appendChild(linkBtn('Select All', () => { allUTs.forEach(t => selUTs.add(t)); render(); }));
+      utActions.appendChild(linkBtn('Clear', () => { selUTs.clear(); render(); }));
     } else if (mode === 'trend') {
       wireQuarterPicker('cd-report');
       const utWrap = document.getElementById('cd-report-uts');
@@ -2734,6 +2755,9 @@ function buildCDReport() {
           render();
         }));
       });
+      const utActions = document.getElementById('cd-report-uts-actions');
+      utActions.appendChild(linkBtn('Select All', () => { allUTs.forEach(t => selUTs.add(t)); render(); }));
+      utActions.appendChild(linkBtn('Clear', () => { selUTs.clear(); render(); }));
     } else {
       wireQuarterPicker('cd-report');
       const bWrap = document.getElementById('cd-report-bldgs-time');
@@ -2749,6 +2773,12 @@ function buildCDReport() {
         const c = UT_COLORS[t] || '#888';
         utWrap.appendChild(chip(t, singleUT === t, c, () => { singleUT = t; render(); }));
       });
+      const bActions = document.getElementById('cd-report-bldgs-time-actions');
+      bActions.appendChild(linkBtn('Reset', () => {
+        selBldgsTime.clear();
+        if (trendBldgs[0]) selBldgsTime.add(trendBldgs[0]);
+        render();
+      }));
     }
 
     drawReportChart();
