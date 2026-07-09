@@ -2439,7 +2439,9 @@ function buildCDTrend() {
     // Chart
     h += `<div class="cd-card" style="margin-bottom:20px">
       <div class="cd-ph">Avg Gross Rent by Quarter</div>
-      <canvas id="cd-trend-chart" height="260"></canvas>
+      <div style="position:relative;height:200px">
+        <canvas id="cd-trend-chart"></canvas>
+      </div>
     </div>`;
 
     // QoQ table — only showing selected quarters
@@ -2551,7 +2553,7 @@ function buildCDTrend() {
           y:{ ticks:{ callback:v=>'$'+v.toLocaleString(), font:{size:10}, color:'#6b7b75' }, grid:{ color:'rgba(0,0,0,.04)' }},
           x:{ ticks:{ font:{size:10}, color:'#6b7b75' }, grid:{ display:false }}
         },
-        responsive:true, maintainAspectRatio:true, animation:{duration:300}
+        responsive:true, maintainAspectRatio:false, animation:{duration:300}
       }
     });
     cdCharts['trend'] = [trendChartInst];
@@ -2628,7 +2630,9 @@ function buildCDReport() {
 
     <div class="cd-card">
       <div class="cd-ph">${mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building') : 'Avg Rent by Quarter'}</div>
-      <canvas id="cd-report-chart" height="280"></canvas>
+      <div style="position:relative;height:220px">
+        <canvas id="cd-report-chart"></canvas>
+      </div>
       <div style="font-size:10px;color:var(--ink-faint);margin-top:10px">Gaps in the chart mean no data is available for that building/unit-type combination.</div>
     </div>`;
 
@@ -2731,7 +2735,7 @@ function buildCDReport() {
           y: { ticks: { callback: v => (mode === 'buildings' && metric === 'psf' ? '$' + Number(v).toFixed(0) : '$' + v.toLocaleString()), font: { size: 10 }, color: '#6b7b75' }, grid: { color: 'rgba(0,0,0,.04)' } },
           x: { ticks: { font: { size: 10 }, color: '#6b7b75' }, grid: { display: false } }
         },
-        responsive: true, maintainAspectRatio: true, animation: { duration: 300 }
+        responsive: true, maintainAspectRatio: false, animation: { duration: 300 }
       }
     });
     cdCharts['report'] = [reportChartInst];
