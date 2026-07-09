@@ -1,21 +1,9 @@
 import { parse } from "csv-parse/sync";
 import * as XLSX from "xlsx";
 
-export async function fetchCsvRows(url: string): Promise<Record<string, string>[]> {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch sheet (${res.status} ${res.statusText}). Make sure it's published/shared as a direct link ` +
-        `(Google Sheets: published-to-web CSV link. Excel/SharePoint: a shared "download" link to the .xlsx file).`,
-    );
-  }
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const looksLikeExcel =
-    contentType.includes("spreadsheetml") || contentType.includes("ms-excel") || /\.xlsx?(\?|$)/i.test(url);
-
+/** Parses raw file bytes (CSV text or an .xlsx workbook) into row objects keyed by header. */
+export function parseSheetBuffer(buf: ArrayBuffer, looksLikeExcel: boolean): Record<string, string>[] {
   if (looksLikeExcel) {
-    const buf = await res.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true }) as Record<string, unknown>[];
@@ -28,8 +16,26 @@ export async function fetchCsvRows(url: string): Promise<Record<string, string>[
     });
   }
 
-  const text = await res.text();
+  const text = new TextDecoder("utf-8").decode(buf);
   return parse(text, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[];
+}
+
+export async function fetchCsvRows(url: string): Promise<Record<string, string>[]> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch sheet (${res.status} ${res.statusText}). Make sure it's published/shared as a direct, ` +
+        `unauthenticated link (Google Sheets: published-to-web CSV link). For SharePoint/OneDrive files that ` +
+        `aren't public, use the file upload option instead.`,
+    );
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  const looksLikeExcel =
+    contentType.includes("spreadsheetml") || contentType.includes("ms-excel") || /\.xlsx?(\?|$)/i.test(url);
+
+  const buf = await res.arrayBuffer();
+  return parseSheetBuffer(buf, looksLikeExcel);
 }
 
 export function csvNum(v: string | undefined): number | null {
