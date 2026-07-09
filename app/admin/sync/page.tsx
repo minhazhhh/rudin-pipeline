@@ -66,9 +66,11 @@ export default function SyncSettingsPage() {
     <div>
       <h1>Sheet Sync &amp; Settings</h1>
       <p className="admin-sub">
-        Publish each Google Sheet tab to the web as CSV (File → Share → Publish to web → select the tab → CSV), paste
-        its URL below, then hit Sync. Syncing fully replaces that table&apos;s data with what&apos;s in the sheet —
-        any admin-panel edits made since the last sync will be overwritten.
+        Paste a direct link to the source file below, then hit Sync. Two kinds of links work: a Google Sheet
+        published to the web as CSV (File → Share → Publish to web → select the tab → CSV), or a shared Excel file
+        in SharePoint/OneDrive (Share → Copy link, with link access set to at least &quot;can view&quot; — the app
+        reads the .xlsx directly, no need to convert to CSV). Syncing fully replaces that table&apos;s data with
+        what&apos;s in the file — any admin-panel edits made since the last sync will be overwritten.
         {lastSyncedAt && <> Last synced {new Date(lastSyncedAt).toLocaleString()}.</>}
       </p>
 
@@ -78,7 +80,7 @@ export default function SyncSettingsPage() {
           <input
             id={r.key}
             type="url"
-            placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=0&single=true&output=csv"
+            placeholder="Google Sheets published CSV link, or a SharePoint/OneDrive shared .xlsx link"
             value={config[r.urlField] ?? ""}
             onChange={(e) => setConfig((c) => ({ ...c, [r.urlField]: e.target.value }))}
           />
