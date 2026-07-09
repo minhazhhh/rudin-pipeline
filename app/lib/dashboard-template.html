@@ -2403,6 +2403,7 @@ function buildCDTrend() {
   const el = document.getElementById('cd-trend');
   const allUTs = AGG.ut_order.filter(t => AGG.quarters.some(q=>AGG.trend[q]?.[t]));
   const activeUTs = new Set(['ST','1BD','2BD']);
+  let metric = 'gr'; // 'gr' | 'psf'
   let qFrom = AGG.quarters[0];
   let qTo   = AGG.quarters[AGG.quarters.length-1];
 
@@ -2433,12 +2434,13 @@ function buildCDTrend() {
         </select>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:8px" id="cd-trend-toggles"></div>
+      <div style="display:flex;gap:6px" id="cd-trend-metric"></div>
       <div style="margin-left:auto;font-size:10.5px;color:var(--ink-faint)">${qs.length} quarters &middot; ${qs[0]} &ndash; ${qs[qs.length-1]}</div>
     </div>`;
 
     // Chart
     h += `<div class="cd-card" style="margin-bottom:20px">
-      <div class="cd-ph">Avg Gross Rent by Quarter</div>
+      <div class="cd-ph">${metric === 'gr' ? 'Avg Gross Rent by Quarter' : 'Avg $/SF by Quarter'}</div>
       <div style="position:relative;height:200px">
         <canvas id="cd-trend-chart"></canvas>
       </div>
@@ -2453,8 +2455,10 @@ function buildCDTrend() {
       <th class="r">QoQ Latest</th>
     </tr></thead><tbody>`;
 
+    const src = metric === 'gr' ? AGG.trend : AGG.trend_psf;
+    const fmt = metric === 'gr' ? fmtR : fmtP;
     uts.forEach((t,i) => {
-      const vals = qs.map(q => AGG.trend[q]?.[t] || null);
+      const vals = qs.map(q => src[q]?.[t] || null);
       const firstVal = vals.find(v=>v);
       const lastVal  = [...vals].reverse().find(v=>v);
       const prevVal  = vals[vals.length-2] || null;
@@ -2478,7 +2482,7 @@ function buildCDTrend() {
           const prev = vals[vi-1];
           let cls = '';
           if (v && prev) cls = v > prev ? 'style="color:var(--accent)"' : v < prev ? 'style="color:var(--red)"' : '';
-          return `<td class="r" ${cls}>${v?fmtR(v):'—'}</td>`;
+          return `<td class="r" ${cls}>${v?fmt(v):'—'}</td>`;
         }).join('')}
         <td class="r">${periodDelta}</td>
         <td class="r">${qoq}</td>
@@ -2521,6 +2525,17 @@ function buildCDTrend() {
       tw.appendChild(btn);
     });
 
+    // Metric toggle
+    const mw = document.getElementById('cd-trend-metric');
+    ['gr','psf'].forEach(m => {
+      const btn = document.createElement('button');
+      btn.textContent = m === 'gr' ? 'Avg Rent' : '$/SF';
+      const c = 'var(--gold)';
+      btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:pointer;border:1px solid ${metric===m?'#a8895a':'var(--line)'};background:${metric===m?'#a8895a':'transparent'};color:${metric===m?'#fff':'var(--ink-soft)'};font-family:inherit;transition:all 160ms`;
+      btn.onclick = () => { metric = m; render(); };
+      mw.appendChild(btn);
+    });
+
     drawTrendChart();
   }
 
@@ -2528,11 +2543,13 @@ function buildCDTrend() {
   function drawTrendChart() {
     const qs = filteredQs();
     const uts = allUTs;
+    const src = metric === 'gr' ? AGG.trend : AGG.trend_psf;
+    const fmt = metric === 'gr' ? fmtR : fmtP;
     const ds = uts.filter(t=>activeUTs.has(t)).map(t => {
       const c = UT_COLORS[t]||'#888';
       return {
         label:t,
-        data: qs.map(q => AGG.trend[q]?.[t]||null),
+        data: qs.map(q => src[q]?.[t]||null),
         borderColor:c, backgroundColor:c+'18', borderWidth:2,
         tension:.35, pointRadius:4, pointBackgroundColor:'#fff',
         pointBorderColor:c, pointBorderWidth:2, spanGaps:true
@@ -2547,10 +2564,10 @@ function buildCDTrend() {
       options:{
         plugins:{
           legend:{ labels:{ font:{size:10,family:"'Basis Grotesque',sans-serif"}, boxWidth:12, color:'#3d4a45' }},
-          tooltip:{ callbacks:{ label: x => x.dataset.label+': '+fmtR(x.raw) }}
+          tooltip:{ callbacks:{ label: x => x.dataset.label+': '+fmt(x.raw) }}
         },
         scales:{
-          y:{ ticks:{ callback:v=>'$'+v.toLocaleString(), font:{size:10}, color:'#6b7b75' }, grid:{ color:'rgba(0,0,0,.04)' }},
+          y:{ ticks:{ callback:v=>(metric==='psf'?'$'+Number(v).toFixed(0):'$'+v.toLocaleString()), font:{size:10}, color:'#6b7b75' }, grid:{ color:'rgba(0,0,0,.04)' }},
           x:{ ticks:{ font:{size:10}, color:'#6b7b75' }, grid:{ display:false }}
         },
         responsive:true, maintainAspectRatio:false, animation:{duration:300}
@@ -2567,11 +2584,17 @@ function buildCDReport() {
   const el = document.getElementById('cd-report');
   const allBldgs = Object.keys(AGG.bldg_stats).sort();
   const allUTs = AGG.ut_order.filter(t => allBldgs.some(b => AGG.bldg_stats[b]?.units?.[t]));
+  const trendBldgs = Object.keys(AGG.bldg_trend || {}).sort();
+  const BLDG_PALETTE = ['#0d4d3a','#a8895a','#5f8275','#6b7b75','#0a3e2f','#c99a5b','#3a6557','#94a89f','#082f24','#d8b98a'];
 
-  let mode = 'buildings'; // 'buildings' | 'trend'
-  let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf) — buildings mode only
+  let mode = 'buildings'; // 'buildings' | 'trend' | 'bldgtrend'
+  let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf)
   const selBldgs = new Set(['355 Lexington Ave'].filter(b => allBldgs.includes(b)));
+  const selBldgsTime = new Set(trendBldgs.slice(0, 2));
   const selUTs = new Set(['ST', '1BD', '2BD'].filter(t => allUTs.includes(t)));
+  const trendUTs = [...new Set(trendBldgs.flatMap(b => Object.values(AGG.bldg_trend[b]).flatMap(q => Object.keys(q))))]
+    .sort((a, b) => AGG.ut_order.indexOf(a) - AGG.ut_order.indexOf(b));
+  let singleUT = trendUTs.includes('1BD') ? '1BD' : (trendUTs[0] || 'ST');
   let qFrom = AGG.quarters[0];
   let qTo = AGG.quarters[AGG.quarters.length - 1];
 
@@ -2590,13 +2613,46 @@ function buildCDReport() {
     return btn;
   }
 
+  function quarterPicker(idPrefix) {
+    return `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="eyebrow">From</span>
+        <select id="${idPrefix}-from" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+          ${AGG.quarters.map(q => `<option value="${q}"${q === qFrom ? ' selected' : ''}>${q}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="eyebrow">To</span>
+        <select id="${idPrefix}-to" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+          ${AGG.quarters.map(q => `<option value="${q}"${q === qTo ? ' selected' : ''}>${q}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }
+
+  function wireQuarterPicker(idPrefix) {
+    document.getElementById(`${idPrefix}-from`).onchange = function () {
+      qFrom = this.value;
+      if (AGG.quarters.indexOf(qFrom) > AGG.quarters.indexOf(qTo)) qTo = qFrom;
+      render();
+    };
+    document.getElementById(`${idPrefix}-to`).onchange = function () {
+      qTo = this.value;
+      if (AGG.quarters.indexOf(qTo) < AGG.quarters.indexOf(qFrom)) qFrom = qTo;
+      render();
+    };
+  }
+
   function render() {
     let h = '';
+    const chartTitle = mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building')
+      : mode === 'trend' ? (metric === 'gr' ? 'Avg Rent by Quarter' : '$/SF by Quarter (market-wide)')
+      : `${metric === 'gr' ? 'Avg Rent' : '$/SF'} by Quarter — ${singleUT}`;
 
     h += `<div class="cd-card" style="margin-bottom:16px">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <div style="display:flex;gap:6px" id="cd-report-mode"></div>
-        ${mode === 'buildings' ? `<div style="display:flex;gap:6px;margin-left:12px" id="cd-report-metric"></div>` : ''}
+        <div style="display:flex;gap:6px;margin-left:12px" id="cd-report-metric"></div>
       </div>
 
       ${mode === 'buildings' ? `
@@ -2604,36 +2660,37 @@ function buildCDReport() {
           <span class="eyebrow">Buildings</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs"></div>
         </div>
+        <div style="margin-bottom:4px">
+          <span class="eyebrow">Unit Types</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
+        </div>
+      ` : mode === 'trend' ? `
+        ${quarterPicker('cd-report')}
+        <div style="font-size:10px;color:var(--ink-faint);margin-bottom:10px">Market-wide across all comp buildings — no per-building breakdown for historical periods.</div>
+        <div style="margin-bottom:4px">
+          <span class="eyebrow">Unit Types</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
+        </div>
       ` : `
-        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="eyebrow">From</span>
-            <select id="cd-report-from" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
-              ${AGG.quarters.map(q => `<option value="${q}"${q === qFrom ? ' selected' : ''}>${q}</option>`).join('')}
-            </select>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="eyebrow">To</span>
-            <select id="cd-report-to" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
-              ${AGG.quarters.map(q => `<option value="${q}"${q === qTo ? ' selected' : ''}>${q}</option>`).join('')}
-            </select>
-          </div>
-          <div style="font-size:10px;color:var(--ink-faint)">Market-wide avg rent by quarter — no $/SF or per-building breakdown available for historical periods.</div>
+        ${quarterPicker('cd-report')}
+        <div style="margin-bottom:10px">
+          <span class="eyebrow">Buildings</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs-time"></div>
+          <div style="font-size:10px;color:var(--ink-faint);margin-top:6px">Only buildings with real quarterly lease data are listed here — coverage varies a lot by building, so expect gaps.</div>
+        </div>
+        <div style="margin-bottom:4px">
+          <span class="eyebrow">Unit Type (pick one)</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-single-ut"></div>
         </div>
       `}
-
-      <div style="margin-bottom:4px">
-        <span class="eyebrow">Unit Types</span>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
-      </div>
     </div>
 
     <div class="cd-card">
-      <div class="cd-ph">${mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building') : 'Avg Rent by Quarter'}</div>
+      <div class="cd-ph">${chartTitle}</div>
       <div style="position:relative;height:220px">
         <canvas id="cd-report-chart"></canvas>
       </div>
-      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px">Gaps in the chart mean no data is available for that building/unit-type combination.</div>
+      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px">${mode === 'bldgtrend' ? 'Gaps mean no leases for that building in that quarter. Hover a bar to see the lease count behind it — treat single-digit counts as directional, not precise.' : 'Gaps in the chart mean no data is available for that combination.'}</div>
     </div>`;
 
     el.innerHTML = h;
@@ -2642,15 +2699,13 @@ function buildCDReport() {
     const modeWrap = document.getElementById('cd-report-mode');
     modeWrap.appendChild(chip('Compare Buildings', mode === 'buildings', 'var(--accent)', () => { mode = 'buildings'; render(); }));
     modeWrap.appendChild(chip('Trend Over Time', mode === 'trend', 'var(--accent)', () => { mode = 'trend'; render(); }));
+    modeWrap.appendChild(chip('Buildings Over Time', mode === 'bldgtrend', 'var(--accent)', () => { mode = 'bldgtrend'; render(); }));
 
-    // Metric toggle (buildings mode only)
-    if (mode === 'buildings') {
-      const metricWrap = document.getElementById('cd-report-metric');
-      metricWrap.appendChild(chip('Avg Rent', metric === 'gr', 'var(--gold)', () => { metric = 'gr'; render(); }));
-      metricWrap.appendChild(chip('$/SF', metric === 'psf', 'var(--gold)', () => { metric = 'psf'; render(); }));
-    }
+    // Metric toggle (all modes)
+    const metricWrap = document.getElementById('cd-report-metric');
+    metricWrap.appendChild(chip('Avg Rent', metric === 'gr', 'var(--gold)', () => { metric = 'gr'; render(); }));
+    metricWrap.appendChild(chip('$/SF', metric === 'psf', 'var(--gold)', () => { metric = 'psf'; render(); }));
 
-    // Building chips (buildings mode only)
     if (mode === 'buildings') {
       const bWrap = document.getElementById('cd-report-bldgs');
       allBldgs.forEach(b => {
@@ -2661,28 +2716,40 @@ function buildCDReport() {
           render();
         }));
       });
+      const utWrap = document.getElementById('cd-report-uts');
+      allUTs.forEach(t => {
+        const c = UT_COLORS[t] || '#888';
+        utWrap.appendChild(chip(t, selUTs.has(t), c, () => {
+          selUTs.has(t) ? selUTs.delete(t) : selUTs.add(t);
+          render();
+        }));
+      });
+    } else if (mode === 'trend') {
+      wireQuarterPicker('cd-report');
+      const utWrap = document.getElementById('cd-report-uts');
+      allUTs.forEach(t => {
+        const c = UT_COLORS[t] || '#888';
+        utWrap.appendChild(chip(t, selUTs.has(t), c, () => {
+          selUTs.has(t) ? selUTs.delete(t) : selUTs.add(t);
+          render();
+        }));
+      });
     } else {
-      document.getElementById('cd-report-from').onchange = function () {
-        qFrom = this.value;
-        if (AGG.quarters.indexOf(qFrom) > AGG.quarters.indexOf(qTo)) qTo = qFrom;
-        render();
-      };
-      document.getElementById('cd-report-to').onchange = function () {
-        qTo = this.value;
-        if (AGG.quarters.indexOf(qTo) < AGG.quarters.indexOf(qFrom)) qFrom = qTo;
-        render();
-      };
+      wireQuarterPicker('cd-report');
+      const bWrap = document.getElementById('cd-report-bldgs-time');
+      trendBldgs.forEach((b, i) => {
+        const c = BLDG_PALETTE[i % BLDG_PALETTE.length];
+        bWrap.appendChild(chip(b, selBldgsTime.has(b), c, () => {
+          selBldgsTime.has(b) ? selBldgsTime.delete(b) : selBldgsTime.add(b);
+          render();
+        }));
+      });
+      const utWrap = document.getElementById('cd-report-single-ut');
+      trendUTs.forEach(t => {
+        const c = UT_COLORS[t] || '#888';
+        utWrap.appendChild(chip(t, singleUT === t, c, () => { singleUT = t; render(); }));
+      });
     }
-
-    // Unit type chips (shared)
-    const utWrap = document.getElementById('cd-report-uts');
-    allUTs.forEach(t => {
-      const c = UT_COLORS[t] || '#888';
-      utWrap.appendChild(chip(t, selUTs.has(t), c, () => {
-        selUTs.has(t) ? selUTs.delete(t) : selUTs.add(t);
-        render();
-      }));
-    });
 
     drawReportChart();
   }
@@ -2693,32 +2760,43 @@ function buildCDReport() {
     if (!canvas) return;
     if (reportChartInst) reportChartInst.destroy();
 
-    const uts = allUTs.filter(t => selUTs.has(t));
-    let labels, datasets;
+    let labels, datasets, nLookup = null;
 
     if (mode === 'buildings') {
+      const uts = allUTs.filter(t => selUTs.has(t));
       labels = allBldgs.filter(b => selBldgs.has(b));
       datasets = uts.map(t => {
         const c = UT_COLORS[t] || '#888';
         return {
           label: t,
           data: labels.map(b => AGG.bldg_stats[b]?.units?.[t]?.[metric]?.avg ?? null),
-          backgroundColor: c,
-          borderColor: c,
-          borderWidth: 1
+          backgroundColor: c, borderColor: c, borderWidth: 1
         };
       });
-    } else {
+    } else if (mode === 'trend') {
+      const uts = allUTs.filter(t => selUTs.has(t));
       const qs = filteredQs();
       labels = qs;
+      const src = metric === 'gr' ? AGG.trend : AGG.trend_psf;
       datasets = uts.map(t => {
         const c = UT_COLORS[t] || '#888';
         return {
           label: t,
-          data: qs.map(q => AGG.trend[q]?.[t] ?? null),
-          backgroundColor: c,
-          borderColor: c,
-          borderWidth: 1
+          data: qs.map(q => src[q]?.[t] ?? null),
+          backgroundColor: c, borderColor: c, borderWidth: 1
+        };
+      });
+    } else {
+      const qs = filteredQs();
+      const bldgs = trendBldgs.filter(b => selBldgsTime.has(b));
+      labels = qs;
+      nLookup = { bldgs, qs, ut: singleUT };
+      datasets = bldgs.map((b, i) => {
+        const c = BLDG_PALETTE[trendBldgs.indexOf(b) % BLDG_PALETTE.length];
+        return {
+          label: b,
+          data: qs.map(q => AGG.bldg_trend[b]?.[q]?.[singleUT]?.[metric] ?? null),
+          backgroundColor: c, borderColor: c, borderWidth: 1
         };
       });
     }
@@ -2729,10 +2807,18 @@ function buildCDReport() {
       options: {
         plugins: {
           legend: { labels: { font: { size: 10, family: "'Basis Grotesque',sans-serif" }, boxWidth: 12, color: '#3d4a45' } },
-          tooltip: { callbacks: { label: x => x.dataset.label + ': ' + (mode === 'buildings' && metric === 'psf' ? fmtP(x.raw) : fmtR(x.raw)) } }
+          tooltip: { callbacks: { label: x => {
+            const val = metric === 'psf' ? fmtP(x.raw) : fmtR(x.raw);
+            if (mode === 'bldgtrend' && nLookup) {
+              const q = nLookup.qs[x.dataIndex];
+              const n = AGG.bldg_trend[x.dataset.label]?.[q]?.[nLookup.ut]?.n;
+              return x.dataset.label + ': ' + val + (n ? ` (${n} lease${n===1?'':'s'})` : '');
+            }
+            return x.dataset.label + ': ' + val;
+          } } }
         },
         scales: {
-          y: { ticks: { callback: v => (mode === 'buildings' && metric === 'psf' ? '$' + Number(v).toFixed(0) : '$' + v.toLocaleString()), font: { size: 10 }, color: '#6b7b75' }, grid: { color: 'rgba(0,0,0,.04)' } },
+          y: { ticks: { callback: v => (metric === 'psf' ? '$' + Number(v).toFixed(0) : '$' + v.toLocaleString()), font: { size: 10 }, color: '#6b7b75' }, grid: { color: 'rgba(0,0,0,.04)' } },
           x: { ticks: { font: { size: 10 }, color: '#6b7b75' }, grid: { display: false } }
         },
         responsive: true, maintainAspectRatio: false, animation: { duration: 300 }

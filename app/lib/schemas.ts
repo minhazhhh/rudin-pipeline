@@ -93,4 +93,15 @@ export const trendPointSchema = z.object({
   quarterOrder: z.coerce.number(),
   unitType: z.string().min(1),
   avgRent: z.coerce.number(),
+  avgPsf: numOrNull,
+});
+
+export const compBuildingQuarterStatSchema = z.object({
+  buildingId: z.string().min(1),
+  quarter: z.string().min(1),
+  quarterOrder: z.coerce.number(),
+  unitType: z.string().min(1),
+  avgRent: numOrNull,
+  avgPsf: numOrNull,
+  n: z.coerce.number(),
 });

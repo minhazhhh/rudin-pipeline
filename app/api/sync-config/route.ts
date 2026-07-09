@@ -13,6 +13,7 @@ const syncConfigSchema = z.object({
   projectsSheetUrl: urlField,
   compBuildingsSheetUrl: urlField,
   compBuildingStatsSheetUrl: urlField,
+  compBuildingQuarterStatsSheetUrl: urlField,
   overallStatsSheetUrl: urlField,
   typeStatsSheetUrl: urlField,
   trendSheetUrl: urlField,

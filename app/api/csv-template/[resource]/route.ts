@@ -7,6 +7,7 @@ const RESOURCES = [
   "projects",
   "comp-buildings",
   "comp-building-stats",
+  "comp-building-quarter-stats",
   "overall-stats",
   "type-stats",
   "trend",
@@ -69,6 +70,16 @@ async function buildCsv(resource: Resource): Promise<string> {
         ]),
       );
     }
+    case "comp-building-quarter-stats": {
+      const rows = await prisma.compBuildingQuarterStat.findMany({
+        include: { building: { select: { name: true } } },
+        orderBy: { quarterOrder: "asc" },
+      });
+      return toCsv(
+        ["buildingName", "quarter", "quarterOrder", "unitType", "avgRent", "avgPsf", "n"],
+        rows.map((s) => [s.building.name, s.quarter, s.quarterOrder, s.unitType, s.avgRent, s.avgPsf, s.n]),
+      );
+    }
     case "overall-stats": {
       const rows = await prisma.overallUnitStat.findMany();
       return toCsv(
@@ -95,8 +106,8 @@ async function buildCsv(resource: Resource): Promise<string> {
     case "trend": {
       const rows = await prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } });
       return toCsv(
-        ["quarter", "quarterOrder", "unitType", "avgRent"],
-        rows.map((t) => [t.quarter, t.quarterOrder, t.unitType, t.avgRent]),
+        ["quarter", "quarterOrder", "unitType", "avgRent", "avgPsf"],
+        rows.map((t) => [t.quarter, t.quarterOrder, t.unitType, t.avgRent, t.avgPsf]),
       );
     }
   }

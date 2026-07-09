@@ -8,6 +8,7 @@ const COLUMNS: Column[] = [
   { key: "quarterOrder", label: "Sort Order", type: "number", width: "90px", placeholder: "e.g. 20243" },
   { key: "unitType", label: "Unit Type", type: "text", width: "90px" },
   { key: "avgRent", label: "Avg Rent", type: "number", width: "90px" },
+  { key: "avgPsf", label: "Avg $/SF", type: "number", width: "90px" },
 ];
 
 const EMPTY_ROW: Row = {
@@ -15,6 +16,7 @@ const EMPTY_ROW: Row = {
   quarterOrder: 0,
   unitType: "",
   avgRent: 0,
+  avgPsf: null,
 };
 
 export default async function TrendAdminPage() {

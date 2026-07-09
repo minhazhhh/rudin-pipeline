@@ -6,6 +6,11 @@ const RESOURCES: { key: string; label: string; urlField: string }[] = [
   { key: "projects", label: "Pipeline Projects", urlField: "projectsSheetUrl" },
   { key: "comp-buildings", label: "Comp Buildings", urlField: "compBuildingsSheetUrl" },
   { key: "comp-building-stats", label: "Comp Building Stats", urlField: "compBuildingStatsSheetUrl" },
+  {
+    key: "comp-building-quarter-stats",
+    label: "Comp Building Stats — By Quarter",
+    urlField: "compBuildingQuarterStatsSheetUrl",
+  },
   { key: "overall-stats", label: "Overall Unit Stats", urlField: "overallStatsSheetUrl" },
   { key: "type-stats", label: "Type × Unit Stats", urlField: "typeStatsSheetUrl" },
   { key: "trend", label: "Rent Trend", urlField: "trendSheetUrl" },

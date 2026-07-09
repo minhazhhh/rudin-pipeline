@@ -13,7 +13,7 @@ function triple(avg: number | null, med: number | null, min: number | null, max:
 export async function loadDashboardData() {
   const [projects, compBuildings, overallStats, typeStats, trendPoints] = await Promise.all([
     prisma.project.findMany({ orderBy: { sqft: "desc" } }),
-    prisma.compBuilding.findMany({ include: { stats: true } }),
+    prisma.compBuilding.findMany({ include: { stats: true, quarterStats: true } }),
     prisma.overallUnitStat.findMany(),
     prisma.typeUnitStat.findMany(),
     prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } }),
@@ -115,13 +115,29 @@ export async function loadDashboardData() {
   }
 
   const trend: Record<string, Record<string, number>> = {};
+  const trend_psf: Record<string, Record<string, number>> = {};
   const quarterSet: string[] = [];
   for (const t of trendPoints) {
     if (!trend[t.quarter]) {
       trend[t.quarter] = {};
+      trend_psf[t.quarter] = {};
       quarterSet.push(t.quarter);
     }
     trend[t.quarter][t.unitType] = t.avgRent;
+    if (t.avgPsf != null) trend_psf[t.quarter][t.unitType] = t.avgPsf;
+  }
+
+  // Per-building, per-quarter, per-unit-type — sparse by nature (see CompBuildingQuarterStat).
+  // bldg_trend[buildingName][quarter][unitType] = { gr, psf, n }
+  const bldg_trend: Record<string, Record<string, Record<string, { gr: number | null; psf: number | null; n: number }>>> = {};
+  for (const b of compBuildings) {
+    if (b.quarterStats.length === 0) continue;
+    const byQuarter: Record<string, Record<string, { gr: number | null; psf: number | null; n: number }>> = {};
+    for (const s of b.quarterStats) {
+      byQuarter[s.quarter] ??= {};
+      byQuarter[s.quarter][s.unitType] = { gr: s.avgRent, psf: s.avgPsf, n: s.n };
+    }
+    bldg_trend[b.name] = byQuarter;
   }
 
   const AGG = {
@@ -129,6 +145,8 @@ export async function loadDashboardData() {
     pt_ut_stats,
     bldg_stats,
     trend,
+    trend_psf,
+    bldg_trend,
     quarters: quarterSet,
     pt_order: PT_ORDER,
     ut_order: UT_ORDER,

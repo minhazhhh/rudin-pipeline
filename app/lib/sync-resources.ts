@@ -6,6 +6,7 @@ export const RESOURCES = [
   "projects",
   "comp-buildings",
   "comp-building-stats",
+  "comp-building-quarter-stats",
   "overall-stats",
   "type-stats",
   "trend",
@@ -16,6 +17,7 @@ export const SHEET_URL_FIELD: Record<Resource, string> = {
   projects: "projectsSheetUrl",
   "comp-buildings": "compBuildingsSheetUrl",
   "comp-building-stats": "compBuildingStatsSheetUrl",
+  "comp-building-quarter-stats": "compBuildingQuarterStatsSheetUrl",
   "overall-stats": "overallStatsSheetUrl",
   "type-stats": "typeStatsSheetUrl",
   trend: "trendSheetUrl",
@@ -29,6 +31,8 @@ export async function syncResource(resource: Resource, rows: Record<string, stri
       return syncCompBuildings(rows);
     case "comp-building-stats":
       return syncCompBuildingStats(rows);
+    case "comp-building-quarter-stats":
+      return syncCompBuildingQuarterStats(rows);
     case "overall-stats":
       return syncOverallStats(rows);
     case "type-stats":
@@ -139,6 +143,38 @@ async function syncCompBuildingStats(rows: Record<string, string>[]): Promise<nu
   return data.length;
 }
 
+async function syncCompBuildingQuarterStats(rows: Record<string, string>[]): Promise<number> {
+  const buildingNames = [...new Set(rows.map((r) => csvStr(r.buildingName).trim()).filter(Boolean))];
+  const existing = await prisma.compBuilding.findMany({
+    where: { name: { in: buildingNames } },
+    select: { id: true, name: true },
+  });
+  const idByName = new Map(existing.map((b) => [b.name, b.id]));
+
+  const missing = buildingNames.filter((n) => !idByName.has(n));
+  if (missing.length) {
+    throw new Error(
+      `These buildingName values don't exist in Comp Buildings — sync that sheet first: ${missing.join(", ")}`,
+    );
+  }
+
+  const data = rows.map((r) => ({
+    buildingId: idByName.get(csvStr(r.buildingName).trim())!,
+    quarter: csvStr(r.quarter),
+    quarterOrder: csvNum(r.quarterOrder) ?? 0,
+    unitType: csvStr(r.unitType),
+    avgRent: csvNum(r.avgRent),
+    avgPsf: csvNum(r.avgPsf),
+    n: csvNum(r.n) ?? 0,
+  }));
+
+  await prisma.$transaction([
+    prisma.compBuildingQuarterStat.deleteMany(),
+    ...data.map((d) => prisma.compBuildingQuarterStat.create({ data: d })),
+  ]);
+  return data.length;
+}
+
 async function syncOverallStats(rows: Record<string, string>[]): Promise<number> {
   const data = rows.map((r) => ({
     unitType: csvStr(r.unitType),
@@ -195,6 +231,7 @@ async function syncTrend(rows: Record<string, string>[]): Promise<number> {
     quarterOrder: csvNum(r.quarterOrder) ?? 0,
     unitType: csvStr(r.unitType),
     avgRent: csvNum(r.avgRent) ?? 0,
+    avgPsf: csvNum(r.avgPsf),
   }));
 
   await prisma.$transaction([

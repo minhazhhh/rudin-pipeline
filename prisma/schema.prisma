@@ -51,10 +51,29 @@ model CompBuilding {
   note         String?
   totalN       Int?
 
-  stats CompBuildingStat[]
+  stats        CompBuildingStat[]
+  quarterStats CompBuildingQuarterStat[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Per-building, per-quarter, per-unit-type snapshot — powers "Buildings Over Time"
+// in the Custom Report tab. Sparser than CompBuildingStat (all-time); many
+// building/quarter/unit-type cells will have no row at all, which is expected.
+model CompBuildingQuarterStat {
+  id           String       @id @default(cuid())
+  buildingId   String
+  building     CompBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  quarter      String // "Q3 2024"
+  quarterOrder Int
+  unitType     String
+
+  avgRent Float?
+  avgPsf  Float?
+  n       Int // lease count backing this cell — shown in UI so users can judge reliability
+
+  @@unique([buildingId, quarter, unitType])
 }
 
 model CompBuildingStat {
@@ -129,13 +148,14 @@ model TypeUnitStat {
   @@unique([propertyType, unitType])
 }
 
-// AGG.trend — quarterly avg rent by unit type, for the trend chart
+// AGG.trend — quarterly avg rent (and $/SF) by unit type, market-wide, for the trend chart
 model TrendPoint {
   id           String @id @default(cuid())
   quarter      String // "Q3 2024"
   quarterOrder Int // sort key, e.g. 20243
   unitType     String
   avgRent      Float
+  avgPsf       Float?
 
   @@unique([quarter, unitType])
 }
@@ -143,12 +163,13 @@ model TrendPoint {
 // ─── App config ───
 
 model SyncConfig {
-  id                        Int       @id @default(1)
-  projectsSheetUrl          String?
-  compBuildingsSheetUrl     String?
-  compBuildingStatsSheetUrl String?
-  overallStatsSheetUrl      String?
-  typeStatsSheetUrl         String?
-  trendSheetUrl             String?
-  lastSyncedAt              DateTime?
+  id                            Int       @id @default(1)
+  projectsSheetUrl              String?
+  compBuildingsSheetUrl         String?
+  compBuildingStatsSheetUrl     String?
+  compBuildingQuarterStatsSheetUrl String?
+  overallStatsSheetUrl          String?
+  typeStatsSheetUrl             String?
+  trendSheetUrl                 String?
+  lastSyncedAt                  DateTime?
 }
