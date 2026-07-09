@@ -24,25 +24,25 @@ export default function AdminNav() {
   }
 
   return (
-    <nav className="admin-nav">
-      <div className="admin-nav-brand">
-        <div className="admin-nav-logo">RUDIN</div>
-        <div className="admin-nav-title">Pipeline Admin</div>
+    <>
+      <div className="admin-topbar">
+        <div className="admin-topbar-logo">RUDIN</div>
+        <div className="admin-topbar-sub">Pipeline Admin</div>
       </div>
-      {LINKS.map((l) => (
-        <Link key={l.href} href={l.href} className={pathname?.startsWith(l.href) ? "active" : ""}>
-          {l.label}
-        </Link>
-      ))}
-      <div className="admin-nav-spacer" />
-      <div className="admin-nav-footer">
-        <Link href="/" target="_blank">
-          View live site ↗
-        </Link>
-        <br />
-        <br />
-        <button onClick={logout}>Log out</button>
-      </div>
-    </nav>
+      <nav className="admin-navbar">
+        {LINKS.map((l) => (
+          <Link key={l.href} href={l.href} className={pathname?.startsWith(l.href) ? "active" : ""}>
+            {l.label}
+          </Link>
+        ))}
+        <div className="admin-navbar-spacer" />
+        <div className="admin-navbar-actions">
+          <Link href="/" target="_blank">
+            View live site ↗
+          </Link>
+          <button onClick={logout}>Log out</button>
+        </div>
+      </nav>
+    </>
   );
 }

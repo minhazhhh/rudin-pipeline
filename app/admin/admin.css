@@ -20,6 +20,7 @@
 
 .admin-shell {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   overflow: hidden;
   background: var(--paper);
@@ -31,28 +32,24 @@
   color-scheme: light;
 }
 
-/* ---------- SIDEBAR / BRAND ---------- */
+/* ---------- TOP BRAND BAR + HORIZONTAL NAV ----------
+   Moved off a left sidebar so the admin tables get the full viewport
+   width instead of losing 220px to a rail — same two-bar structure as
+   the main dashboard (dark brand strip + light nav-tab row underneath). */
 
-.admin-nav {
-  width: 220px;
+.admin-topbar {
+  height: 52px;
   flex-shrink: 0;
-  background: var(--near-black);
-  color: #d8d0bd;
-  padding: 0 0 16px;
   display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  background: var(--near-black);
 }
 
-.admin-nav-brand {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 12px;
-}
-
-.admin-nav-logo {
+.admin-topbar-logo {
   font-family: "RudinLust", Georgia, serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: normal;
   letter-spacing: -0.01em;
   line-height: 1;
@@ -60,71 +57,93 @@
   user-select: none;
 }
 
-.admin-nav-title {
+.admin-topbar-sub {
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-top: 6px;
   color: rgba(255, 255, 255, 0.4);
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.admin-nav a {
-  display: block;
-  padding: 10px 20px;
-  font-size: 13px;
+.admin-navbar {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  padding: 0 24px;
+  background: var(--paper-raised);
+  border-bottom: 1px solid var(--line);
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.admin-navbar a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
   letter-spacing: 0.01em;
-  color: rgba(255, 255, 255, 0.62);
-  border-left: 2px solid transparent;
-  transition: color 180ms var(--ease), background 180ms var(--ease);
+  white-space: nowrap;
+  color: var(--ink-faint);
+  transition: color 180ms var(--ease);
 }
 
-.admin-nav a:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.85);
+.admin-navbar a:hover {
+  color: var(--ink-soft);
 }
 
-.admin-nav a.active {
-  border-left-color: var(--gold);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+.admin-navbar a.active {
+  color: var(--ink);
   font-weight: 600;
 }
 
-.admin-nav-spacer {
+.admin-navbar a.active::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.admin-navbar-spacer {
   flex: 1;
 }
 
-.admin-nav-footer {
-  padding: 12px 20px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.admin-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
 }
 
-.admin-nav-footer a,
-.admin-nav-footer button {
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 12.5px;
+.admin-navbar-actions a,
+.admin-navbar-actions button {
+  font-size: 12px;
   font-family: inherit;
+  color: var(--ink-faint);
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
+  white-space: nowrap;
 }
 
-.admin-nav-footer a:hover,
-.admin-nav-footer button:hover {
-  color: #fff;
+.admin-navbar-actions a:hover,
+.admin-navbar-actions button:hover {
+  color: var(--ink);
 }
 
 /* ---------- MAIN CONTENT ---------- */
 
 .admin-main {
   flex: 1;
-  /* Critical flexbox fix: without min-width:0 a flex child won't shrink
-     below its content's intrinsic width, so a wide table pushes this
-     column past the viewport instead of scrolling inside admin-table-wrap —
-     the content then gets clipped by body's overflow-x:hidden ("sliding
-     into obscured sides of the page"). */
   min-width: 0;
+  min-height: 0;
   padding: 24px 24px;
   overflow-x: auto;
   overflow-y: auto;
