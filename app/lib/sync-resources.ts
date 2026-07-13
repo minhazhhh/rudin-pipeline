@@ -14,7 +14,7 @@ export const RESOURCES = [
 ] as const;
 export type Resource = (typeof RESOURCES)[number];
 
-export const SHEET_URL_FIELD: Partial<Record<Resource, string>> = {
+export const SHEET_URL_FIELD: Record<Resource, string> = {
   projects: "projectsSheetUrl",
   "comp-buildings": "compBuildingsSheetUrl",
   "comp-building-stats": "compBuildingStatsSheetUrl",
@@ -22,6 +22,7 @@ export const SHEET_URL_FIELD: Partial<Record<Resource, string>> = {
   "overall-stats": "overallStatsSheetUrl",
   "type-stats": "typeStatsSheetUrl",
   trend: "trendSheetUrl",
+  "lease-comps": "",
 };
 
 export async function syncResource(resource: Resource, rows: Record<string, string>[]): Promise<number> {
