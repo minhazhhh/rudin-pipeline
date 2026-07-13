@@ -27,15 +27,15 @@
   color: var(--ink);
   font-family: "Basis Grotesque", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Force light-mode form control rendering regardless of OS dark mode —
-     otherwise unstyled input text color follows the browser's dark UA
-     stylesheet while the background here stays white, making text invisible. */
-  color-scheme: light;
+  otherwise unstyled input text color follows the browser's dark UA
+  stylesheet while the background here stays white, making text invisible. */
+color-scheme: light;
 }
 
 /* ---------- TOP BRAND BAR + HORIZONTAL NAV ----------
-   Moved off a left sidebar so the admin tables get the full viewport
-   width instead of losing 220px to a rail — same two-bar structure as
-   the main dashboard (dark brand strip + light nav-tab row underneath). */
+Moved off a left sidebar so the admin tables get the full viewport
+width instead of losing 220px to a rail — same two-bar structure as
+the main dashboard (dark brand strip + light nav-tab row underneath). */
 
 .admin-topbar {
   height: 52px;
@@ -145,10 +145,10 @@
   min-width: 0;
   padding: 24px 24px;
   /* Columns are percentage-sized to always sum to the container's width
-     (see admin-table-wrap), so nothing should overflow horizontally —
-     this is just a safety net. The page scrolls normally (vertically)
-     like any other document; no nested scroll box. */
-  overflow-x: hidden;
+  (see admin-table-wrap), so nothing should overflow horizontally —
+  this is just a safety net. The page scrolls normally (vertically)
+  like any other document; no nested scroll box. */
+overflow-x: hidden;
 }
 
 .admin-main h1 {
@@ -169,13 +169,13 @@
 
 .admin-table-wrap {
   /* Data columns are sized in percentages that sum to ~92% of the table
-     (see each page's COLUMNS array) with the unsized trailing actions
-     column filling the rest — so the table always renders at exactly
-     100% of this wrapper's width. No horizontal scrolling, ever; the
-     left border sits at the wrapper's left edge and Save/Delete sit
-     flush at the right edge. The page just scrolls normally (vertically)
-     like any other document when there are many rows. */
-  width: 100%;
+  (see each page's COLUMNS array) with the unsized trailing actions
+  column filling the rest — so the table always renders at exactly
+  100% of this wrapper's width. No horizontal scrolling, ever; the
+  left border sits at the wrapper's left edge and Save/Delete sit
+  flush at the right edge. The page just scrolls normally (vertically)
+  like any other document when there are many rows. */
+width: 100%;
   background: var(--paper-raised);
   border: 1px solid var(--line);
   border-radius: 0;
@@ -189,14 +189,14 @@ table.admin-table {
   border-collapse: collapse;
   width: 100%;
   /* Every column (including the trailing actions column) has an explicit
-     pixel width now, so use fixed layout: column widths are exactly what's
-     specified, and any leftover width (on wide screens, now that there's
-     no sidebar eating space) is distributed proportionally across all
-     columns instead of one unspecified column ballooning to absorb it —
-     which is what made the Save/Delete column float in a sea of blank
-     space before. When columns add up to more than the viewport (e.g. the
-     Projects page), admin-table-wrap's overflow-x still scrolls normally. */
-  table-layout: fixed;
+  pixel width now, so use fixed layout: column widths are exactly what's
+  specified, and any leftover width (on wide screens, now that there's
+  no sidebar eating space) is distributed proportionally across all
+  columns instead of one unspecified column ballooning to absorb it —
+  which is what made the Save/Delete column float in a sea of blank
+  space before. When columns add up to more than the viewport (e.g. the
+  Projects page), admin-table-wrap's overflow-x still scrolls normally. */
+table-layout: fixed;
   font-size: 13px;
 }
 
@@ -438,4 +438,61 @@ table.admin-table tr.dirty td {
   background: var(--accent-soft);
   color: var(--accent);
   margin-left: 6px;
+}
+
+/* ---------- SMART UPLOAD DROPZONE ---------- */
+
+.admin-dropzone {
+  border: 2px dashed var(--line);
+  background: var(--paper);
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms var(--ease), background 150ms var(--ease);
+}
+
+.admin-dropzone:hover,
+.admin-dropzone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.admin-dropzone-icon {
+  font-size: 22px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.admin-dropzone-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.admin-dropzone-sub {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+
+.admin-import-summary {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.admin-import-summary p {
+  margin: 0 0 8px;
+}
+
+.admin-import-summary table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.admin-import-summary th,
+.admin-import-summary td {
+  border: 1px solid var(--line);
+  padding: 4px 6px;
+  text-align: left;
 }
