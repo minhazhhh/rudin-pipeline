@@ -10,8 +10,7 @@ const LINKS = [
   { href: "/admin/overall-stats", label: "Overall Unit Stats" },
   { href: "/admin/type-stats", label: "Type × Unit Stats" },
   { href: "/admin/trend", label: "Rent Trend" },
-  { href: "/admin/comps-import", label: "Comps Import ✦" },
-  { href: "/admin/sync", label: "Sheet Sync & Settings" },
+  { href: "/admin/sync", label: "Import & Sync" },
 ];
 
 export default function AdminNav() {
