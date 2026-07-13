@@ -10,10 +10,11 @@ export const RESOURCES = [
   "overall-stats",
   "type-stats",
   "trend",
+  "lease-comps",
 ] as const;
 export type Resource = (typeof RESOURCES)[number];
 
-export const SHEET_URL_FIELD: Record<Resource, string> = {
+export const SHEET_URL_FIELD: Partial<Record<Resource, string>> = {
   projects: "projectsSheetUrl",
   "comp-buildings": "compBuildingsSheetUrl",
   "comp-building-stats": "compBuildingStatsSheetUrl",
@@ -39,6 +40,8 @@ export async function syncResource(resource: Resource, rows: Record<string, stri
       return syncTypeStats(rows);
     case "trend":
       return syncTrend(rows);
+    case "lease-comps":
+      throw new Error("lease-comps cannot be synced from a sheet URL — use the Comps Import wizard.");
   }
 }
 

@@ -160,6 +160,24 @@ model TrendPoint {
   @@unique([quarter, unitType])
 }
 
+// ─── Raw lease comp records (individual transactions from Rudin workbook) ───
+
+model LeaseComp {
+  id           String    @id @default(cuid())
+  building     String
+  unit         String?
+  unitType     String?
+  unitSf       Float?
+  grossRent    Float?
+  grossPsf     Float?
+  netRent      Float?
+  concession   Float?
+  leaseDate    DateTime?
+  quarter      String?
+  propertyType String?
+  createdAt    DateTime  @default(now())
+}
+
 // ─── App config ───
 
 model SyncConfig {

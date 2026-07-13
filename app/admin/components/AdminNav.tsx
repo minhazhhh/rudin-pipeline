@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/admin/overall-stats", label: "Overall Unit Stats" },
   { href: "/admin/type-stats", label: "Type × Unit Stats" },
   { href: "/admin/trend", label: "Rent Trend" },
+  { href: "/admin/comps-import", label: "Comps Import ✦" },
   { href: "/admin/sync", label: "Sheet Sync & Settings" },
 ];
 
@@ -37,9 +38,7 @@ export default function AdminNav() {
         ))}
         <div className="admin-navbar-spacer" />
         <div className="admin-navbar-actions">
-          <Link href="/" target="_blank">
-            View live site ↗
-          </Link>
+          <Link href="/" target="_blank">View live site ↗</Link>
           <button onClick={logout}>Log out</button>
         </div>
       </nav>
