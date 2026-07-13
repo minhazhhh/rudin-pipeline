@@ -2,7 +2,15 @@
 
 import { useRef, useState } from "react";
 
-type Preview = {
+type ExactResult = {
+  format: "exact";
+  resource: string;
+  resourceLabel: string;
+  rowCount: number;
+};
+
+type LeaseResult = {
+  format: "lease-level";
   totalLeaseRows: number;
   buildings: { raw: string; matched: string | null; leaseCount: number }[];
   unmatchedNames: string[];
@@ -17,21 +25,27 @@ type Preview = {
   };
 };
 
-/** Drag-and-drop entry point for lease-level rent comp files that don't match one of the app's
-*  exact per-table templates — e.g. a raw underwriting workbook with one row per lease. Parses it,
-*  shows what it found, lets the user resolve any building names it couldn't confidently match,
-*  then applies the aggregated stats on confirm. */
+type Result = ExactResult | LeaseResult;
+
+/** The one drop target for every data file — no need to know which of the app's tables a file
+*  belongs to first. Recognizes the app's own exact templates (Projects, Comp Buildings, Trend,
+*  etc.) and syncs them the same way the old per-table upload buttons did, or, failing that, a
+*  lease-by-lease export in any column layout, which it matches against existing Comp Buildings
+*  and aggregates into stats/quarter-stats/trend. Shows what it found before writing anything. */
 export default function SmartUpload() {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<Result | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [applied, setApplied] = useState<Preview | null>(null);
+  const [applied, setApplied] = useState<Result | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-const existingNames = preview ? [...new Set(preview.buildings.map((b) => b.matched).filter((n): n is string => !!n))] : [];
+const existingNames =
+  preview && preview.format === "lease-level"
+  ? [...new Set(preview.buildings.map((b) => b.matched).filter((n): n is string => !!n))]
+  : [];
 
 async function runPreview(f: File, ovr: Record<string, string>) {
   setLoading(true);
@@ -83,15 +97,16 @@ function reset() {
   setApplied(null);
 }
 
-const excludedTypes = preview ? Object.entries(preview.excludedUnitTypeCounts) : [];
+const excludedTypes = preview && preview.format === "lease-level" ? Object.entries(preview.excludedUnitTypeCounts) : [];
 
 return (
   <div className="admin-field-block">
-  <label>Smart upload — any format</label>
+  <label>Upload any file</label>
   <p className="admin-sub" style={{ marginTop: 0 }}>
-  Drop a lease-by-lease export (any column layout — a raw underwriting workbook, a different sheet
-  entirely) and this will match it against the right buildings and update lease counts, rent/$/SF
-  stats, quarterly stats, and the market trend in one go. It never touches tables it doesn&apos;t
+  Drop whatever you&apos;ve got — one of this app&apos;s own exports, a totally different sheet, a raw
+  lease-by-lease workbook — and this will figure out where it goes: recognized table exports sync that
+  table directly, and lease-level exports get matched against existing buildings and aggregated into
+  rent/$/SF stats, quarterly stats, and the market trend. It never touches a table it doesn&apos;t
   recognize the file as belonging to.
   </p>
   
@@ -124,7 +139,7 @@ return (
       />
     <div className="admin-dropzone-icon">⇩</div>
     <div className="admin-dropzone-text">Drop a spreadsheet here, or click to browse</div>
-    <div className="admin-dropzone-sub">.csv, .xlsx, .xls</div>
+    <div className="admin-dropzone-sub">.csv, .xlsx, .xls — any layout</div>
     </div>
     )}
   
@@ -142,7 +157,35 @@ return (
       {loading && <p className="admin-sub">Reading file…</p>}
       {error && <p className="admin-error">{error}</p>}
     
-      {preview && !error && (
+      {preview && !error && preview.format === "exact" && (
+      <div className="admin-import-summary">
+      <p>
+      Recognized as <strong>{preview.resourceLabel}</strong> — {preview.rowCount} rows.
+      </p>
+        {applied ? (
+        <p className="admin-badge">
+        Applied: {preview.resourceLabel} fully replaced with {preview.rowCount} rows.
+        </p>
+        ) : (
+        <p className="admin-sub">
+        Applying will fully replace the current {preview.resourceLabel} data with these {preview.rowCount}{" "}
+        rows.
+        </p>
+        )}
+        {!applied && (
+        <button className="admin-btn" type="button" disabled={loading} onClick={applyImport}>
+        Apply changes
+        </button>
+        )}
+        {applied && (
+        <button className="admin-btn secondary" type="button" onClick={reset}>
+        Upload another file
+        </button>
+        )}
+      </div>
+      )}
+    
+      {preview && !error && preview.format === "lease-level" && (
       <div className="admin-import-summary">
       <p>
       Found <strong>{preview.totalLeaseRows}</strong> lease records across{" "}
@@ -156,7 +199,7 @@ return (
       .
       </p>
       
-        {applied ? (
+        {applied && applied.format === "lease-level" ? (
         <p className="admin-badge">
         Applied: {applied.affected.compBuildings} buildings updated, {applied.affected.compBuildingStats}{" "}
         building×unit-type stat rows, {applied.affected.compBuildingQuarterStats} quarterly stat rows,{" "}

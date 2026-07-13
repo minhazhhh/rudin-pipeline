@@ -10,7 +10,7 @@ export const RESOURCES = [
   "overall-stats",
   "type-stats",
   "trend",
-] as const;
+  ] as const;
 export type Resource = (typeof RESOURCES)[number];
 
 export const SHEET_URL_FIELD: Record<Resource, string> = {
@@ -22,6 +22,39 @@ export const SHEET_URL_FIELD: Record<Resource, string> = {
   "type-stats": "typeStatsSheetUrl",
   trend: "trendSheetUrl",
 };
+
+export const RESOURCE_LABELS: Record<Resource, string> = {
+  projects: "Pipeline Projects",
+  "comp-buildings": "Comp Buildings",
+  "comp-building-stats": "Comp Building Stats",
+  "comp-building-quarter-stats": "Comp Building Stats — By Quarter",
+  "overall-stats": "Overall Unit Stats",
+  "type-stats": "Type × Unit Stats",
+  trend: "Rent Trend",
+};
+
+/**
+* Recognizes a file as one of the app's exact per-table templates (the columns
+* `csv-template` downloads) by checking for each resource's distinguishing columns,
+* most-specific first. Returns null if the header set doesn't match any of them —
+* the caller should then try the lease-level raw-data detector instead.
+*/
+export function detectExactResource(rows: Record<string, string>[]): Resource | null {
+  if (!rows.length) return null;
+  const keys = new Set(Object.keys(rows[0]).map((k) => k.trim().toLowerCase()));
+  const has = (k: string) => keys.has(k);
+
+if (has("borough") && has("status") && has("sponsor") && has("lender")) return "projects";
+  if (has("underwritten") && has("totaln")) return "comp-buildings";
+  if (has("buildingname") && has("quarter")) return "comp-building-quarter-stats";
+  if (has("buildingname") && has("nrent")) return "comp-building-stats";
+  if (has("propertytype") && has("unittype") && has("avgrent") && !has("buildingname")) return "type-stats";
+  if (has("quarter") && has("quarterorder") && !has("buildingname")) return "trend";
+  if (has("unittype") && has("avgrent") && !has("buildingname") && !has("propertytype") && !has("quarter")) {
+    return "overall-stats";
+  }
+  return null;
+}
 
 export async function syncResource(resource: Resource, rows: Record<string, string>[]): Promise<number> {
   switch (resource) {
@@ -75,7 +108,7 @@ async function syncProjects(rows: Record<string, string>[]): Promise<number> {
     };
   });
 
-  await prisma.$transaction([prisma.project.deleteMany(), ...data.map((d) => prisma.project.create({ data: d }))]);
+await prisma.$transaction([prisma.project.deleteMany(), ...data.map((d) => prisma.project.create({ data: d }))]);
   return data.length;
 }
 
@@ -90,10 +123,10 @@ async function syncCompBuildings(rows: Record<string, string>[]): Promise<number
     totalN: csvNum(r.totalN),
   }));
 
-  await prisma.$transaction([
-    prisma.compBuildingStat.deleteMany(),
-    prisma.compBuilding.deleteMany(),
-    ...data.map((d) => prisma.compBuilding.create({ data: d })),
+await prisma.$transaction([
+  prisma.compBuildingStat.deleteMany(),
+  prisma.compBuilding.deleteMany(),
+  ...data.map((d) => prisma.compBuilding.create({ data: d })),
   ]);
   return data.length;
 }
@@ -106,39 +139,39 @@ async function syncCompBuildingStats(rows: Record<string, string>[]): Promise<nu
   });
   const idByName = new Map(existing.map((b) => [b.name, b.id]));
 
-  const missing = buildingNames.filter((n) => !idByName.has(n));
+const missing = buildingNames.filter((n) => !idByName.has(n));
   if (missing.length) {
     throw new Error(
       `These buildingName values don't exist in Comp Buildings — sync that sheet first: ${missing.join(", ")}`,
-    );
+      );
   }
 
-  const data = rows.map((r) => {
-    const buildingId = idByName.get(csvStr(r.buildingName).trim())!;
-    return {
-      buildingId,
-      unitType: csvStr(r.unitType),
-      avgRent: csvNum(r.avgRent),
-      medRent: csvNum(r.medRent),
-      minRent: csvNum(r.minRent),
-      maxRent: csvNum(r.maxRent),
-      nRent: csvNum(r.nRent),
-      avgPsf: csvNum(r.avgPsf),
-      medPsf: csvNum(r.medPsf),
-      minPsf: csvNum(r.minPsf),
-      maxPsf: csvNum(r.maxPsf),
-      nPsf: csvNum(r.nPsf),
-      avgSf: csvNum(r.avgSf),
-      medSf: csvNum(r.medSf),
-      minSf: csvNum(r.minSf),
-      maxSf: csvNum(r.maxSf),
-      nSf: csvNum(r.nSf),
-    };
-  });
+const data = rows.map((r) => {
+  const buildingId = idByName.get(csvStr(r.buildingName).trim())!;
+  return {
+    buildingId,
+    unitType: csvStr(r.unitType),
+    avgRent: csvNum(r.avgRent),
+    medRent: csvNum(r.medRent),
+    minRent: csvNum(r.minRent),
+    maxRent: csvNum(r.maxRent),
+    nRent: csvNum(r.nRent),
+    avgPsf: csvNum(r.avgPsf),
+    medPsf: csvNum(r.medPsf),
+    minPsf: csvNum(r.minPsf),
+    maxPsf: csvNum(r.maxPsf),
+    nPsf: csvNum(r.nPsf),
+    avgSf: csvNum(r.avgSf),
+    medSf: csvNum(r.medSf),
+    minSf: csvNum(r.minSf),
+    maxSf: csvNum(r.maxSf),
+    nSf: csvNum(r.nSf),
+  };
+});
 
-  await prisma.$transaction([
-    prisma.compBuildingStat.deleteMany(),
-    ...data.map((d) => prisma.compBuildingStat.create({ data: d })),
+await prisma.$transaction([
+  prisma.compBuildingStat.deleteMany(),
+  ...data.map((d) => prisma.compBuildingStat.create({ data: d })),
   ]);
   return data.length;
 }
@@ -151,26 +184,26 @@ async function syncCompBuildingQuarterStats(rows: Record<string, string>[]): Pro
   });
   const idByName = new Map(existing.map((b) => [b.name, b.id]));
 
-  const missing = buildingNames.filter((n) => !idByName.has(n));
+const missing = buildingNames.filter((n) => !idByName.has(n));
   if (missing.length) {
     throw new Error(
       `These buildingName values don't exist in Comp Buildings — sync that sheet first: ${missing.join(", ")}`,
-    );
+      );
   }
 
-  const data = rows.map((r) => ({
-    buildingId: idByName.get(csvStr(r.buildingName).trim())!,
-    quarter: csvStr(r.quarter),
-    quarterOrder: csvNum(r.quarterOrder) ?? 0,
-    unitType: csvStr(r.unitType),
-    avgRent: csvNum(r.avgRent),
-    avgPsf: csvNum(r.avgPsf),
-    n: csvNum(r.n) ?? 0,
-  }));
+const data = rows.map((r) => ({
+  buildingId: idByName.get(csvStr(r.buildingName).trim())!,
+  quarter: csvStr(r.quarter),
+  quarterOrder: csvNum(r.quarterOrder) ?? 0,
+  unitType: csvStr(r.unitType),
+  avgRent: csvNum(r.avgRent),
+  avgPsf: csvNum(r.avgPsf),
+  n: csvNum(r.n) ?? 0,
+}));
 
-  await prisma.$transaction([
-    prisma.compBuildingQuarterStat.deleteMany(),
-    ...data.map((d) => prisma.compBuildingQuarterStat.create({ data: d })),
+await prisma.$transaction([
+  prisma.compBuildingQuarterStat.deleteMany(),
+  ...data.map((d) => prisma.compBuildingQuarterStat.create({ data: d })),
   ]);
   return data.length;
 }
@@ -195,9 +228,9 @@ async function syncOverallStats(rows: Record<string, string>[]): Promise<number>
     nSf: csvNum(r.nSf),
   }));
 
-  await prisma.$transaction([
-    prisma.overallUnitStat.deleteMany(),
-    ...data.map((d) => prisma.overallUnitStat.create({ data: d })),
+await prisma.$transaction([
+  prisma.overallUnitStat.deleteMany(),
+  ...data.map((d) => prisma.overallUnitStat.create({ data: d })),
   ]);
   return data.length;
 }
@@ -218,9 +251,9 @@ async function syncTypeStats(rows: Record<string, string>[]): Promise<number> {
     nPsf: csvNum(r.nPsf),
   }));
 
-  await prisma.$transaction([
-    prisma.typeUnitStat.deleteMany(),
-    ...data.map((d) => prisma.typeUnitStat.create({ data: d })),
+await prisma.$transaction([
+  prisma.typeUnitStat.deleteMany(),
+  ...data.map((d) => prisma.typeUnitStat.create({ data: d })),
   ]);
   return data.length;
 }
@@ -234,9 +267,9 @@ async function syncTrend(rows: Record<string, string>[]): Promise<number> {
     avgPsf: csvNum(r.avgPsf),
   }));
 
-  await prisma.$transaction([
-    prisma.trendPoint.deleteMany(),
-    ...data.map((d) => prisma.trendPoint.create({ data: d })),
+await prisma.$transaction([
+  prisma.trendPoint.deleteMany(),
+  ...data.map((d) => prisma.trendPoint.create({ data: d })),
   ]);
   return data.length;
 }

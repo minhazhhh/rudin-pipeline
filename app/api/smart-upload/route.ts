@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/api-auth";
+import { parseSheetBuffer } from "@/app/lib/sync";
+import { detectExactResource, syncResource, RESOURCE_LABELS } from "@/app/lib/sync-resources";
 import { extractLeaseRows, previewLeaseImport, applyLeaseImport } from "@/app/lib/lease-import";
 
-// Accepts a spreadsheet in whatever shape it comes in (a lease-by-lease export, not one of the
-// app's exact per-table templates) and figures out where it goes: matches building names against
-// existing Comp Buildings, aggregates rents/psf/sf per building x unit type x quarter, and updates
-// lease counts, comp stats, quarter stats, and the market trend. Call with no query params to get a
-// dry-run preview; call with ?apply=1 and a `overrides` field (JSON map of raw name -> resolved
-// building name) to actually write the changes.
+// The single drop target for any spreadsheet, in whatever shape it comes in. Tries, in order:
+//   1. One of the app's exact per-table templates (Projects, Comp Buildings, Trend, etc.) —
+//      recognized by its distinctive column set, then synced via the same full-replace logic
+//      as the old per-table upload buttons.
+//   2. A lease-by-lease export (any column layout) — matched against existing Comp Buildings
+//      and aggregated into stats/quarter-stats/trend.
+// Call with no query params for a dry-run preview; call with ?apply=1 (and, for the lease-level
+// path, an `overrides` field) to actually write the changes.
 export async function POST(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
@@ -29,32 +33,66 @@ let overrides: Record<string, string> = {};
     }
   }
 
-const buf = await file.arrayBuffer();
-  const rows = extractLeaseRows(buf, file.name);
-  if (!rows) {
+const apply = req.nextUrl.searchParams.get("apply") === "1";
+  const buf = await file.arrayBuffer();
+
+const looksLikeExcel = file.type.includes("spreadsheetml") || /\.xlsx?$/i.test(file.name);
+  let templateRows: Record<string, string>[] = [];
+  try {
+    templateRows = parseSheetBuffer(buf, looksLikeExcel);
+  } catch {
+    // Not parseable as a plain single-header-row table — fall through to the lease-level detector.
+  }
+
+const resource = detectExactResource(templateRows);
+  if (resource) {
+    try {
+      if (!apply) {
+        return NextResponse.json({
+          ok: true,
+          format: "exact",
+          resource,
+          resourceLabel: RESOURCE_LABELS[resource],
+          rowCount: templateRows.length,
+        });
+      }
+      const rowsImported = await syncResource(resource, templateRows);
+      await prisma.syncConfig.update({ where: { id: 1 }, data: { lastSyncedAt: new Date() } });
+      return NextResponse.json({
+        ok: true,
+        format: "exact",
+        resource,
+        resourceLabel: RESOURCE_LABELS[resource],
+        rowCount: rowsImported,
+      });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });
+    }
+  }
+
+const leaseRows = extractLeaseRows(buf, file.name);
+  if (!leaseRows) {
     return NextResponse.json(
       {
         error:
-          `Couldn't recognize "${file.name}" as lease-level rent data — expected a sheet with a Building ` +
-          `column, a Rent column, and a Unit Type, Quarter, or Date column. If this is one of the app's ` +
-          `standard table templates (Projects, Comp Buildings, etc.), use the per-table upload buttons below ` +
-          `instead.`,
+          `Couldn't recognize "${file.name}" — it doesn't match any of the app's table templates ` +
+          `(Projects, Comp Buildings, Comp Building Stats, Overall/Type Unit Stats, Rent Trend) and doesn't ` +
+          `look like lease-level data either (expected a Building column, a Rent column, and a Unit Type, ` +
+          `Quarter, or Date column somewhere in the file).`,
       },
       { status: 400 },
       );
   }
 
-const apply = req.nextUrl.searchParams.get("apply") === "1";
-
 try {
   if (!apply) {
-    const summary = await previewLeaseImport(rows, overrides);
-    return NextResponse.json({ ok: true, mode: "preview", ...summary });
+    const summary = await previewLeaseImport(leaseRows, overrides);
+    return NextResponse.json({ ok: true, format: "lease-level", ...summary });
   }
 
-  const summary = await applyLeaseImport(rows, overrides);
+  const summary = await applyLeaseImport(leaseRows, overrides);
   await prisma.syncConfig.update({ where: { id: 1 }, data: { lastSyncedAt: new Date() } });
-  return NextResponse.json({ ok: true, mode: "applied", ...summary });
+  return NextResponse.json({ ok: true, format: "lease-level", ...summary });
 } catch (e) {
   return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });
 }
