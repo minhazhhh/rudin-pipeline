@@ -50,6 +50,7 @@ async function importResource(resource: Resource, rows: ImportRow[], mode: Impor
     case "overall-stats": return importOverallStats(rows, mode);
     case "type-stats": return importTypeStats(rows, mode);
     case "trend": return importTrend(rows, mode);
+    case "lease-comps": return importLeaseComps(rows, mode);
   }
 }
 
@@ -155,6 +156,37 @@ async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number>
     await prisma.$transaction([prisma.trendPoint.deleteMany(), ...data.map((d) => prisma.trendPoint.create({ data: d }))]);
   } else {
     for (const d of data) await prisma.trendPoint.upsert({ where: { quarter_unitType: { quarter: d.quarter, unitType: d.unitType } }, update: d, create: d });
+  }
+  return data.length;
+}
+
+async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<number> {
+  const data = rows
+    .filter((r) => r.building?.trim())
+    .map((r) => {
+      let leaseDate: Date | null = null;
+      if (r.leaseDate?.trim()) {
+        const parsed = new Date(r.leaseDate.trim());
+        if (!isNaN(parsed.getTime())) leaseDate = parsed;
+      }
+      return {
+        building: csvStr(r.building),
+        unit: r.unit?.trim() || null,
+        unitType: r.unitType?.trim() || null,
+        unitSf: csvNum(r.unitSf),
+        grossRent: csvNum(r.grossRent),
+        grossPsf: csvNum(r.grossPsf),
+        netRent: csvNum(r.netRent),
+        concession: csvNum(r.concession),
+        leaseDate,
+        quarter: r.quarter?.trim() || null,
+        propertyType: r.propertyType?.trim() || null,
+      };
+    });
+  if (mode === "replace") {
+    await prisma.$transaction([prisma.leaseComp.deleteMany(), ...data.map((d) => prisma.leaseComp.create({ data: d }))]);
+  } else {
+    for (const d of data) await prisma.leaseComp.create({ data: d });
   }
   return data.length;
 }

@@ -104,6 +104,20 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent"] },
     { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf"] },
   ],
+  // Individual lease transaction records — matches Rudin workbook "Data" sheet format
+  "lease-comps": [
+    { key: "building", label: "Building", required: true, aliases: ["building", "building name", "property", "property name", "bldg", "address", "comp building"] },
+    { key: "unit", label: "Unit", required: false, aliases: ["unit", "unit id", "unit number", "unit no", "apt", "apartment", "suite", "residence", "#"] },
+    { key: "unitType", label: "Unit Type", required: false, aliases: ["unit type", "unittype", "type", "bed type", "bedroom type", "unit size", "apt type", "bedroom", "beds"] },
+    { key: "unitSf", label: "Unit SF", required: false, aliases: ["unit sf", "unitsf", "sqft", "sq ft", "square feet", "sf", "unit sqft", "size sf", "net sf", "area sf"] },
+    { key: "grossRent", label: "Gross Rent", required: false, aliases: ["gross rent", "grossrent", "rent", "asking rent", "gross monthly rent", "monthly rent", "gross"] },
+    { key: "grossPsf", label: "Gross $/SF", required: false, aliases: ["gross $/sf", "grosspsf", "gross/sf", "psf", "rent psf", "$/sf", "price per sf", "rent per sf"] },
+    { key: "netRent", label: "Net Rent", required: false, aliases: ["net rent", "netrent", "net monthly rent", "effective rent", "net effective rent", "net"] },
+    { key: "concession", label: "Concession", required: false, aliases: ["concession", "concession months", "free months", "concessions", "free rent", "months free"] },
+    { key: "leaseDate", label: "Date", required: false, aliases: ["date", "lease date", "signed date", "commencement", "start date", "lease start", "executed"] },
+    { key: "quarter", label: "Quarter", required: false, aliases: ["quarter", "qtr", "fiscal quarter", "period", "time period"] },
+    { key: "propertyType", label: "Property Type", required: false, aliases: ["property type", "propertytype", "building type", "conversion type", "class", "category"] },
+  ],
 };
 
 export const RESOURCE_LABELS: Record<Resource, string> = {
@@ -114,6 +128,7 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   "overall-stats": "Overall Unit Stats",
   "type-stats": "Type × Unit Stats",
   trend: "Rent Trend",
+  "lease-comps": "Lease Comp Records",
 };
 
 function normalize(s: string): string {

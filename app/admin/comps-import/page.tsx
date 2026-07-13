@@ -37,7 +37,7 @@ function parseCsv(text: string): Record<string, string>[] {
 type Step = "drop" | "map" | "preview" | "done";
 type ImportMode = "replace" | "upsert";
 
-const RESOURCES: Resource[] = ["comp-buildings","comp-building-stats","comp-building-quarter-stats","overall-stats","type-stats","trend","projects"];
+const RESOURCES: Resource[] = ["lease-comps","comp-buildings","comp-building-stats","comp-building-quarter-stats","overall-stats","type-stats","trend","projects"];
 
 function normSheet(rows: Record<string, unknown>[]): Record<string, string>[] {
   return rows.map((row) => {
@@ -53,7 +53,7 @@ export default function CompsImportPage() {
   const [fileName, setFileName] = useState("");
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [resource, setResource] = useState<Resource>("comp-building-stats");
+  const [resource, setResource] = useState<Resource>("lease-comps");
   const [mappings, setMappings] = useState<Record<string, string | null>>({});
   const [mode, setMode] = useState<ImportMode>("upsert");
   const [submitting, setSubmitting] = useState(false);
@@ -68,9 +68,26 @@ export default function CompsImportPage() {
     if (isExcel) {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(buf, { type: "array" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true }) as Record<string, unknown>[];
-      parsed = normSheet(raw);
+      // Prefer "Data" sheet if present (Rudin workbook), otherwise first sheet
+      const sheetName = wb.SheetNames.find((n) => /^data$/i.test(n)) ?? wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+      // Parse as array-of-arrays so we can detect/skip title banner rows
+      const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
+      // Find first row with >= 3 distinct non-empty string cells — that's the header row
+      let headerRowIdx = 0;
+      for (let i = 0; i < Math.min(grid.length, 10); i++) {
+        const nonEmpty = grid[i].filter((c) => typeof c === "string" && c.trim().length > 0 && c.trim().length <= 80);
+        if (nonEmpty.length >= 3) { headerRowIdx = i; break; }
+      }
+      const headers2 = (grid[headerRowIdx] as unknown[]).map((c) => String(c).trim());
+      const raw: Record<string, string>[] = [];
+      for (let i = headerRowIdx + 1; i < grid.length; i++) {
+        const row = grid[i] as unknown[];
+        const obj: Record<string, string> = {};
+        headers2.forEach((h, j) => { obj[h] = row[j] !== undefined && row[j] !== null ? String(row[j]).trim() : ""; });
+        if (Object.values(obj).some((v) => v !== "")) raw.push(obj);
+      }
+      parsed = raw;
     } else {
       parsed = parseCsv(new TextDecoder("utf-8").decode(buf));
     }
@@ -78,7 +95,7 @@ export default function CompsImportPage() {
     const hdrs = Object.keys(parsed[0]);
     setRawRows(parsed); setHeaders(hdrs);
     const detected = detectResource(hdrs);
-    const detectedResource = detected?.resource ?? "comp-building-stats";
+    const detectedResource = detected?.resource ?? "lease-comps";
     setResource(detectedResource);
     setMappings(autoMapColumns(hdrs, detectedResource));
     setStep("map");
@@ -117,138 +134,175 @@ export default function CompsImportPage() {
       const body = await res.json();
       if (res.ok) {
         setResult({ ok: true, message: `Successfully ${mode === "replace" ? "replaced all data with" : "merged"} ${body.rowsImported} rows into ${RESOURCE_LABELS[resource]}.` });
-        setStep("done");
       } else {
         setResult({ ok: false, message: body.error ?? "Unknown error" });
       }
-    } catch (e) { setResult({ ok: false, message: e instanceof Error ? e.message : String(e) }); }
-    setSubmitting(false);
+    } catch (e) {
+      setResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSubmitting(false);
+      setStep("done");
+    }
   }
 
-  function reset() {
-    setStep("drop"); setFileName(""); setRawRows([]); setHeaders([]); setMappings({}); setResult(null); setSubmitting(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  const fields = RESOURCE_FIELDS[resource];
+  const requiredFields = RESOURCE_FIELDS[resource].filter((f) => f.required).map((f) => f.key);
   const mappedDbFields = new Set(Object.values(mappings).filter(Boolean) as string[]);
-  const missingRequired = fields.filter((f) => f.required && !mappedDbFields.has(f.key));
-  const previewRows = buildMappedRows().slice(0, 6);
+  const missingRequired = requiredFields.filter((k) => !mappedDbFields.has(k));
 
   return (
-    <div>
-      <h1>Comps Import</h1>
-      <p className="admin-sub">Drag and drop any Excel or CSV file — it will be read and mapped to the right columns automatically. You can review and correct the column mapping before importing.</p>
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "2rem 1rem", fontFamily: "inherit" }}>
+      <h1 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.25rem" }}>Comps Import</h1>
+      <p style={{ color: "#666", marginBottom: "2rem", fontSize: "0.9rem" }}>Drop any Excel or CSV file — columns are auto-detected and mapped to the database.</p>
 
+      {/* Step: drop */}
       {step === "drop" && (
-        <div onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} onClick={() => fileInputRef.current?.click()}
-          style={{ border: `2px dashed ${dragging ? "#4f8ef7" : "#555"}`, borderRadius: 8, padding: "48px 32px", textAlign: "center", cursor: "pointer", background: dragging ? "#1a2540" : "transparent", transition: "all 0.15s", maxWidth: 560, margin: "32px auto" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Drop your Excel or CSV file here</div>
-          <div style={{ fontSize: 13, color: "#aaa" }}>Supports .xlsx, .xls, .csv — or click to browse</div>
-          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f); }} />
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            border: `2px dashed ${dragging ? "#2563eb" : "#cbd5e1"}`,
+            borderRadius: 12, padding: "3rem 2rem", textAlign: "center",
+            cursor: "pointer", background: dragging ? "#eff6ff" : "#f8fafc",
+            transition: "all 0.15s",
+          }}
+        >
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📂</div>
+          <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Drop your file here</div>
+          <div style={{ color: "#64748b", fontSize: "0.85rem" }}>Excel (.xlsx, .xls) or CSV — any format</div>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
+            onChange={(e) => { if (e.target.files?.[0]) parseFile(e.target.files[0]); }} />
         </div>
       )}
 
+      {/* Step: map */}
       {step === "map" && (
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 14, color: "#aaa" }}>File: <strong style={{ color: "#eee" }}>{fileName}</strong> — {rawRows.length} rows, {headers.length} columns</div>
-            <button className="admin-btn secondary" onClick={reset} style={{ marginLeft: "auto" }}>← Use a different file</button>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>File: <span style={{ fontWeight: 400 }}>{fileName}</span> — {rawRows.length.toLocaleString()} rows</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 500, fontSize: "0.9rem" }}>Importing into:</span>
+              <select value={resource} onChange={(e) => onResourceChange(e.target.value as Resource)}
+                style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.9rem" }}>
+                {RESOURCES.map((r) => <option key={r} value={r}>{RESOURCE_LABELS[r]}</option>)}
+              </select>
+            </label>
           </div>
-          <div className="admin-field-block" style={{ maxWidth: 480 }}>
-            <label>Import into table</label>
-            <select value={resource} onChange={(e) => onResourceChange(e.target.value as Resource)} style={{ width: "100%", padding: "6px 10px", background: "#1e1e1e", color: "#eee", border: "1px solid #444", borderRadius: 4 }}>
-              {RESOURCES.map((r) => <option key={r} value={r}>{RESOURCE_LABELS[r]}</option>)}
-            </select>
-          </div>
-          <h3 style={{ marginTop: 24, marginBottom: 4 }}>Column Mapping</h3>
-          <p className="admin-sub" style={{ marginBottom: 12 }}>Columns auto-mapped from your file. Correct any mismatches using the dropdowns.</p>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr style={{ background: "#1e1e1e" }}>
-                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid #333" }}>Your column</th>
-                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid #333" }}>Maps to DB field</th>
-                <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid #333" }}>Sample value</th>
-              </tr></thead>
-              <tbody>{headers.map((h) => {
-                const mapped = mappings[h] ?? null;
+
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", marginBottom: "1rem" }}>
+            <thead>
+              <tr style={{ background: "#f1f5f9" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>File Column</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Maps to DB Field</th>
+                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>Sample Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {headers.map((h) => {
+                const mapped = mappings[h];
                 const sample = rawRows[0]?.[h] ?? "";
                 return (
-                  <tr key={h} style={{ borderBottom: "1px solid #222" }}>
-                    <td style={{ padding: "6px 12px", fontFamily: "monospace", color: "#ccc" }}>{h}</td>
-                    <td style={{ padding: "6px 12px" }}>
+                  <tr key={h} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                    <td style={{ padding: "7px 12px", fontFamily: "monospace", color: mapped ? "#15803d" : "#dc2626" }}>{h}</td>
+                    <td style={{ padding: "7px 12px" }}>
                       <select value={mapped ?? ""} onChange={(e) => setMapping(h, e.target.value || null)}
-                        style={{ background: mapped ? "#1a2a1a" : "#2a1a1a", color: mapped ? "#7eca7e" : "#ca7e7e", border: `1px solid ${mapped ? "#3a5a3a" : "#5a3a3a"}`, borderRadius: 4, padding: "4px 8px", fontSize: 12, width: "100%", minWidth: 200 }}>
-                        <option value="">— skip this column —</option>
-                        {fields.map((f) => <option key={f.key} value={f.key}>{f.label} ({f.key}){f.required ? " *" : ""}</option>)}
+                        style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: "0.82rem", background: mapped ? "#f0fdf4" : "#fff7f7" }}>
+                        <option value="">(skip)</option>
+                        {RESOURCE_FIELDS[resource].map((f) => (
+                          <option key={f.key} value={f.key}>{f.label}{f.required ? " *" : ""}</option>
+                        ))}
                       </select>
                     </td>
-                    <td style={{ padding: "6px 12px", color: "#888", fontFamily: "monospace", fontSize: 12, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sample}</td>
+                    <td style={{ padding: "7px 12px", color: "#64748b", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sample}</td>
                   </tr>
                 );
-              })}</tbody>
-            </table>
-          </div>
-          {missingRequired.length > 0 && <div className="admin-error" style={{ marginTop: 12 }}>Required fields not yet mapped: {missingRequired.map((f) => f.label).join(", ")}</div>}
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            <button className="admin-btn" disabled={missingRequired.length > 0} onClick={() => setStep("preview")}>Preview import →</button>
+              })}
+            </tbody>
+          </table>
+
+          {missingRequired.length > 0 && (
+            <div style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6, padding: "8px 12px", marginBottom: "1rem", fontSize: "0.85rem" }}>
+              Missing required fields: {missingRequired.join(", ")}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep("preview")} disabled={missingRequired.length > 0}
+              style={{ padding: "8px 20px", background: missingRequired.length ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: missingRequired.length ? "not-allowed" : "pointer", fontWeight: 600 }}>
+              Review & Import →
+            </button>
+            <button onClick={() => setStep("drop")}
+              style={{ padding: "8px 16px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
+              ← Start over
+            </button>
           </div>
         </div>
       )}
 
+      {/* Step: preview */}
       {step === "preview" && (
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 14, color: "#aaa" }}><strong style={{ color: "#eee" }}>{rawRows.length} rows</strong> → <strong style={{ color: "#eee" }}>{RESOURCE_LABELS[resource]}</strong></div>
-            <button className="admin-btn secondary" onClick={() => setStep("map")}>← Edit mapping</button>
-          </div>
-          <h3 style={{ marginBottom: 8 }}>Preview (first {Math.min(6, rawRows.length)} rows)</h3>
-          <div style={{ overflowX: "auto", marginBottom: 24 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead><tr style={{ background: "#1e1e1e" }}>
-                {Object.values(mappings).filter(Boolean).map((dbField) => {
-                  const f = fields.find((x) => x.key === dbField);
-                  return <th key={dbField as string} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid #333", whiteSpace: "nowrap" }}>{f?.label ?? dbField}</th>;
-                })}
-              </tr></thead>
-              <tbody>{previewRows.map((row, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #222", background: i % 2 ? "#141414" : "transparent" }}>
-                  {Object.values(mappings).filter(Boolean).map((dbField) => (
-                    <td key={dbField as string} style={{ padding: "5px 10px", color: "#ccc", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row[dbField as string] ?? ""}</td>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem" }}>Preview — first 6 rows</h2>
+          <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 400 }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  {Object.entries(mappings).filter(([, v]) => v).map(([h]) => (
+                    <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{mappings[h]}</th>
                   ))}
                 </tr>
-              ))}</tbody>
+              </thead>
+              <tbody>
+                {buildMappedRows().slice(0, 6).map((row, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                    {Object.entries(mappings).filter(([, v]) => v).map(([h]) => (
+                      <td key={h} style={{ padding: "5px 10px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row[mappings[h]!]}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
-          <div className="admin-field-block" style={{ maxWidth: 480 }}>
-            <label>Import mode</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-              <label style={{ display: "flex", gap: 10, cursor: "pointer", alignItems: "flex-start" }}>
-                <input type="radio" name="mode" value="upsert" checked={mode === "upsert"} onChange={() => setMode("upsert")} style={{ marginTop: 3 }} />
-                <div><strong>Merge / add new</strong><div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Add new rows and update existing ones. Existing data not in this file is left untouched.<br /><em>Best for adding new buildings or updating specific entries.</em></div></div>
+
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ fontWeight: 500, fontSize: "0.9rem" }}>Import mode:</label>
+            <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="radio" name="mode" value="upsert" checked={mode === "upsert"} onChange={() => setMode("upsert")} />
+                <span><strong>Merge</strong> — add / update records</span>
               </label>
-              <label style={{ display: "flex", gap: 10, cursor: "pointer", alignItems: "flex-start" }}>
-                <input type="radio" name="mode" value="replace" checked={mode === "replace"} onChange={() => setMode("replace")} style={{ marginTop: 3 }} />
-                <div><strong>Replace all</strong><div style={{ fontSize: 12, color: "#ca7e7e", marginTop: 2 }}>⚠ Deletes ALL existing data in this table and replaces with this file.<br /><em>Only use when you want a completely fresh dataset.</em></div></div>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="radio" name="mode" value="replace" checked={mode === "replace"} onChange={() => setMode("replace")} />
+                <span><strong>Replace</strong> — delete all existing rows first</span>
               </label>
             </div>
           </div>
-          {result && !result.ok && <div className="admin-error" style={{ marginTop: 12 }}>{result.message}</div>}
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            <button className="admin-btn" onClick={runImport} disabled={submitting}>{submitting ? "Importing…" : `Import ${rawRows.length} rows`}</button>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={runImport} disabled={submitting}
+              style={{ padding: "8px 20px", background: submitting ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontWeight: 600 }}>
+              {submitting ? "Importing…" : `Import ${rawRows.length.toLocaleString()} rows`}
+            </button>
+            <button onClick={() => setStep("map")}
+              style={{ padding: "8px 16px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
+              ← Back
+            </button>
           </div>
         </div>
       )}
 
+      {/* Step: done */}
       {step === "done" && result && (
-        <div style={{ maxWidth: 520, margin: "40px auto", textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>{result.ok ? "✅" : "❌"}</div>
-          <div style={{ fontSize: 16, marginBottom: 24, color: result.ok ? "#7eca7e" : "#ca7e7e" }}>{result.message}</div>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-            <button className="admin-btn" onClick={reset}>Import another file</button>
-            <a className="admin-btn secondary" href={`/admin/${resource === "comp-building-stats" ? "comp-building-stats" : resource === "comp-buildings" ? "comp-buildings" : "sync"}`}>View table →</a>
+        <div style={{ padding: "1.5rem", borderRadius: 8, background: result.ok ? "#f0fdf4" : "#fef2f2", border: `1px solid ${result.ok ? "#86efac" : "#fca5a5"}` }}>
+          <div style={{ fontWeight: 700, marginBottom: "0.5rem", color: result.ok ? "#15803d" : "#dc2626" }}>
+            {result.ok ? "Import complete" : "Import failed"}
           </div>
+          <div style={{ fontSize: "0.9rem" }}>{result.message}</div>
+          <button onClick={() => { setStep("drop"); setResult(null); setRawRows([]); setHeaders([]); setFileName(""); }}
+            style={{ marginTop: "1rem", padding: "7px 16px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>
+            Import another file
+          </button>
         </div>
       )}
     </div>
