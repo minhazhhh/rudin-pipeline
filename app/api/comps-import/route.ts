@@ -75,7 +75,8 @@ async function importProjects(rows: ImportRow[], mode: ImportMode): Promise<numb
     };
   });
   if (mode === "replace") {
-    await prisma.$transaction([prisma.project.deleteMany(), ...data.map((d) => prisma.project.create({ data: d }))]);
+    await prisma.project.deleteMany();
+    if (data.length) await prisma.project.createMany({ data });
   } else {
     for (const d of data) {
       const existing = await prisma.project.findFirst({ where: { name: d.name } });
@@ -93,7 +94,9 @@ async function importCompBuildings(rows: ImportRow[], mode: ImportMode): Promise
     note: r.note?.trim() || null, totalN: csvNum(r.totalN),
   }));
   if (mode === "replace") {
-    await prisma.$transaction([prisma.compBuildingStat.deleteMany(), prisma.compBuilding.deleteMany(), ...data.map((d) => prisma.compBuilding.create({ data: d }))]);
+    await prisma.compBuildingStat.deleteMany();
+    await prisma.compBuilding.deleteMany();
+    if (data.length) await prisma.compBuilding.createMany({ data });
   } else {
     for (const d of data) await prisma.compBuilding.upsert({ where: { name: d.name }, update: d, create: d });
   }
@@ -104,14 +107,17 @@ async function importCompBuildingStats(rows: ImportRow[], mode: ImportMode): Pro
   const buildingNames = [...new Set(rows.map((r) => csvStr(r.buildingName).trim()).filter(Boolean))];
   const existing = await prisma.compBuilding.findMany({ where: { name: { in: buildingNames } }, select: { id: true, name: true } });
   const idByName = new Map(existing.map((b: { id: string; name: string }) => [b.name, b.id]));
-  const missing = buildingNames.filter((n) => !idByName.has(n));
-  if (missing.length) throw new Error(`These building names don't exist in Comp Buildings — add them first: ${missing.join(", ")}`);
-  const data = rows.map((r) => {
-    const buildingId = idByName.get(csvStr(r.buildingName).trim())!;
-    return { buildingId, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf), avgSf: csvNum(r.avgSf), medSf: csvNum(r.medSf), minSf: csvNum(r.minSf), maxSf: csvNum(r.maxSf), nSf: csvNum(r.nSf) };
-  });
+  // Skip rows whose building name doesn't match a known building (catches footnotes/headers that slip through)
+  const data = rows
+    .map((r) => {
+      const buildingId = idByName.get(csvStr(r.buildingName).trim());
+      if (!buildingId) return null;
+      return { buildingId, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf), avgSf: csvNum(r.avgSf), medSf: csvNum(r.medSf), minSf: csvNum(r.minSf), maxSf: csvNum(r.maxSf), nSf: csvNum(r.nSf) };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
   if (mode === "replace") {
-    await prisma.$transaction([prisma.compBuildingStat.deleteMany(), ...data.map((d) => prisma.compBuildingStat.create({ data: d }))]);
+    await prisma.compBuildingStat.deleteMany();
+    if (data.length) await prisma.compBuildingStat.createMany({ data });
   } else {
     for (const d of data) await prisma.compBuildingStat.upsert({ where: { buildingId_unitType: { buildingId: d.buildingId, unitType: d.unitType } }, update: d, create: d });
   }
@@ -122,11 +128,19 @@ async function importCompBuildingQuarterStats(rows: ImportRow[], mode: ImportMod
   const buildingNames = [...new Set(rows.map((r) => csvStr(r.buildingName).trim()).filter(Boolean))];
   const existing = await prisma.compBuilding.findMany({ where: { name: { in: buildingNames } }, select: { id: true, name: true } });
   const idByName = new Map(existing.map((b: { id: string; name: string }) => [b.name, b.id]));
-  const missing = buildingNames.filter((n) => !idByName.has(n));
-  if (missing.length) throw new Error(`These building names don't exist in Comp Buildings — add them first: ${missing.join(", ")}`);
-  const data = rows.map((r) => ({ buildingId: idByName.get(csvStr(r.buildingName).trim())!, quarter: csvStr(r.quarter), quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), avgPsf: csvNum(r.avgPsf), n: csvNum(r.n) ?? 0 }));
+  // Skip rows without a known building or missing required fields
+  const data = rows
+    .map((r) => {
+      const buildingId = idByName.get(csvStr(r.buildingName).trim());
+      const quarter = csvStr(r.quarter);
+      const unitType = csvStr(r.unitType);
+      if (!buildingId || !quarter || !unitType) return null;
+      return { buildingId, quarter, quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType, avgRent: csvNum(r.avgRent), avgPsf: csvNum(r.avgPsf), n: csvNum(r.n) ?? 0 };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
   if (mode === "replace") {
-    await prisma.$transaction([prisma.compBuildingQuarterStat.deleteMany(), ...data.map((d) => prisma.compBuildingQuarterStat.create({ data: d }))]);
+    await prisma.compBuildingQuarterStat.deleteMany();
+    if (data.length) await prisma.compBuildingQuarterStat.createMany({ data });
   } else {
     for (const d of data) await prisma.compBuildingQuarterStat.upsert({ where: { buildingId_quarter_unitType: { buildingId: d.buildingId, quarter: d.quarter, unitType: d.unitType } }, update: d, create: d });
   }
@@ -134,19 +148,37 @@ async function importCompBuildingQuarterStats(rows: ImportRow[], mode: ImportMod
 }
 
 async function importOverallStats(rows: ImportRow[], mode: ImportMode): Promise<number> {
-  const data = rows.map((r) => ({ unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf), avgSf: csvNum(r.avgSf), medSf: csvNum(r.medSf), minSf: csvNum(r.minSf), maxSf: csvNum(r.maxSf), nSf: csvNum(r.nSf) }));
+  // Deduplicate by unitType — last row wins (matches upsert semantics)
+  const byUnitType = new Map<string, ReturnType<typeof mapOverallStatRow>>();
+  for (const r of rows) {
+    const mapped = mapOverallStatRow(r);
+    if (mapped.unitType) byUnitType.set(mapped.unitType, mapped);
+  }
+  const data = [...byUnitType.values()];
   if (mode === "replace") {
-    await prisma.$transaction([prisma.overallUnitStat.deleteMany(), ...data.map((d) => prisma.overallUnitStat.create({ data: d }))]);
+    await prisma.overallUnitStat.deleteMany();
+    if (data.length) await prisma.overallUnitStat.createMany({ data });
   } else {
     for (const d of data) await prisma.overallUnitStat.upsert({ where: { unitType: d.unitType }, update: d, create: d });
   }
   return data.length;
 }
 
+function mapOverallStatRow(r: ImportRow) {
+  return { unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf), avgSf: csvNum(r.avgSf), medSf: csvNum(r.medSf), minSf: csvNum(r.minSf), maxSf: csvNum(r.maxSf), nSf: csvNum(r.nSf) };
+}
+
 async function importTypeStats(rows: ImportRow[], mode: ImportMode): Promise<number> {
-  const data = rows.map((r) => ({ propertyType: csvStr(r.propertyType), unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf) }));
+  // Deduplicate by propertyType+unitType
+  const byKey = new Map<string, { propertyType: string; unitType: string; avgRent: number | null; medRent: number | null; minRent: number | null; maxRent: number | null; nRent: number | null; avgPsf: number | null; medPsf: number | null; minPsf: number | null; maxPsf: number | null; nPsf: number | null }>();
+  for (const r of rows) {
+    const d = { propertyType: csvStr(r.propertyType), unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf) };
+    if (d.propertyType && d.unitType) byKey.set(`${d.propertyType}::${d.unitType}`, d);
+  }
+  const data = [...byKey.values()];
   if (mode === "replace") {
-    await prisma.$transaction([prisma.typeUnitStat.deleteMany(), ...data.map((d) => prisma.typeUnitStat.create({ data: d }))]);
+    await prisma.typeUnitStat.deleteMany();
+    if (data.length) await prisma.typeUnitStat.createMany({ data });
   } else {
     for (const d of data) await prisma.typeUnitStat.upsert({ where: { propertyType_unitType: { propertyType: d.propertyType, unitType: d.unitType } }, update: d, create: d });
   }
@@ -154,9 +186,16 @@ async function importTypeStats(rows: ImportRow[], mode: ImportMode): Promise<num
 }
 
 async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number> {
-  const data = rows.map((r) => ({ quarter: csvStr(r.quarter), quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent) ?? 0, avgPsf: csvNum(r.avgPsf) }));
+  // Deduplicate by quarter+unitType
+  const byKey = new Map<string, { quarter: string; quarterOrder: number; unitType: string; avgRent: number; avgPsf: number | null }>();
+  for (const r of rows) {
+    const d = { quarter: csvStr(r.quarter), quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent) ?? 0, avgPsf: csvNum(r.avgPsf) };
+    if (d.quarter && d.unitType) byKey.set(`${d.quarter}::${d.unitType}`, d);
+  }
+  const data = [...byKey.values()];
   if (mode === "replace") {
-    await prisma.$transaction([prisma.trendPoint.deleteMany(), ...data.map((d) => prisma.trendPoint.create({ data: d }))]);
+    await prisma.trendPoint.deleteMany();
+    if (data.length) await prisma.trendPoint.createMany({ data });
   } else {
     for (const d of data) await prisma.trendPoint.upsert({ where: { quarter_unitType: { quarter: d.quarter, unitType: d.unitType } }, update: d, create: d });
   }
@@ -191,9 +230,10 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
     });
 
   if (mode === "replace") {
-    await prisma.$transaction([prisma.leaseComp.deleteMany(), ...data.map((d) => prisma.leaseComp.create({ data: d }))]);
+    await prisma.leaseComp.deleteMany();
+    if (data.length) await prisma.leaseComp.createMany({ data });
   } else {
-    for (const d of data) await prisma.leaseComp.create({ data: d });
+    if (data.length) await prisma.leaseComp.createMany({ data });
   }
 
   // Recalculate all derived stats from the full LeaseComp table
