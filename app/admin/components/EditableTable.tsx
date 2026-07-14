@@ -69,6 +69,62 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     setEditCell({ rowIdx: r, colIdx: c });
   }
 
+  // Parse Excel/Sheets clipboard (TSV) and flood-fill the grid from the active cell.
+  // Adds blank rows at the bottom if the paste extends past the current row count.
+  function handlePaste(e: React.ClipboardEvent, startRow: number, startCol: number) {
+    const text = e.clipboardData.getData("text/plain");
+    // Only intercept multi-cell pastes (contains tab or newline beyond a single cell)
+    const lines = text.split(/\r?\n/).filter((l) => l !== "");
+    const cells = lines.map((l) => l.split("\t"));
+    if (cells.length === 1 && cells[0].length === 1) return; // single cell — let browser handle
+
+    e.preventDefault();
+
+    setRows((prev) => {
+      const next = [...prev];
+      const newDirtyKeys: string[] = [];
+
+      for (let ri = 0; ri < cells.length; ri++) {
+        const targetRow = startRow + ri;
+        // Append new empty rows as needed
+        while (next.length <= targetRow) next.push({ ...emptyRow });
+
+        const rowCopy = { ...next[targetRow] };
+        for (let ci = 0; ci < cells[ri].length; ci++) {
+          const colIdx = startCol + ci;
+          if (colIdx >= columns.length) break;
+          const col = columns[colIdx];
+          const raw = cells[ri][ci].trim();
+          let coerced: unknown = raw;
+          if (col.type === "number") coerced = raw === "" ? null : Number(raw.replace(/,/g, ""));
+          else if (col.type === "boolean") coerced = raw.toLowerCase() === "true" || raw === "1" || raw.toLowerCase() === "yes";
+          rowCopy[col.key] = coerced;
+        }
+        next[targetRow] = rowCopy;
+        // Compute key from the original row (before edits) so new rows get new-N keys
+        const key = (() => {
+          const id = next[targetRow][idKey];
+          return typeof id === "string" && id ? id : `new-${targetRow}`;
+        })();
+        newDirtyKeys.push(key);
+      }
+
+      // Update dirty set outside via a queued state update
+      setDirty((prev) => {
+        const n = new Set(prev);
+        newDirtyKeys.forEach((k) => n.add(k));
+        return n;
+      });
+
+      return next;
+    });
+
+    // Move focus to last pasted cell
+    const lastRow = Math.min(startRow + cells.length - 1, startRow + cells.length - 1);
+    const lastCol = Math.min(startCol + (cells[0]?.length ?? 1) - 1, columns.length - 1);
+    setEditCell({ rowIdx: lastRow, colIdx: lastCol });
+  }
+
   // Focus the active input whenever editCell changes
   useEffect(() => {
     if (!editCell) return;
@@ -315,6 +371,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
                             onUpdate={updateCell}
                             onKeyDown={handleKeyDown}
                             onBlur={exitCell}
+                            onPaste={handlePaste}
                           />
                         ) : (
                           <span className={`ss-display${col.type === "boolean" ? " ss-bool" : ""}`}>
@@ -354,13 +411,15 @@ interface ActiveCellProps {
   onUpdate: (idx: number, key: string, value: unknown) => void;
   onKeyDown: (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => void;
   onBlur: () => void;
+  onPaste: (e: React.ClipboardEvent, rowIdx: number, colIdx: number) => void;
 }
 
-function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, onBlur }: ActiveCellProps) {
+function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, onBlur, onPaste }: ActiveCellProps) {
   const value = row[col.key];
 
   const sharedProps = {
     onKeyDown: (e: React.KeyboardEvent) => onKeyDown(e, rowIdx, colIdx),
+    onPaste: (e: React.ClipboardEvent) => onPaste(e, rowIdx, colIdx),
     onBlur,
   };
 
