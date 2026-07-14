@@ -30,6 +30,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
 
   function rowKey(row: Row, idx: number): string {
     const id = row[idKey];
@@ -136,15 +137,29 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     if (failed > 0) alert(`${failed} row(s) could not be deleted.`);
   }
 
-  function toggleRow(key: string) {
+  const allKeys = rows.map((row, idx) => rowKey(row, idx));
+
+  function toggleRow(key: string, shiftKey: boolean) {
     setSelected((prev) => {
       const n = new Set(prev);
+      if (shiftKey && lastChecked && lastChecked !== key) {
+        const from = allKeys.indexOf(lastChecked);
+        const to = allKeys.indexOf(key);
+        if (from !== -1 && to !== -1) {
+          const [lo, hi] = from < to ? [from, to] : [to, from];
+          const adding = !n.has(key);
+          for (let i = lo; i <= hi; i++) {
+            adding ? n.add(allKeys[i]) : n.delete(allKeys[i]);
+          }
+          return n;
+        }
+      }
       n.has(key) ? n.delete(key) : n.add(key);
       return n;
     });
+    setLastChecked(key);
   }
 
-  const allKeys = rows.map((row, idx) => rowKey(row, idx));
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = !allSelected && allKeys.some((k) => selected.has(k));
 
@@ -206,7 +221,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
               return (
                 <tr key={key} className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}>
                   <td style={{ textAlign: "center" }}>
-                    <input type="checkbox" checked={isSelected} onChange={() => toggleRow(key)} />
+                    <input type="checkbox" checked={isSelected} onChange={(e) => toggleRow(key, e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey)} />
                   </td>
                   {columns.map((col) => (
                     <td key={col.key}>{renderCell(col, row, idx, updateCell)}</td>
