@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
   if (unauthorized) return unauthorized;
 
   const projects = await prisma.project.findMany({
-    where: { OR: [{ lat: 0, lng: 0 }, { imageUrl: "" }, { imageUrl: { equals: null } }] },
+    where: { OR: [{ lat: 0, lng: 0 }, { imageUrl: "" }] },
     select: { id: true, name: true, address: true, lat: true, lng: true, imageUrl: true },
     orderBy: { createdAt: "asc" },
   });
