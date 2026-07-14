@@ -46,11 +46,11 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "minRent", label: "Min Rent", required: false, aliases: ["minrent", "min rent", "minimum rent", "min. rent", "rent min"] },
     { key: "maxRent", label: "Max Rent", required: false, aliases: ["maxrent", "max rent", "maximum rent", "max. rent", "rent max"] },
     { key: "nRent", label: "Rent n", required: false, aliases: ["nrent", "n rent", "n (rent)", "rent count", "rent n", "# leases"] },
-    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg$/sf", "$/sf avg", "price per sf", "avg price/sf"] },
-    { key: "medPsf", label: "Median $/SF", required: false, aliases: ["medpsf", "med psf", "median psf", "med $/sf"] },
-    { key: "minPsf", label: "Min $/SF", required: false, aliases: ["minpsf", "min psf", "minimum psf", "min $/sf"] },
-    { key: "maxPsf", label: "Max $/SF", required: false, aliases: ["maxpsf", "max psf", "maximum psf", "max $/sf"] },
-    { key: "nPsf", label: "$/SF n", required: false, aliases: ["npsf", "n psf", "psf count", "psf n"] },
+    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg$/sf", "$/sf avg", "price per sf", "avg price/sf", "avg dollar sf", "avg dollar per sf"] },
+    { key: "medPsf", label: "Median $/SF", required: false, aliases: ["medpsf", "med psf", "median psf", "med $/sf", "med dollar sf"] },
+    { key: "minPsf", label: "Min $/SF", required: false, aliases: ["minpsf", "min psf", "minimum psf", "min $/sf", "min dollar sf"] },
+    { key: "maxPsf", label: "Max $/SF", required: false, aliases: ["maxpsf", "max psf", "maximum psf", "max $/sf", "max dollar sf"] },
+    { key: "nPsf", label: "$/SF n", required: false, aliases: ["npsf", "n psf", "psf count", "psf n", "n dollar sf", "n ( dollar sf)", "n (dollar sf)"] },
     { key: "avgSf", label: "Avg SF", required: false, aliases: ["avgsf", "avg sf", "average sf", "avg sq ft", "sf avg"] },
     { key: "medSf", label: "Median SF", required: false, aliases: ["medsf", "med sf", "median sf"] },
     { key: "minSf", label: "Min SF", required: false, aliases: ["minsf", "min sf", "minimum sf"] },
@@ -84,7 +84,7 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "quarterOrder", label: "Quarter Order", required: false, aliases: ["quarterorder", "quarter order", "order", "sort order", "qtr order", "quarter #"] },
     { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom type", "unit size", "apt type", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent", "avg rent ($)"] },
-    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg$/sf", "$/sf avg"] },
+    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg$/sf", "$/sf avg", "avg dollar sf"] },
     { key: "n", label: "n (leases)", required: false, aliases: ["n", "count", "lease count", "# leases", "leases", "total", "n leases"] },
   ],
   "overall-stats": [
@@ -93,17 +93,17 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "medRent", label: "Median Rent", required: false, aliases: ["medrent", "med rent", "median rent"] },
     { key: "minRent", label: "Min Rent", required: false, aliases: ["minrent", "min rent", "minimum rent"] },
     { key: "maxRent", label: "Max Rent", required: false, aliases: ["maxrent", "max rent", "maximum rent"] },
-    { key: "nRent", label: "Rent n", required: false, aliases: ["nrent", "n rent", "rent count"] },
-    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf"] },
-    { key: "medPsf", label: "Median $/SF", required: false, aliases: ["medpsf", "med psf", "median psf"] },
-    { key: "minPsf", label: "Min $/SF", required: false, aliases: ["minpsf", "min psf", "minimum psf"] },
-    { key: "maxPsf", label: "Max $/SF", required: false, aliases: ["maxpsf", "max psf", "maximum psf"] },
-    { key: "nPsf", label: "$/SF n", required: false, aliases: ["npsf", "n psf", "psf count"] },
+    { key: "nRent", label: "Rent n", required: false, aliases: ["nrent", "n rent", "n (rent)", "rent count"] },
+    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg dollar sf"] },
+    { key: "medPsf", label: "Median $/SF", required: false, aliases: ["medpsf", "med psf", "median psf", "med dollar sf"] },
+    { key: "minPsf", label: "Min $/SF", required: false, aliases: ["minpsf", "min psf", "minimum psf", "min dollar sf"] },
+    { key: "maxPsf", label: "Max $/SF", required: false, aliases: ["maxpsf", "max psf", "maximum psf", "max dollar sf"] },
+    { key: "nPsf", label: "$/SF n", required: false, aliases: ["npsf", "n psf", "psf count", "n dollar sf"] },
     { key: "avgSf", label: "Avg SF", required: false, aliases: ["avgsf", "avg sf", "average sf"] },
     { key: "medSf", label: "Median SF", required: false, aliases: ["medsf", "med sf", "median sf"] },
     { key: "minSf", label: "Min SF", required: false, aliases: ["minsf", "min sf", "minimum sf"] },
     { key: "maxSf", label: "Max SF", required: false, aliases: ["maxsf", "max sf", "maximum sf"] },
-    { key: "nSf", label: "SF n", required: false, aliases: ["nsf", "n sf", "sf count"] },
+    { key: "nSf", label: "SF n", required: false, aliases: ["nsf", "n sf", "sf count", "n (sf)"] },
   ],
   "type-stats": [
     { key: "propertyType", label: "Property Type", required: true, aliases: ["propertytype", "property type", "type", "classification", "class"] },
@@ -112,19 +112,19 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "medRent", label: "Median Rent", required: false, aliases: ["medrent", "med rent", "median rent"] },
     { key: "minRent", label: "Min Rent", required: false, aliases: ["minrent", "min rent", "minimum rent"] },
     { key: "maxRent", label: "Max Rent", required: false, aliases: ["maxrent", "max rent", "maximum rent"] },
-    { key: "nRent", label: "Rent n", required: false, aliases: ["nrent", "n rent", "rent count"] },
-    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf"] },
-    { key: "medPsf", label: "Median $/SF", required: false, aliases: ["medpsf", "med psf", "median psf"] },
-    { key: "minPsf", label: "Min $/SF", required: false, aliases: ["minpsf", "min psf", "minimum psf"] },
-    { key: "maxPsf", label: "Max $/SF", required: false, aliases: ["maxpsf", "max psf", "maximum psf"] },
-    { key: "nPsf", label: "$/SF n", required: false, aliases: ["npsf", "n psf", "psf count"] },
+    { key: "nRent", label: "Rent n", required: false, aliases: ["nrent", "n rent", "n (rent)", "rent count"] },
+    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg dollar sf"] },
+    { key: "medPsf", label: "Median $/SF", required: false, aliases: ["medpsf", "med psf", "median psf", "med dollar sf"] },
+    { key: "minPsf", label: "Min $/SF", required: false, aliases: ["minpsf", "min psf", "minimum psf", "min dollar sf"] },
+    { key: "maxPsf", label: "Max $/SF", required: false, aliases: ["maxpsf", "max psf", "maximum psf", "max dollar sf"] },
+    { key: "nPsf", label: "$/SF n", required: false, aliases: ["npsf", "n psf", "psf count", "n dollar sf", "n ( dollar sf)"] },
   ],
   trend: [
     { key: "quarter", label: "Quarter", required: true, aliases: ["quarter", "qtr", "q", "period", "time period", "date"] },
     { key: "quarterOrder", label: "Quarter Order", required: false, aliases: ["quarterorder", "quarter order", "order", "sort order", "qtr order"] },
     { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent"] },
-    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf"] },
+    { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg dollar sf"] },
   ],
   // Individual lease transaction records — matches Rudin workbook "Data" sheet format
   "lease-comps": [
@@ -155,7 +155,8 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
 };
 
 function normalize(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  // Replace $ with "dollar" BEFORE stripping special chars so "$/SF" stays distinct from "SF"
+  return s.toLowerCase().replace(/\$/g, "dollar").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 // Levenshtein edit distance
