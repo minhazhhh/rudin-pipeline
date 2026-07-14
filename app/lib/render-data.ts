@@ -21,6 +21,7 @@ export async function loadDashboardData() {
 
   const DATA = projects.map((p) => ({
     n: p.name,
+    addr: p.address ?? null,
     sub: p.borough,
     st: p.status,
     ct: p.category,

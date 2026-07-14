@@ -1210,6 +1210,7 @@ function render() {
   var vc = 0, vu = 0, vsf = 0;
   DATA.forEach(function(p, i) {
     if (!isVis(p)) { mkrs.push(null); return; }
+    if (!p.lat && !p.lng) { mkrs.push(null); return; } // skip ungeocoded
     vc++; if (p.u) vu += p.u; if (p.sf) vsf += p.sf;
     var c = SC[p.st] || "#888";
     var r = getR(p);
@@ -1284,7 +1285,7 @@ function render() {
       el.innerHTML = pinHtml;
       el.onclick = (function(idx2, pp, lat, lng) {
         return function() {
-          map.flyTo([lat, lng], 14, { duration: 0.9 });
+          if (lat || lng) map.flyTo([lat, lng], 14, { duration: 0.9 });
           openPeek(pp, idx2);
         };
       })(i, p, p.lat, p.lng);
@@ -1452,6 +1453,7 @@ window.openPeek = function(p, i) {
   var html = "";
   if (p.rudin) html += "<div class=\"peek-rudin-badge\">" + "<img src=\"" + APPLE_SRC + "\" style=\"width:13px;height:13px;object-fit:contain\" alt=\"\"> Rudin Property</div>";
   html += "<div class=\"peek-name\">" + p.n + "</div>";
+  if (p.addr) html += "<div style=\"font-size:11px;color:#aaa;margin:-4px 0 4px;\">" + p.addr + "</div>";
   html += "<div class=\"peek-status\" style=\"color:" + c + "\">" + p.st + (p.ct ? " &middot; " + p.ct : "") + "</div>";
   html += "<div class=\"peek-grid\">";
   html += "<div><div class=\"peek-cell-label\">Units</div><div class=\"peek-cell-val\">" + fmt(p.u) + "</div></div>";
