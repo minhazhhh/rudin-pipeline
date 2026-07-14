@@ -107,7 +107,7 @@ const IMPORT_RESOURCES: Resource[] = [
 ];
 
 type Config = Record<string, string | null>;
-type Step = "drop" | "map" | "preview" | "done" | "multi";
+type Step = "drop" | "autoconfirm" | "map" | "preview" | "done" | "multi";
 type ImportMode = "replace" | "upsert";
 
 type SheetJob = {
@@ -227,6 +227,11 @@ export default function SyncPage() {
           setResource(data.resource); setMappings(data.mappings);
           setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
           setAiReasoning(data.reasoning ?? null);
+          // Skip the wizard if all required fields mapped and at least 3 fields matched
+          const requiredFields = RESOURCE_FIELDS[data.resource].filter((f) => f.required).map((f) => f.key);
+          const mappedSet = new Set(Object.values(data.mappings).filter(Boolean) as string[]);
+          const allRequiredMapped = requiredFields.every((k) => mappedSet.has(k));
+          if (allRequiredMapped && mappedSet.size >= 3) { setStep("autoconfirm"); return; }
         } else {
           const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
           setResource(r); setMappings(autoMapColumns(hdrs, r));
@@ -255,6 +260,11 @@ export default function SyncPage() {
         setResource(data.resource); setMappings(data.mappings);
         setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
         setAiReasoning(data.reasoning ?? null);
+        // Skip the wizard if all required fields mapped and at least 3 fields matched
+        const requiredFields = RESOURCE_FIELDS[data.resource].filter((f) => f.required).map((f) => f.key);
+        const mappedSet = new Set(Object.values(data.mappings).filter(Boolean) as string[]);
+        const allRequiredMapped = requiredFields.every((k) => mappedSet.has(k));
+        if (allRequiredMapped && mappedSet.size >= 3) { setStep("autoconfirm"); return; }
       } else {
         const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
         setResource(r); setMappings(autoMapColumns(hdrs, r));
@@ -498,6 +508,59 @@ export default function SyncPage() {
           <div style={{ color: "#64748b", fontSize: "0.83rem" }}>.csv, .xlsx, .xls — any layout</div>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
             onChange={(e) => { if (e.target.files?.[0]) parseFile(e.target.files[0]); }} />
+        </div>
+      )}
+
+      {/* ── Auto-confirm (single sheet, high-confidence detection) ── */}
+      {step === "autoconfirm" && (
+        <div style={{ marginBottom: "3rem", maxWidth: 520 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1.2rem", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600 }}>{fileName}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 20, padding: "2px 10px", fontSize: "0.78rem", color: "#15803d", fontWeight: 600 }}>
+              ✦ AI-mapped
+            </span>
+          </div>
+
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "1.2rem 1.4rem", marginBottom: "1.4rem" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: "1.05rem", fontWeight: 700 }}>{RESOURCE_LABELS[resource]}</span>
+              <span style={{ color: "#64748b", fontSize: "0.88rem" }}>{rawRows.length.toLocaleString()} rows</span>
+            </div>
+            <div style={{ color: "#475569", fontSize: "0.85rem" }}>
+              All required fields mapped. Ready to import.
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <div style={{ fontWeight: 500, fontSize: "0.88rem", marginBottom: 6 }}>Import mode</div>
+            <div style={{ display: "flex", gap: 20 }}>
+              {(["upsert", "replace"] as ImportMode[]).map((m) => (
+                <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+                  <input type="radio" name="acMode" value={m} checked={mode === m} onChange={() => setMode(m)} />
+                  {m === "upsert" ? <span><strong>Merge</strong> — add / update records</span> : <span><strong>Replace</strong> — delete existing rows first</span>}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={runImport}
+              disabled={submitting}
+              style={{ padding: "9px 22px", background: submitting ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.95rem" }}
+            >
+              {submitting ? "Importing…" : "Import"}
+            </button>
+            <button
+              onClick={() => setStep("map")}
+              style={{ padding: "9px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}
+            >
+              Manually configure columns →
+            </button>
+            <button onClick={resetDrop} style={{ padding: "9px 14px", background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.85rem" }}>
+              ← Start over
+            </button>
+          </div>
         </div>
       )}
 
