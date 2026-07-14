@@ -119,6 +119,9 @@ export default function SyncPage() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [resource, setResource] = useState<Resource>("lease-comps");
   const [mappings, setMappings] = useState<Record<string, string | null>>({});
+  const [aiMappedFields, setAiMappedFields] = useState<Set<string>>(new Set());
+  const [aiReasoning, setAiReasoning] = useState<string | null>(null);
+  const [aiMapping, setAiMapping] = useState(false);
   const [mode, setMode] = useState<ImportMode>("upsert");
   const [submitting, setSubmitting] = useState(false);
   const [importResult, setImportResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -142,11 +145,37 @@ export default function SyncPage() {
     if (!parsed.length) { alert("No data rows found in this file."); return; }
     const hdrs = Object.keys(parsed[0]);
     setRawRows(parsed); setHeaders(hdrs);
-    const detected = detectResource(hdrs);
-    const r = detected?.resource ?? "lease-comps";
-    setResource(r);
-    setMappings(autoMapColumns(hdrs, r));
+    setAiMappedFields(new Set());
+    setAiReasoning(null);
+    setAiMapping(true);
     setStep("map");
+
+    try {
+      const res = await fetch("/api/ai-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headers: hdrs, sampleRows: parsed.slice(0, 5), fileName: file.name }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { resource: Resource; mappings: Record<string, string | null>; reasoning?: string };
+        setResource(data.resource);
+        setMappings(data.mappings);
+        setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
+        setAiReasoning(data.reasoning ?? null);
+      } else {
+        const fallback = detectResource(hdrs);
+        const r = fallback?.resource ?? "lease-comps";
+        setResource(r);
+        setMappings(autoMapColumns(hdrs, r));
+      }
+    } catch {
+      const fallback = detectResource(hdrs);
+      const r = fallback?.resource ?? "lease-comps";
+      setResource(r);
+      setMappings(autoMapColumns(hdrs, r));
+    } finally {
+      setAiMapping(false);
+    }
   }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -155,7 +184,7 @@ export default function SyncPage() {
     if (file) parseFile(file);
   }, [parseFile]);
 
-  function onResourceChange(r: Resource) { setResource(r); setMappings(autoMapColumns(headers, r)); }
+  function onResourceChange(r: Resource) { setResource(r); setMappings(autoMapColumns(headers, r)); setAiMappedFields(new Set()); }
 
   function setMapping(header: string, dbField: string | null) {
     setMappings((m) => {
@@ -191,7 +220,7 @@ export default function SyncPage() {
     } finally { setSubmitting(false); setStep("done"); }
   }
 
-  function resetDrop() { setStep("drop"); setImportResult(null); setRawRows([]); setHeaders([]); setFileName(""); }
+  function resetDrop() { setStep("drop"); setImportResult(null); setRawRows([]); setHeaders([]); setFileName(""); setAiMappedFields(new Set()); setAiReasoning(null); }
 
   // ── Sheet sync ────────────────────────────────────────────────────────────
 
@@ -260,66 +289,94 @@ export default function SyncPage() {
       {/* ── Map ── */}
       {step === "map" && (
         <div style={{ marginBottom: "3rem" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: "1.2rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.2rem", flexWrap: "wrap" }}>
             <span style={{ fontWeight: 600 }}>{fileName}</span>
             <span style={{ color: "#64748b", fontSize: "0.88rem" }}>{rawRows.length.toLocaleString()} rows</span>
+            {!aiMapping && aiMappedFields.size > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 20, padding: "2px 10px", fontSize: "0.78rem", color: "#15803d", fontWeight: 600 }}>
+                ✦ AI-mapped
+              </span>
+            )}
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.88rem", marginLeft: "auto" }}>
               Importing into:&nbsp;
               <select value={resource} onChange={(e) => onResourceChange(e.target.value as Resource)}
+                disabled={aiMapping}
                 style={{ padding: "3px 8px", borderRadius: 5, border: "1px solid #cbd5e1", fontSize: "0.88rem" }}>
                 {IMPORT_RESOURCES.map((r) => <option key={r} value={r}>{RESOURCE_LABELS[r]}</option>)}
               </select>
             </label>
           </div>
 
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", marginBottom: "1rem" }}>
-            <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>File column</th>
-                <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Maps to</th>
-                <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Sample</th>
-              </tr>
-            </thead>
-            <tbody>
-              {headers.map((h) => {
-                const mapped = mappings[h];
-                return (
-                  <tr key={h} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "6px 12px", fontFamily: "monospace", color: mapped ? "#15803d" : "#dc2626" }}>{h}</td>
-                    <td style={{ padding: "6px 12px" }}>
-                      <select value={mapped ?? ""} onChange={(e) => setMapping(h, e.target.value || null)}
-                        style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: "0.82rem", background: mapped ? "#f0fdf4" : "#fff7f7" }}>
-                        <option value="">(skip)</option>
-                        {RESOURCE_FIELDS[resource].map((f) => (
-                          <option key={f.key} value={f.key}>{f.label}{f.required ? " *" : ""}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td style={{ padding: "6px 12px", color: "#64748b", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {rawRows[0]?.[h] ?? ""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {missingRequired.length > 0 && (
-            <div style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6, padding: "8px 12px", marginBottom: "1rem", fontSize: "0.84rem" }}>
-              Missing required fields: {missingRequired.join(", ")}
+          {aiMapping ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 1rem", gap: "0.75rem", color: "#475569" }}>
+              <div style={{ width: 32, height: 32, border: "3px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+              <div style={{ fontWeight: 600, fontSize: "1rem" }}>Claude is reading your file…</div>
+              <div style={{ fontSize: "0.83rem", color: "#94a3b8" }}>Detecting resource type and mapping all columns</div>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-          )}
+          ) : (
+            <>
+              {aiReasoning && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "8px 14px", marginBottom: "1rem", fontSize: "0.83rem", color: "#166534" }}>
+                  <strong>✦ Claude:</strong> {aiReasoning}
+                </div>
+              )}
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", marginBottom: "1rem" }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9" }}>
+                    <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>File column</th>
+                    <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Maps to</th>
+                    <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Sample</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {headers.map((h) => {
+                    const mapped = mappings[h];
+                    const wasAiMapped = aiMappedFields.has(h);
+                    return (
+                      <tr key={h} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                        <td style={{ padding: "6px 12px", fontFamily: "monospace", color: mapped ? "#15803d" : "#94a3b8" }}>
+                          {h}
+                          {wasAiMapped && mapped && (
+                            <span title="Mapped by Claude" style={{ marginLeft: 6, fontSize: "0.68rem", background: "#dcfce7", color: "#15803d", borderRadius: 4, padding: "1px 5px", fontFamily: "sans-serif", fontWeight: 700 }}>AI</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "6px 12px" }}>
+                          <select value={mapped ?? ""} onChange={(e) => setMapping(h, e.target.value || null)}
+                            style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: "0.82rem", background: mapped ? "#f0fdf4" : "#fff" }}>
+                            <option value="">(skip)</option>
+                            {RESOURCE_FIELDS[resource].map((f) => (
+                              <option key={f.key} value={f.key}>{f.label}{f.required ? " *" : ""}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ padding: "6px 12px", color: "#64748b", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {rawRows[0]?.[h] ?? ""}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setStep("preview")} disabled={missingRequired.length > 0}
-              style={{ padding: "8px 18px", background: missingRequired.length ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: missingRequired.length ? "not-allowed" : "pointer", fontWeight: 600 }}>
-              Review &amp; Import →
-            </button>
-            <button onClick={resetDrop}
-              style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
-              ← Start over
-            </button>
-          </div>
+              {missingRequired.length > 0 && (
+                <div style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6, padding: "8px 12px", marginBottom: "1rem", fontSize: "0.84rem" }}>
+                  Missing required fields: {missingRequired.join(", ")}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setStep("preview")} disabled={missingRequired.length > 0}
+                  style={{ padding: "8px 18px", background: missingRequired.length ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: missingRequired.length ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                  Review &amp; Import →
+                </button>
+                <button onClick={resetDrop}
+                  style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
+                  ← Start over
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
