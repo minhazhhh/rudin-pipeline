@@ -62,14 +62,39 @@ If you are not confident in the exact coordinates, return null for both fields.`
   }
 }
 
-// GET — list projects that need geocoding
+async function fetchWikipediaImage(query: string): Promise<string | null> {
+  try {
+    // Search Wikipedia for the building
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=1&format=json&origin=*`;
+    const searchRes = await fetch(searchUrl, { headers: { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" } });
+    if (!searchRes.ok) return null;
+    const searchData = await searchRes.json() as { query: { search: { title: string }[] } };
+    const title = searchData.query?.search?.[0]?.title;
+    if (!title) return null;
+
+    // Fetch the page summary which includes a thumbnail
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+    const summaryRes = await fetch(summaryUrl, { headers: { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" } });
+    if (!summaryRes.ok) return null;
+    const summary = await summaryRes.json() as { thumbnail?: { source: string }; originalimage?: { source: string } };
+
+    // Prefer the full original image; fall back to thumbnail
+    const imgUrl = summary.originalimage?.source || summary.thumbnail?.source || null;
+    if (!imgUrl) return null;
+
+    // Only accept actual building/place images (not icons/flags/logos which are tiny)
+    return imgUrl;
+  } catch { return null; }
+}
+
+// GET — list projects that need geocoding or images
 export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
 
   const projects = await prisma.project.findMany({
-    where: { OR: [{ lat: 0, lng: 0 }] },
-    select: { id: true, name: true, address: true },
+    where: { OR: [{ lat: 0, lng: 0 }, { imageUrl: "" }, { imageUrl: { equals: null } }] },
+    select: { id: true, name: true, address: true, lat: true, lng: true, imageUrl: true },
     orderBy: { createdAt: "asc" },
   });
 
@@ -84,7 +109,7 @@ export async function POST(req: NextRequest) {
   const { id, addressOverride } = await req.json() as { id: string; addressOverride?: string };
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, name: true, address: true },
+    select: { id: true, name: true, address: true, lat: true, lng: true, imageUrl: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!project.name) return NextResponse.json({ ok: false, reason: "no name" });
@@ -97,22 +122,33 @@ export async function POST(req: NextRequest) {
 
   const address = project.address?.trim() || null;
 
-  // If we have an address, try it as-is (may already contain city)
-  // then fall back to name + "New York, NY"
+  // Geocode if needed
+  const needsGeocode = !project.lat && !project.lng || (project.lat === 0 && project.lng === 0);
   let coords: { lat: number; lng: number } | null = null;
-  if (address) {
-    coords = await geocodeViaNominatim(address, false);
-    if (!coords) coords = await geocodeViaNominatim(address, true);
+  if (needsGeocode) {
+    if (address) {
+      coords = await geocodeViaNominatim(address, false);
+      if (!coords) coords = await geocodeViaNominatim(address, true);
+    }
+    if (!coords) coords = await geocodeViaNominatim(project.name, true);
+    if (!coords) coords = await geocodeViaClaude(project.name, address);
+    console.log(`[geocode] "${project.name}" →`, coords ?? "not found");
+    if (!coords) return NextResponse.json({ ok: false, reason: "not found" });
   }
-  if (!coords) coords = await geocodeViaNominatim(project.name, true);
 
-  // Fall back to Claude which knows named buildings by reputation
-  if (!coords) coords = await geocodeViaClaude(project.name, address);
+  // Fetch Wikipedia image if missing
+  const needsImage = !project.imageUrl?.trim();
+  let imageUrl: string | null = null;
+  if (needsImage) {
+    imageUrl = await fetchWikipediaImage(project.name);
+    if (!imageUrl && address) imageUrl = await fetchWikipediaImage(address.split(",")[0]);
+    console.log(`[image] "${project.name}" →`, imageUrl ?? "not found");
+  }
 
-  console.log(`[geocode] "${project.name}" (address: ${address ?? "none"}) →`, coords ?? "not found");
+  const update: Record<string, unknown> = {};
+  if (coords) { update.lat = coords.lat; update.lng = coords.lng; }
+  if (imageUrl) update.imageUrl = imageUrl;
+  if (Object.keys(update).length) await prisma.project.update({ where: { id }, data: update });
 
-  if (!coords) return NextResponse.json({ ok: false, reason: "not found" });
-
-  await prisma.project.update({ where: { id }, data: coords });
-  return NextResponse.json({ ok: true, ...coords });
+  return NextResponse.json({ ok: true, ...(coords ?? {}), imageUrl });
 }
