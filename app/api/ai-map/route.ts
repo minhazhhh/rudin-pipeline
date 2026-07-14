@@ -27,9 +27,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No headers provided" }, { status: 400 });
   }
 
-  const sample = sampleRows.slice(0, 5);
+  const sample = sampleRows.slice(0, 10);
+
+  // Summarise which columns actually have data — helps Claude break ties
+  const columnsWithData = headers.filter((h) =>
+    sample.some((row) => row[h] && row[h].trim() !== "")
+  );
+  const columnsEmpty = headers.filter((h) => !columnsWithData.includes(h));
+
   const sampleText = sample.length
-    ? `\nSample data rows (up to 5):\n${JSON.stringify(sample, null, 2)}`
+    ? `\nSample data rows (up to 10):\n${JSON.stringify(sample, null, 2)}\n\nColumns WITH data in sample: ${JSON.stringify(columnsWithData)}\nColumns EMPTY in sample (lower priority for mapping): ${JSON.stringify(columnsEmpty)}`
     : "";
 
   const prompt = `You are a data import assistant for a real estate pipeline application. Your job is to identify which database resource a spreadsheet belongs to and map its columns to the correct database fields.
@@ -54,9 +61,12 @@ Key signals to look for in the VALUES:
 - Property type breakdown (class A/B/C) + unit types → type-stats
 
 Rules:
-- A database field can only be mapped to ONE column
-- Return null for columns that don't clearly match any field in the chosen resource
+- A database field can only be mapped to ONE column — when two columns could both map to the same field, pick the one that has actual sample data (non-empty values). If both have data, pick the semantically stronger match.
+- "First Listed", "Listed Date", "Available Date" are all valid date fields — map them to leaseDate if no better date column exists or if the "Leased Date" column is empty.
+- "Beds" or "Bedrooms" with numeric values (0=studio, 1, 2, 3) is unitType — map it even if another column like "Floorplan Name" also suggests unitType; prefer the numeric beds column for unitType.
+- Return null for columns that have no reasonable match (floor #, baths, active listing boolean, amenities arrays, pivot columns)
 - Use both the column name AND the sample values — a column named "Asking Rent" with values like "$3,530" is grossRent in lease-comps
+- Columns with empty sample values are lower priority than columns with actual data when both could fill the same field
 
 Respond with ONLY valid JSON, no markdown, no explanation outside the JSON:
 {

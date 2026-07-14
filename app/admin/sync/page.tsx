@@ -154,7 +154,7 @@ export default function SyncPage() {
       const res = await fetch("/api/ai-map", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ headers: hdrs, sampleRows: parsed.slice(0, 5), fileName: file.name }),
+        body: JSON.stringify({ headers: hdrs, sampleRows: parsed.slice(0, 10), fileName: file.name }),
       });
       if (res.ok) {
         const data = await res.json() as { resource: Resource; mappings: Record<string, string | null>; reasoning?: string };
