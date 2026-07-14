@@ -51,6 +51,7 @@ async function importResource(resource: Resource, rows: ImportRow[], mode: Impor
     case "type-stats": return importTypeStats(rows, mode);
     case "trend": return importTrend(rows, mode);
     case "lease-comps": return importLeaseComps(rows, mode);
+    case "comp-building-units": return importCompBuildingUnits(rows, mode);
   }
 }
 
@@ -199,6 +200,49 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
   const affectedBuildings = [...new Set(data.map((d) => d.building))];
   await recalculateLeaseCompStats(affectedBuildings);
 
+  return data.length;
+}
+
+async function importCompBuildingUnits(rows: ImportRow[], mode: ImportMode): Promise<number> {
+  const buildingNames = [...new Set(rows.map((r) => csvStr(r.buildingName).trim()).filter(Boolean))];
+  const existing = await prisma.compBuilding.findMany({ where: { name: { in: buildingNames } }, select: { id: true, name: true } });
+  const idByName = new Map(existing.map((b: { id: string; name: string }) => [b.name, b.id]));
+  // Auto-create any buildings that don't exist yet
+  for (const name of buildingNames) {
+    if (!idByName.has(name)) {
+      const created = await prisma.compBuilding.create({ data: { name, propertyType: "Market" } });
+      idByName.set(name, created.id);
+    }
+  }
+  const data = rows
+    .filter((r) => csvStr(r.buildingName).trim())
+    .map((r) => ({
+      buildingId: idByName.get(csvStr(r.buildingName).trim())!,
+      unitName: r.unitName?.trim() || null,
+      unitNumber: r.unitNumber?.trim() || null,
+      unitType: r.unitType?.trim() || null,
+      floor: csvNum(r.floor) != null ? Math.round(csvNum(r.floor)!) : null,
+      sf: csvNum(r.sf),
+      bedrooms: csvNum(r.bedrooms) != null ? Math.round(csvNum(r.bedrooms)!) : null,
+      bathrooms: csvNum(r.bathrooms),
+      askingRent: csvNum(r.askingRent),
+      netRent: csvNum(r.netRent),
+      grossRent: csvNum(r.grossRent),
+      psf: csvNum(r.psf),
+      concessions: r.concessions?.trim() || null,
+      leaseDate: r.leaseDate?.trim() || null,
+      leaseStartDate: r.leaseStartDate?.trim() || null,
+      leaseEndDate: r.leaseEndDate?.trim() || null,
+      leaseTerm: csvNum(r.leaseTerm) != null ? Math.round(csvNum(r.leaseTerm)!) : null,
+      status: r.status?.trim() || null,
+      notes: r.notes?.trim() || null,
+    }));
+  if (mode === "replace") {
+    const ids = [...idByName.values()];
+    await prisma.$transaction([prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: ids } } }), ...data.map((d) => prisma.compBuildingUnit.create({ data: d }))]);
+  } else {
+    for (const d of data) await prisma.compBuildingUnit.create({ data: d });
+  }
   return data.length;
 }
 
