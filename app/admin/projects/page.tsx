@@ -1,5 +1,6 @@
 import { prisma } from "@/app/lib/prisma";
 import EditableTable, { Column, Row } from "../components/EditableTable";
+import GeocodeButton from "./GeocodeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,8 @@ export default async function ProjectsAdminPage() {
     compBuildingName: p.compBuildingName,
   }));
 
+  const missingCoords = projects.filter((p) => !p.lat && !p.lng || (p.lat === 0 && p.lng === 0)).length;
+
   return (
     <div>
       <h1>Pipeline Projects</h1>
@@ -85,6 +88,9 @@ export default async function ProjectsAdminPage() {
         The buildings shown on the public map + list. Edits save immediately per row. Bulk updates can also be pulled
         from a Google Sheet — see Sheet Sync.
       </p>
+      {missingCoords > 0 && (
+        <GeocodeButton missingCount={missingCoords} />
+      )}
       <EditableTable columns={COLUMNS} apiBase="/api/projects" initialRows={rows} emptyRow={EMPTY_ROW} />
     </div>
   );
