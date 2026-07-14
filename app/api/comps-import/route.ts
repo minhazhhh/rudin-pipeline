@@ -169,6 +169,9 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
         const parsed = new Date(r.leaseDate.trim());
         if (!isNaN(parsed.getTime())) leaseDate = parsed;
       }
+      // Derive quarter from leaseDate if not explicitly provided
+      let quarter = r.quarter?.trim() || null;
+      if (!quarter && leaseDate) quarter = quarterFromDate(leaseDate);
       return {
         building: csvStr(r.building),
         unit: r.unit?.trim() || null,
@@ -179,14 +182,144 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
         netRent: csvNum(r.netRent),
         concession: csvNum(r.concession),
         leaseDate,
-        quarter: r.quarter?.trim() || null,
+        quarter,
         propertyType: r.propertyType?.trim() || null,
       };
     });
+
   if (mode === "replace") {
     await prisma.$transaction([prisma.leaseComp.deleteMany(), ...data.map((d) => prisma.leaseComp.create({ data: d }))]);
   } else {
     for (const d of data) await prisma.leaseComp.create({ data: d });
   }
+
+  // Recalculate all derived stats from the full LeaseComp table
+  const affectedBuildings = [...new Set(data.map((d) => d.building))];
+  await recalculateLeaseCompStats(affectedBuildings);
+
   return data.length;
+}
+
+function quarterFromDate(d: Date): string {
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `Q${q} ${d.getFullYear()}`;
+}
+
+function quarterOrder(q: string): number {
+  const m = q.match(/Q(\d)\s+(\d{4})/);
+  if (!m) return 0;
+  return parseInt(m[2]) * 10 + parseInt(m[1]);
+}
+
+function median(nums: number[]): number | null {
+  if (!nums.length) return null;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+function computeStats(nums: number[]) {
+  if (!nums.length) return { avg: null, med: null, min: null, max: null, n: 0 };
+  return {
+    avg: nums.reduce((a, b) => a + b, 0) / nums.length,
+    med: median(nums),
+    min: Math.min(...nums),
+    max: Math.max(...nums),
+    n: nums.length,
+  };
+}
+
+const ALLOWED_UNIT_TYPES = ["ST", "1BD", "2BD", "3BD", "4BD"];
+
+async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void> {
+  const buildings = await prisma.compBuilding.findMany({
+    where: { name: { in: buildingNames } },
+    select: { id: true, name: true },
+  });
+
+  // Auto-create any buildings that don't exist yet
+  const existingNames = new Set(buildings.map((b: { id: string; name: string }) => b.name));
+  for (const name of buildingNames) {
+    if (!existingNames.has(name)) {
+      const created = await prisma.compBuilding.create({ data: { name } });
+      buildings.push(created);
+    }
+  }
+
+  const buildingIds = buildings.map((b: { id: string; name: string }) => b.id);
+
+  // Fetch all lease comps for these buildings
+  const leases = await prisma.leaseComp.findMany({
+    where: { building: { in: buildingNames } },
+  });
+
+  // Update totalN per building
+  for (const b of buildings) {
+    const count = leases.filter((l: { building: string }) => l.building === b.name).length;
+    await prisma.compBuilding.update({ where: { id: b.id }, data: { totalN: count } });
+  }
+
+  // CompBuildingStat — replace for affected buildings
+  await prisma.compBuildingStat.deleteMany({ where: { buildingId: { in: buildingIds } } });
+  for (const b of buildings) {
+    const bLeases = leases.filter((l: { building: string }) => l.building === b.name);
+    const unitTypes = [...new Set(bLeases.map((l: { unitType: string | null }) => l.unitType).filter(Boolean) as string[])];
+    for (const ut of unitTypes) {
+      if (!ALLOWED_UNIT_TYPES.includes(ut)) continue;
+      const utLeases = bLeases.filter((l: { unitType: string | null }) => l.unitType === ut);
+      const rent = computeStats(utLeases.map((l: { grossRent: number | null }) => l.grossRent).filter((n: number | null): n is number => n !== null));
+      const psf  = computeStats(utLeases.map((l: { grossPsf: number | null }) => l.grossPsf).filter((n: number | null): n is number => n !== null));
+      const sf   = computeStats(utLeases.map((l: { unitSf: number | null }) => l.unitSf).filter((n: number | null): n is number => n !== null));
+      await prisma.compBuildingStat.create({
+        data: {
+          buildingId: b.id, unitType: ut,
+          avgRent: rent.avg, medRent: rent.med, minRent: rent.min, maxRent: rent.max, nRent: rent.n,
+          avgPsf: psf.avg,  medPsf: psf.med,  minPsf: psf.min,  maxPsf: psf.max,  nPsf: psf.n,
+          avgSf:  sf.avg,   medSf:  sf.med,   minSf:  sf.min,   maxSf:  sf.max,   nSf:  sf.n,
+        },
+      });
+    }
+  }
+
+  // CompBuildingQuarterStat — upsert per building × quarter × unitType
+  for (const b of buildings) {
+    const bLeases = leases.filter((l: { building: string; quarter: string | null }) => l.building === b.name && l.quarter);
+    const quarters = [...new Set(bLeases.map((l: { quarter: string | null }) => l.quarter) as string[])];
+    for (const q of quarters) {
+      const qLeases = bLeases.filter((l: { quarter: string | null }) => l.quarter === q);
+      const unitTypes = [...new Set(qLeases.map((l: { unitType: string | null }) => l.unitType).filter(Boolean) as string[])];
+      for (const ut of unitTypes) {
+        if (!ALLOWED_UNIT_TYPES.includes(ut)) continue;
+        const utLeases = qLeases.filter((l: { unitType: string | null }) => l.unitType === ut);
+        const rent = computeStats(utLeases.map((l: { grossRent: number | null }) => l.grossRent).filter((n: number | null): n is number => n !== null));
+        const psf  = computeStats(utLeases.map((l: { grossPsf: number | null }) => l.grossPsf).filter((n: number | null): n is number => n !== null));
+        await prisma.compBuildingQuarterStat.upsert({
+          where: { buildingId_quarter_unitType: { buildingId: b.id, quarter: q, unitType: ut } },
+          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.length },
+          update: { avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.length },
+        });
+      }
+    }
+  }
+
+  // TrendPoint — recalculate market-wide from ALL leases in DB
+  const allLeases = await prisma.leaseComp.findMany({ where: { quarter: { not: null } } });
+  const trendMap = new Map<string, { rent: number[]; psf: number[]; qOrder: number }>();
+  for (const l of allLeases) {
+    if (!l.quarter || !l.unitType || !ALLOWED_UNIT_TYPES.includes(l.unitType)) continue;
+    const key = `${l.quarter}::${l.unitType}`;
+    if (!trendMap.has(key)) trendMap.set(key, { rent: [], psf: [], qOrder: quarterOrder(l.quarter) });
+    if (l.grossRent !== null) trendMap.get(key)!.rent.push(l.grossRent);
+    if (l.grossPsf  !== null) trendMap.get(key)!.psf.push(l.grossPsf);
+  }
+  for (const [key, { rent, psf, qOrder }] of trendMap) {
+    const [q, ut] = key.split("::");
+    const avgRent = rent.length ? rent.reduce((a, b) => a + b, 0) / rent.length : 0;
+    const avgPsf  = psf.length  ? psf.reduce((a, b) => a + b, 0) / psf.length   : null;
+    await prisma.trendPoint.upsert({
+      where: { quarter_unitType: { quarter: q, unitType: ut } },
+      create: { quarter: q, quarterOrder: qOrder, unitType: ut, avgRent, avgPsf },
+      update: { avgRent, avgPsf },
+    });
+  }
 }

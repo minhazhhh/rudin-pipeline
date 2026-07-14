@@ -2619,13 +2619,26 @@ function buildCDReport() {
   const trendUTs = [...new Set(trendBldgs.flatMap(b => Object.values(AGG.bldg_trend[b]).flatMap(q => Object.keys(q))))]
     .sort((a, b) => AGG.ut_order.indexOf(a) - AGG.ut_order.indexOf(b));
   let singleUT = trendUTs.includes('1BD') ? '1BD' : (trendUTs[0] || 'ST');
-  let qFrom = AGG.quarters[0];
-  let qTo = AGG.quarters[AGG.quarters.length - 1];
+
+  // Convert "Q2 2023" → "2023-04" (YYYY-MM of quarter start)
+  function quarterToYearMonth(q) {
+    const m = q && q.match(/Q(\d)\s+(\d{4})/i);
+    if (!m) return null;
+    const month = String((parseInt(m[1]) - 1) * 3 + 1).padStart(2, '0');
+    return `${m[2]}-${month}`;
+  }
+
+  const _firstYM = quarterToYearMonth(AGG.quarters[0]) || '2020-01';
+  const _lastYM  = quarterToYearMonth(AGG.quarters[AGG.quarters.length - 1]) || '2030-12';
+  let dateFrom = _firstYM;
+  let dateTo   = _lastYM;
 
   function filteredQs() {
-    const fi = AGG.quarters.indexOf(qFrom);
-    const ti = AGG.quarters.indexOf(qTo);
-    return AGG.quarters.slice(fi < 0 ? 0 : fi, ti < 0 ? AGG.quarters.length : ti + 1);
+    return AGG.quarters.filter(q => {
+      const ym = quarterToYearMonth(q);
+      if (!ym) return true;
+      return ym >= dateFrom && ym <= dateTo;
+    });
   }
 
   function chip(label, active, color, onClick) {
@@ -2638,31 +2651,29 @@ function buildCDReport() {
   }
 
   function quarterPicker(idPrefix) {
+    const inputStyle = `padding:5px 10px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer;min-width:140px`;
     return `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="eyebrow">From</span>
-        <select id="${idPrefix}-from" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
-          ${AGG.quarters.map(q => `<option value="${q}"${q === qFrom ? ' selected' : ''}>${q}</option>`).join('')}
-        </select>
+        <input type="month" id="${idPrefix}-from" value="${dateFrom}" min="${_firstYM}" max="${_lastYM}" style="${inputStyle}">
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="eyebrow">To</span>
-        <select id="${idPrefix}-to" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
-          ${AGG.quarters.map(q => `<option value="${q}"${q === qTo ? ' selected' : ''}>${q}</option>`).join('')}
-        </select>
+        <input type="month" id="${idPrefix}-to" value="${dateTo}" min="${_firstYM}" max="${_lastYM}" style="${inputStyle}">
       </div>
+      <span style="font-size:11px;color:var(--ink-soft)">${filteredQs().length} quarter${filteredQs().length === 1 ? '' : 's'}</span>
     </div>`;
   }
 
   function wireQuarterPicker(idPrefix) {
-    document.getElementById(`${idPrefix}-from`).onchange = function () {
-      qFrom = this.value;
-      if (AGG.quarters.indexOf(qFrom) > AGG.quarters.indexOf(qTo)) qTo = qFrom;
+    document.getElementById(`${idPrefix}-from`).oninput = function () {
+      dateFrom = this.value;
+      if (dateTo < dateFrom) dateTo = dateFrom;
       render();
     };
-    document.getElementById(`${idPrefix}-to`).onchange = function () {
-      qTo = this.value;
-      if (AGG.quarters.indexOf(qTo) < AGG.quarters.indexOf(qFrom)) qFrom = qTo;
+    document.getElementById(`${idPrefix}-to`).oninput = function () {
+      dateTo = this.value;
+      if (dateFrom > dateTo) dateFrom = dateTo;
       render();
     };
   }
