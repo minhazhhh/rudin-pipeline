@@ -219,6 +219,12 @@ export default function SyncPage() {
 
       if (res.ok && resource === "projects") {
         setStep("done");
+        // Build name→address lookup from the file we just imported
+        const addressByName: Record<string, string> = {};
+        for (const row of buildMappedRows()) {
+          if (row.name && row.address) addressByName[row.name] = row.address;
+        }
+
         // Auto-geocode any projects missing coordinates
         const listRes = await fetch("/api/admin/geocode-projects");
         const { projects: missing } = await listRes.json() as { projects: { id: string; name: string; address: string | null }[] };
@@ -229,10 +235,11 @@ export default function SyncPage() {
             const p = missing[i];
             setGeocodeStatus(`Locating on map: ${p.name} (${i + 1}/${missing.length})`);
             try {
+              const addressOverride = addressByName[p.name] || undefined;
               const gr = await fetch("/api/admin/geocode-projects", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: p.id }),
+                body: JSON.stringify({ id: p.id, addressOverride }),
               });
               const gdata = await gr.json() as { ok: boolean; reason?: string };
               if (gdata.ok) geocoded++; else notFound++;
@@ -240,9 +247,9 @@ export default function SyncPage() {
             if (i < missing.length - 1) await new Promise((r) => setTimeout(r, 1100));
           }
           if (geocoded > 0) {
-            setGeocodeStatus(`Map coordinates set for ${geocoded} building${geocoded !== 1 ? "s" : ""}${notFound ? ` (${notFound} not found — try adding an Address column)` : "."}`);
+            setGeocodeStatus(`Map coordinates set for ${geocoded} building${geocoded !== 1 ? "s" : ""}${notFound ? ` (${notFound} not found)` : "."}`);
           } else {
-            setGeocodeStatus(`Could not locate any buildings. Try adding an "Address" column with street addresses.`);
+            setGeocodeStatus(`Could not locate buildings on map. Check Vercel logs for details.`);
           }
         }
         return;
