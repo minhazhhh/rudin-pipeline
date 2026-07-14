@@ -125,6 +125,7 @@ export default function SyncPage() {
   const [mode, setMode] = useState<ImportMode>("upsert");
   const [submitting, setSubmitting] = useState(false);
   const [importResult, setImportResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [geocodeStatus, setGeocodeStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -204,7 +205,7 @@ export default function SyncPage() {
   }
 
   async function runImport() {
-    setSubmitting(true); setImportResult(null);
+    setSubmitting(true); setImportResult(null); setGeocodeStatus(null);
     try {
       const res = await fetch("/api/comps-import", {
         method: "POST",
@@ -215,6 +216,28 @@ export default function SyncPage() {
       setImportResult(res.ok
         ? { ok: true, message: `${mode === "replace" ? "Replaced all data with" : "Merged"} ${body.rowsImported} rows into ${RESOURCE_LABELS[resource]}.` }
         : { ok: false, message: body.error ?? "Unknown error" });
+
+      if (res.ok && resource === "projects") {
+        setStep("done");
+        // Auto-geocode any projects missing coordinates
+        const listRes = await fetch("/api/admin/geocode-projects");
+        const { projects } = await listRes.json() as { projects: { id: string; name: string }[] };
+        if (projects.length > 0) {
+          let done = 0;
+          for (const p of projects) {
+            setGeocodeStatus(`Locating on map: ${p.name} (${done + 1}/${projects.length})`);
+            await fetch("/api/admin/geocode-projects", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: p.id }),
+            });
+            done++;
+            if (done < projects.length) await new Promise((r) => setTimeout(r, 1100));
+          }
+          setGeocodeStatus(`Map coordinates set for ${done} building${done !== 1 ? "s" : ""}.`);
+        }
+        return;
+      }
     } catch (e) {
       setImportResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
     } finally { setSubmitting(false); setStep("done"); }
@@ -444,6 +467,11 @@ export default function SyncPage() {
             {importResult.ok ? "Import complete" : "Import failed"}
           </div>
           <div style={{ fontSize: "0.88rem" }}>{importResult.message}</div>
+          {geocodeStatus && (
+            <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "#2563eb" }}>
+              {geocodeStatus.startsWith("Locating") ? "📍 " : "✓ "}{geocodeStatus}
+            </div>
+          )}
           <button onClick={resetDrop}
             style={{ marginTop: "0.75rem", padding: "6px 14px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
             Import another file

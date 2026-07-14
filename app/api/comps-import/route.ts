@@ -54,27 +54,25 @@ async function importResource(resource: Resource, rows: ImportRow[], mode: Impor
   }
 }
 
-async function geocodeAddress(query: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const encoded = encodeURIComponent(query + ", New York, NY");
-    const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&countrycodes=us`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" },
-    });
-    if (!res.ok) return null;
-    const results = await res.json() as { lat: string; lon: string }[];
-    if (!results.length) return null;
-    return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
-  } catch {
-    return null;
-  }
-}
-
 async function importProjects(rows: ImportRow[], mode: ImportMode): Promise<number> {
-  const data: Awaited<ReturnType<typeof buildProjectData>>[] = [];
-  for (const r of rows) {
-    data.push(await buildProjectData(r));
-  }
+  const data = rows.map((r) => {
+    let affBands = undefined;
+    if (r.affBandsJson?.trim()) {
+      try { affBands = JSON.parse(r.affBandsJson); }
+      catch { throw new Error(`Invalid affBandsJson for project "${r.name}": ${r.affBandsJson}`); }
+    }
+    return {
+      name: csvStr(r.name), borough: csvStr(r.borough), status: csvStr(r.status),
+      category: csvStr(r.category), units: csvNum(r.units), sqft: csvNum(r.sqft),
+      deliveryLabel: csvStr(r.deliveryLabel), sponsor: csvStr(r.sponsor), lender: csvStr(r.lender),
+      address: r.address?.trim() || null,
+      lat: csvNum(r.lat) ?? 0, lng: csvNum(r.lng) ?? 0,
+      isRudin: csvBool(r.isRudin),
+      imageUrl: csvStr(r.imageUrl), affPct: csvNum(r.affPct), mktU: csvNum(r.mktU),
+      affU: csvNum(r.affU), avgSf: csvNum(r.avgSf), affBands: affBands ?? undefined,
+      compBuildingName: r.compBuildingName?.trim() || null,
+    };
+  });
   if (mode === "replace") {
     await prisma.$transaction([prisma.project.deleteMany(), ...data.map((d) => prisma.project.create({ data: d }))]);
   } else {
@@ -85,36 +83,6 @@ async function importProjects(rows: ImportRow[], mode: ImportMode): Promise<numb
     }
   }
   return data.length;
-}
-
-async function buildProjectData(r: ImportRow) {
-  let affBands = undefined;
-  if (r.affBandsJson?.trim()) {
-    try { affBands = JSON.parse(r.affBandsJson); }
-    catch { throw new Error(`Invalid affBandsJson for project "${r.name}": ${r.affBandsJson}`); }
-  }
-
-  let lat = csvNum(r.lat) ?? 0;
-  let lng = csvNum(r.lng) ?? 0;
-  const address = r.address?.trim() || null;
-
-  if ((lat === 0 && lng === 0) || (!lat && !lng)) {
-    const query = address || r.name?.trim();
-    if (query) {
-      const coords = await geocodeAddress(query);
-      if (coords) { lat = coords.lat; lng = coords.lng; }
-    }
-  }
-
-  return {
-    name: csvStr(r.name), borough: csvStr(r.borough), status: csvStr(r.status),
-    category: csvStr(r.category), units: csvNum(r.units), sqft: csvNum(r.sqft),
-    deliveryLabel: csvStr(r.deliveryLabel), sponsor: csvStr(r.sponsor), lender: csvStr(r.lender),
-    address, lat, lng, isRudin: csvBool(r.isRudin),
-    imageUrl: csvStr(r.imageUrl), affPct: csvNum(r.affPct), mktU: csvNum(r.mktU),
-    affU: csvNum(r.affU), avgSf: csvNum(r.avgSf), affBands: affBands ?? undefined,
-    compBuildingName: r.compBuildingName?.trim() || null,
-  };
 }
 
 async function importCompBuildings(rows: ImportRow[], mode: ImportMode): Promise<number> {
