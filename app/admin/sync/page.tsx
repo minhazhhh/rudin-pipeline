@@ -126,6 +126,9 @@ export default function SyncPage() {
   const [submitting, setSubmitting] = useState(false);
   const [importResult, setImportResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [geocodeStatus, setGeocodeStatus] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [filteredIndices, setFilteredIndices] = useState<Set<number>>(new Set());
+  const [filterReasons, setFilterReasons] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -196,12 +199,37 @@ export default function SyncPage() {
     });
   }
 
-  function buildMappedRows(): Record<string, string>[] {
-    return rawRows.map((row) => {
-      const out: Record<string, string> = {};
-      for (const [h, f] of Object.entries(mappings)) { if (f) out[f] = row[h] ?? ""; }
-      return out;
-    });
+  function buildMappedRows(onlyClean = false): Record<string, string>[] {
+    return rawRows
+      .map((row, i) => ({ row, i }))
+      .filter(({ i }) => !onlyClean || !filteredIndices.has(i))
+      .map(({ row }) => {
+        const out: Record<string, string> = {};
+        for (const [h, f] of Object.entries(mappings)) { if (f) out[f] = row[h] ?? ""; }
+        return out;
+      });
+  }
+
+  async function goToPreview() {
+    setValidating(true);
+    setFilteredIndices(new Set());
+    setFilterReasons({});
+    try {
+      const mappedRows = buildMappedRows();
+      const fields = RESOURCE_FIELDS[resource].filter((f) => Object.values(mappings).includes(f.key));
+      const res = await fetch("/api/admin/validate-rows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource, rows: mappedRows, fields }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { bad: number[]; reasons: Record<string, string> };
+        setFilteredIndices(new Set(data.bad));
+        setFilterReasons(Object.fromEntries(Object.entries(data.reasons).map(([k, v]) => [Number(k), v])));
+      }
+    } catch { /* validation failure is non-fatal — proceed with all rows */ }
+    finally { setValidating(false); }
+    setStep("preview");
   }
 
   async function runImport() {
@@ -210,7 +238,7 @@ export default function SyncPage() {
       const res = await fetch("/api/comps-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource, rows: buildMappedRows(), mode }),
+        body: JSON.stringify({ resource, rows: buildMappedRows(true), mode }),
       });
       const body = await res.json();
       setImportResult(res.ok
@@ -221,7 +249,7 @@ export default function SyncPage() {
         setStep("done");
         // Build name→address lookup from the file we just imported
         const addressByName: Record<string, string> = {};
-        for (const row of buildMappedRows()) {
+        for (const row of buildMappedRows(true)) {
           if (row.name && row.address) addressByName[row.name] = row.address;
         }
 
@@ -259,7 +287,7 @@ export default function SyncPage() {
     } finally { setSubmitting(false); setStep("done"); }
   }
 
-  function resetDrop() { setStep("drop"); setImportResult(null); setRawRows([]); setHeaders([]); setFileName(""); setAiMappedFields(new Set()); setAiReasoning(null); }
+  function resetDrop() { setStep("drop"); setImportResult(null); setRawRows([]); setHeaders([]); setFileName(""); setAiMappedFields(new Set()); setAiReasoning(null); setFilteredIndices(new Set()); setFilterReasons({}); }
 
   // ── Sheet sync ────────────────────────────────────────────────────────────
 
@@ -404,15 +432,16 @@ export default function SyncPage() {
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setStep("preview")} disabled={missingRequired.length > 0}
-                  style={{ padding: "8px 18px", background: missingRequired.length ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: missingRequired.length ? "not-allowed" : "pointer", fontWeight: 600 }}>
-                  Review &amp; Import →
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={goToPreview} disabled={missingRequired.length > 0 || validating}
+                  style={{ padding: "8px 18px", background: missingRequired.length || validating ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: missingRequired.length || validating ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                  {validating ? "Validating rows…" : "Review & Import →"}
                 </button>
-                <button onClick={resetDrop}
+                <button onClick={resetDrop} disabled={validating}
                   style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
                   ← Start over
                 </button>
+                {validating && <span style={{ fontSize: "0.82rem", color: "#64748b" }}>Claude is checking for junk rows…</span>}
               </div>
             </>
           )}
@@ -420,59 +449,82 @@ export default function SyncPage() {
       )}
 
       {/* ── Preview ── */}
-      {step === "preview" && (
-        <div style={{ marginBottom: "3rem" }}>
-          <div style={{ fontWeight: 600, marginBottom: "1rem" }}>
-            Preview — first 6 rows&nbsp;
-            <span style={{ color: "#64748b", fontWeight: 400, fontSize: "0.88rem" }}>({rawRows.length.toLocaleString()} total)</span>
-          </div>
-          <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: "0.82rem" }}>
-              <thead>
-                <tr style={{ background: "#f1f5f9" }}>
-                  {Object.entries(mappings).filter(([, v]) => v).map(([h]) => (
-                    <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{mappings[h]}</th>
+      {step === "preview" && (() => {
+        const cleanRows = buildMappedRows(true);
+        const nFiltered = filteredIndices.size;
+        return (
+          <div style={{ marginBottom: "3rem" }}>
+            <div style={{ fontWeight: 600, marginBottom: "1rem" }}>
+              Preview — first 6 rows&nbsp;
+              <span style={{ color: "#64748b", fontWeight: 400, fontSize: "0.88rem" }}>({cleanRows.length.toLocaleString()} rows to import)</span>
+            </div>
+
+            {nFiltered > 0 && (
+              <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: "10px 14px", marginBottom: "1rem", fontSize: "0.84rem" }}>
+                <strong>✦ Claude filtered {nFiltered} junk row{nFiltered !== 1 ? "s" : ""}:</strong>
+                <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
+                  {Object.entries(filterReasons).map(([idx, reason]) => (
+                    <li key={idx} style={{ marginBottom: 2, color: "#78350f" }}>
+                      Row {Number(idx) + 1}: <em>{reason}</em>
+                    </li>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {buildMappedRows().slice(0, 6).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                </ul>
+                <button
+                  onClick={() => { setFilteredIndices(new Set()); setFilterReasons({}); }}
+                  style={{ marginTop: 8, fontSize: "0.78rem", background: "none", border: "1px solid #d97706", borderRadius: 4, padding: "2px 8px", cursor: "pointer", color: "#92400e" }}>
+                  Undo — import all rows anyway
+                </button>
+              </div>
+            )}
+
+            <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+              <table style={{ borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9" }}>
                     {Object.entries(mappings).filter(([, v]) => v).map(([h]) => (
-                      <td key={h} style={{ padding: "5px 10px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row[mappings[h]!]}</td>
+                      <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{mappings[h]}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {cleanRows.slice(0, 6).map((row, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                      {Object.entries(mappings).filter(([, v]) => v).map(([h]) => (
+                        <td key={h} style={{ padding: "5px 10px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row[mappings[h]!]}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <div style={{ marginBottom: "1.5rem" }}>
-            <div style={{ fontWeight: 500, fontSize: "0.88rem", marginBottom: 6 }}>Import mode</div>
-            <div style={{ display: "flex", gap: 20 }}>
-              {(["upsert", "replace"] as ImportMode[]).map((m) => (
-                <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.88rem" }}>
-                  <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => setMode(m)} />
-                  {m === "upsert"
-                    ? <span><strong>Merge</strong> — add / update records</span>
-                    : <span><strong>Replace</strong> — delete all existing rows first</span>}
-                </label>
-              ))}
+            <div style={{ marginBottom: "1.5rem" }}>
+              <div style={{ fontWeight: 500, fontSize: "0.88rem", marginBottom: 6 }}>Import mode</div>
+              <div style={{ display: "flex", gap: 20 }}>
+                {(["upsert", "replace"] as ImportMode[]).map((m) => (
+                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+                    <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => setMode(m)} />
+                    {m === "upsert"
+                      ? <span><strong>Merge</strong> — add / update records</span>
+                      : <span><strong>Replace</strong> — delete all existing rows first</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={runImport} disabled={submitting}
+                style={{ padding: "8px 18px", background: submitting ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                {submitting ? "Importing…" : `Import ${cleanRows.length.toLocaleString()} rows`}
+              </button>
+              <button onClick={() => setStep("map")}
+                style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
+                ← Back
+              </button>
             </div>
           </div>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={runImport} disabled={submitting}
-              style={{ padding: "8px 18px", background: submitting ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontWeight: 600 }}>
-              {submitting ? "Importing…" : `Import ${rawRows.length.toLocaleString()} rows`}
-            </button>
-            <button onClick={() => setStep("map")}
-              style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>
-              ← Back
-            </button>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Done ── */}
       {step === "done" && importResult && (
