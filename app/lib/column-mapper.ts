@@ -135,19 +135,79 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+// Levenshtein edit distance
+function editDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+// Returns a match score for (header, alias) pair — higher is better, 0 means no match
+function matchScore(header: string, alias: string): number {
+  const h = normalize(header);
+  const a = normalize(alias);
+  if (!h || !a) return 0;
+
+  // Exact match
+  if (h === a) return 100;
+
+  // One fully contains the other (e.g. "monthly gross rent ($)" contains "gross rent")
+  if (h.includes(a) || a.includes(h)) return 80;
+
+  // Token overlap: what fraction of alias tokens appear in header tokens
+  const hTokens = new Set(h.split(" "));
+  const aTokens = a.split(" ");
+  const overlap = aTokens.filter((t) => hTokens.has(t)).length;
+  if (overlap > 0) {
+    const ratio = overlap / Math.max(hTokens.size, aTokens.length);
+    if (ratio >= 0.5) return Math.round(60 * ratio);
+  }
+
+  // Fuzzy: allow small edit distance proportional to length
+  const maxLen = Math.max(h.length, a.length);
+  const dist = editDistance(h, a);
+  const tolerance = maxLen <= 5 ? 1 : maxLen <= 10 ? 2 : 3;
+  if (dist <= tolerance) return Math.round(40 * (1 - dist / maxLen));
+
+  return 0;
+}
+
+// Best score for a header against all aliases of a field
+function fieldScore(header: string, field: FieldDef): number {
+  return Math.max(0, ...field.aliases.map((a) => matchScore(header, a)));
+}
+
+const MATCH_THRESHOLD = 30; // minimum score to accept a mapping
+
 export function autoMapColumns(headers: string[], resource: Resource): Record<string, string | null> {
   const fields = RESOURCE_FIELDS[resource];
-  const result: Record<string, string | null> = {};
-  const usedFields = new Set<string>();
+  // Score every (header, field) pair
+  const scores: { header: string; field: FieldDef; score: number }[] = [];
   for (const header of headers) {
-    const norm = normalize(header);
-    let matched: string | null = null;
     for (const field of fields) {
-      if (usedFields.has(field.key)) continue;
-      if (field.aliases.some((a) => normalize(a) === norm)) { matched = field.key; break; }
+      const score = fieldScore(header, field);
+      if (score >= MATCH_THRESHOLD) scores.push({ header, field, score });
     }
-    result[header] = matched;
-    if (matched) usedFields.add(matched);
+  }
+  // Greedy assignment: highest-score pairs first, no reuse of header or field
+  scores.sort((a, b) => b.score - a.score);
+  const usedHeaders = new Set<string>();
+  const usedFields = new Set<string>();
+  const result: Record<string, string | null> = Object.fromEntries(headers.map((h) => [h, null]));
+  for (const { header, field, score: _score } of scores) {
+    if (usedHeaders.has(header) || usedFields.has(field.key)) continue;
+    result[header] = field.key;
+    usedHeaders.add(header);
+    usedFields.add(field.key);
   }
   return result;
 }
