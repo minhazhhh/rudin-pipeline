@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
   const query = project.address?.trim() || project.name?.trim();
   if (!query) return NextResponse.json({ ok: false, reason: "no address" });
 
+  console.log(`[geocode] querying Nominatim for: "${query}"`);
   const coords = await geocodeAddress(query);
+  console.log(`[geocode] result for "${query}":`, coords ?? "null");
   if (!coords) return NextResponse.json({ ok: false, reason: "not found" });
 
   await prisma.project.update({ where: { id }, data: coords });

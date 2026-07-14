@@ -221,20 +221,29 @@ export default function SyncPage() {
         setStep("done");
         // Auto-geocode any projects missing coordinates
         const listRes = await fetch("/api/admin/geocode-projects");
-        const { projects } = await listRes.json() as { projects: { id: string; name: string }[] };
-        if (projects.length > 0) {
-          let done = 0;
-          for (const p of projects) {
-            setGeocodeStatus(`Locating on map: ${p.name} (${done + 1}/${projects.length})`);
-            await fetch("/api/admin/geocode-projects", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: p.id }),
-            });
-            done++;
-            if (done < projects.length) await new Promise((r) => setTimeout(r, 1100));
+        const { projects: missing } = await listRes.json() as { projects: { id: string; name: string; address: string | null }[] };
+        if (missing.length > 0) {
+          let geocoded = 0;
+          let notFound = 0;
+          for (let i = 0; i < missing.length; i++) {
+            const p = missing[i];
+            setGeocodeStatus(`Locating on map: ${p.name} (${i + 1}/${missing.length})`);
+            try {
+              const gr = await fetch("/api/admin/geocode-projects", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: p.id }),
+              });
+              const gdata = await gr.json() as { ok: boolean; reason?: string };
+              if (gdata.ok) geocoded++; else notFound++;
+            } catch { notFound++; }
+            if (i < missing.length - 1) await new Promise((r) => setTimeout(r, 1100));
           }
-          setGeocodeStatus(`Map coordinates set for ${done} building${done !== 1 ? "s" : ""}.`);
+          if (geocoded > 0) {
+            setGeocodeStatus(`Map coordinates set for ${geocoded} building${geocoded !== 1 ? "s" : ""}${notFound ? ` (${notFound} not found — try adding an Address column)` : "."}`);
+          } else {
+            setGeocodeStatus(`Could not locate any buildings. Try adding an "Address" column with street addresses.`);
+          }
         }
         return;
       }
