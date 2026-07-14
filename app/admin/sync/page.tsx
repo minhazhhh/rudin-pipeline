@@ -41,42 +41,55 @@ function parseCsv(text: string): Record<string, string>[] {
 async function parseExcel(buf: ArrayBuffer): Promise<Record<string, string>[]> {
   const XLSX = await import("xlsx");
   const wb = XLSX.read(buf, { type: "array" });
-  // Prefer "Data" sheet (Rudin workbook), otherwise first sheet
-  const sheetName = wb.SheetNames.find((n) => /^data$/i.test(n)) ?? wb.SheetNames[0];
-  const grid = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {
-    header: 1, defval: "", raw: false,
-  }) as string[][];
 
-  // Pick the header row: the one (within first 20) with the most
-  // non-empty, short cells — handles title banners and merged-cell headers
-  function score(row: string[]): number {
+  function scoreRow(row: string[]): number {
     return row.filter((c) => {
       const s = String(c ?? "").trim();
       return s.length > 0 && s.length <= 80 && !/^__EMPTY/i.test(s);
     }).length;
   }
-  let headerRowIdx = 0, bestScore = -1;
-  for (let i = 0; i < Math.min(grid.length, 20); i++) {
-    const s = score(grid[i]);
-    if (s > bestScore) { bestScore = s; headerRowIdx = i; }
-    if (s >= 8) break; // solid header row — stop early
+
+  function parseSheet(grid: string[][]): Record<string, string>[] {
+    if (grid.length < 2) return [];
+    // Find header row: highest-scoring row in first 20 lines
+    let headerRowIdx = 0, bestScore = -1;
+    for (let i = 0; i < Math.min(grid.length, 20); i++) {
+      const s = scoreRow(grid[i]);
+      if (s > bestScore) { bestScore = s; headerRowIdx = i; }
+      if (s >= 8) break;
+    }
+    if (bestScore < 2) return []; // sheet has no recognisable header
+
+    const slots: { name: string; colIdx: number }[] = [];
+    grid[headerRowIdx].forEach((h, j) => {
+      const name = String(h ?? "").trim();
+      if (name && !/^__EMPTY/i.test(name)) slots.push({ name, colIdx: j });
+    });
+    if (slots.length < 2) return [];
+
+    const rows: Record<string, string>[] = [];
+    for (let i = headerRowIdx + 1; i < grid.length; i++) {
+      const row = grid[i];
+      const obj: Record<string, string> = {};
+      slots.forEach(({ name, colIdx }) => { obj[name] = String(row[colIdx] ?? "").trim(); });
+      if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
+    }
+    return rows;
   }
 
-  // Build deduped column list, skipping blank / __EMPTY entries
-  const slots: { name: string; colIdx: number }[] = [];
-  grid[headerRowIdx].forEach((h, j) => {
-    const name = String(h ?? "").trim();
-    if (name && !/^__EMPTY/i.test(name)) slots.push({ name, colIdx: j });
-  });
-
-  const rows: Record<string, string>[] = [];
-  for (let i = headerRowIdx + 1; i < grid.length; i++) {
-    const row = grid[i];
-    const obj: Record<string, string> = {};
-    slots.forEach(({ name, colIdx }) => { obj[name] = String(row[colIdx] ?? "").trim(); });
-    if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
+  // Parse every sheet and pick the one with the most data rows.
+  // Sheets named "notes", "legend", "lookup", "readme", "instructions" are skipped.
+  const skipPattern = /notes|legend|lookup|readme|instructions|changelog|key$/i;
+  let best: Record<string, string>[] = [];
+  for (const name of wb.SheetNames) {
+    if (skipPattern.test(name)) continue;
+    const grid = XLSX.utils.sheet_to_json(wb.Sheets[name], {
+      header: 1, defval: "", raw: false,
+    }) as string[][];
+    const rows = parseSheet(grid);
+    if (rows.length > best.length) best = rows;
   }
-  return rows;
+  return best;
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
