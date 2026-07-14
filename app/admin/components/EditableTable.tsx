@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ColumnType = "text" | "number" | "boolean" | "select" | "json";
 
@@ -17,11 +17,13 @@ export interface Column {
 
 export interface EditableTableProps {
   columns: Column[];
-  apiBase: string; // e.g. "/api/projects"
+  apiBase: string;
   initialRows: Row[];
-  emptyRow: Row; // template used when "Add row" is clicked
+  emptyRow: Row;
   idKey?: string;
 }
+
+type CellRef = { rowIdx: number; colIdx: number };
 
 export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id" }: EditableTableProps) {
   const [rows, setRows] = useState<Row[]>(initialRows);
@@ -30,7 +32,12 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [editCell, setEditCell] = useState<CellRef | null>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   function rowKey(row: Row, idx: number): string {
     const id = row[idKey];
@@ -43,10 +50,73 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
       next[idx] = { ...next[idx], [key]: value };
       return next;
     });
-    setDirty((prev) => new Set(prev).add(rowKey(rows[idx], idx)));
+    setDirty((prev) => new Set(prev).add(rowKey(rowsRef.current[idx], idx)));
   }
 
-  async function saveRow(idx: number) {
+  function enterCell(rowIdx: number, colIdx: number) {
+    const col = columns[colIdx];
+    if (!col) return;
+    setEditCell({ rowIdx, colIdx });
+  }
+
+  function exitCell() {
+    setEditCell(null);
+  }
+
+  function moveTo(rowIdx: number, colIdx: number) {
+    const r = Math.max(0, Math.min(rowsRef.current.length - 1, rowIdx));
+    const c = Math.max(0, Math.min(columns.length - 1, colIdx));
+    setEditCell({ rowIdx: r, colIdx: c });
+  }
+
+  // Focus the active input whenever editCell changes
+  useEffect(() => {
+    if (!editCell) return;
+    const t = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        if ("select" in inputRef.current && typeof inputRef.current.select === "function") {
+          (inputRef.current as HTMLInputElement).select();
+        }
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [editCell]);
+
+  function handleKeyDown(e: React.KeyboardEvent, rowIdx: number, colIdx: number) {
+    const col = columns[colIdx];
+    if (e.key === "Escape") {
+      e.preventDefault();
+      exitCell();
+      return;
+    }
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        if (colIdx > 0) moveTo(rowIdx, colIdx - 1);
+        else if (rowIdx > 0) moveTo(rowIdx - 1, columns.length - 1);
+      } else {
+        if (colIdx < columns.length - 1) moveTo(rowIdx, colIdx + 1);
+        else moveTo(rowIdx + 1, 0);
+      }
+      return;
+    }
+    if (e.key === "Enter" && col.type !== "json") {
+      e.preventDefault();
+      moveTo(rowIdx + 1, colIdx);
+      return;
+    }
+    if (col.type !== "text" && col.type !== "number" && col.type !== "json") return;
+    if (e.key === "ArrowDown" && col.type !== "json") {
+      e.preventDefault();
+      moveTo(rowIdx + 1, colIdx);
+    } else if (e.key === "ArrowUp" && col.type !== "json") {
+      e.preventDefault();
+      moveTo(rowIdx - 1, colIdx);
+    }
+  }
+
+  async function saveRow(idx: number): Promise<boolean> {
     const row = rows[idx];
     const key = rowKey(row, idx);
     setSavingKeys((s) => new Set(s).add(key));
@@ -60,12 +130,8 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
           v = v.trim() ? JSON.parse(v) : null;
         } catch {
           setErrors((e) => ({ ...e, [key]: `Invalid JSON in "${col.label}"` }));
-          setSavingKeys((s) => {
-            const n = new Set(s);
-            n.delete(key);
-            return n;
-          });
-          return;
+          setSavingKeys((s) => { const n = new Set(s); n.delete(key); return n; });
+          return false;
         }
       }
       payload[col.key] = v;
@@ -76,35 +142,28 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     const url = isNew ? apiBase : `${apiBase}/${existingId}`;
     const method = isNew ? "POST" : "PUT";
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    setSavingKeys((s) => {
-      const n = new Set(s);
-      n.delete(key);
-      return n;
-    });
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    setSavingKeys((s) => { const n = new Set(s); n.delete(key); return n; });
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setErrors((e) => ({ ...e, [key]: typeof body.error === "string" ? body.error : "Save failed. Check field values." }));
-      return;
+      setErrors((e) => ({ ...e, [key]: typeof body.error === "string" ? body.error : "Save failed." }));
+      return false;
     }
 
     const saved = (await res.json()) as Row;
-    setRows((prev) => {
-      const next = [...prev];
-      next[idx] = saved;
-      return next;
-    });
-    setDirty((prev) => {
-      const n = new Set(prev);
-      n.delete(key);
-      return n;
-    });
+    setRows((prev) => { const next = [...prev]; next[idx] = saved; return next; });
+    setDirty((prev) => { const n = new Set(prev); n.delete(key); return n; });
+    return true;
+  }
+
+  async function saveAllDirty() {
+    setBulkSaving(true);
+    const idxs = rows.map((row, idx) => ({ row, idx, key: rowKey(row, idx) }))
+      .filter(({ key, row }) => dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]))
+      .map(({ idx }) => idx);
+    await Promise.all(idxs.map((i) => saveRow(i)));
+    setBulkSaving(false);
   }
 
   async function deleteRow(idx: number) {
@@ -118,7 +177,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     const res = await fetch(`${apiBase}/${existingId}`, { method: "DELETE" });
     if (res.ok) {
       setRows((prev) => prev.filter((_, i) => i !== idx));
-      setSelected((prev) => { const n = new Set(prev); n.delete(existingId); return n; });
+      setSelected((prev) => { const n = new Set(prev); n.delete(String(existingId)); return n; });
     } else {
       alert("Delete failed.");
     }
@@ -138,6 +197,10 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   }
 
   const allKeys = rows.map((row, idx) => rowKey(row, idx));
+  const dirtyCount = rows.filter((row, idx) => {
+    const key = rowKey(row, idx);
+    return dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]);
+  }).length;
 
   function toggleRow(key: string, shiftKey: boolean) {
     setSelected((prev) => {
@@ -148,9 +211,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
         if (from !== -1 && to !== -1) {
           const [lo, hi] = from < to ? [from, to] : [to, from];
           const adding = !n.has(key);
-          for (let i = lo; i <= hi; i++) {
-            adding ? n.add(allKeys[i]) : n.delete(allKeys[i]);
-          }
+          for (let i = lo; i <= hi; i++) adding ? n.add(allKeys[i]) : n.delete(allKeys[i]);
           return n;
         }
       }
@@ -162,34 +223,45 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
 
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = !allSelected && allKeys.some((k) => selected.has(k));
-
-  function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(allKeys));
-    }
-  }
+  function toggleAll() { allSelected ? setSelected(new Set()) : setSelected(new Set(allKeys)); }
 
   function addRow() {
     setRows((prev) => [...prev, { ...emptyRow }]);
   }
 
+  function displayValue(col: Column, row: Row): string {
+    const v = row[col.key];
+    if (v === null || v === undefined || v === "") return "";
+    if (col.type === "boolean") return v ? "✓" : "";
+    if (col.type === "json") return typeof v === "string" ? v : JSON.stringify(v);
+    if (col.type === "select") {
+      const opt = col.options?.find((o) => o.value === v);
+      return opt ? opt.label : String(v);
+    }
+    return String(v);
+  }
+
   return (
     <div>
       <div className="admin-toolbar">
-        <button className="admin-btn secondary" onClick={addRow} type="button">
-          + Add row
-        </button>
-        {selected.size > 0 && (
-          <button className="admin-btn danger" onClick={deleteSelected} disabled={bulkDeleting} type="button">
-            {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button className="admin-btn secondary" onClick={addRow} type="button">+ Add row</button>
+          {dirtyCount > 0 && (
+            <button className="admin-btn" onClick={saveAllDirty} disabled={bulkSaving} type="button">
+              {bulkSaving ? "Saving…" : `Save ${dirtyCount} row${dirtyCount !== 1 ? "s" : ""}`}
+            </button>
+          )}
+          {selected.size > 0 && (
+            <button className="admin-btn danger" onClick={deleteSelected} disabled={bulkDeleting} type="button">
+              {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
+            </button>
+          )}
+        </div>
         <span className="admin-badge">{rows.length} rows</span>
       </div>
+
       <div className="admin-table-wrap">
-        <table className="admin-table">
+        <table className="admin-table ss-table">
           <thead>
             <tr>
               <th style={{ width: "32px", textAlign: "center" }}>
@@ -202,94 +274,165 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
                 />
               </th>
               {columns.map((c) => (
-                <th key={c.key} style={{ width: c.width }}>
-                  {c.label}
-                </th>
+                <th key={c.key} style={{ width: c.width }}>{c.label}</th>
               ))}
-              {/* No width set here on purpose: the data columns above are sized in
-                  percentages that sum to ~92%, so this trailing actions column
-                  automatically fills the remaining ~8% — keeping Save/Delete
-                  flush against the table's right edge with no horizontal overflow. */}
-              <th />
+              <th style={{ width: "28px" }} />
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => {
-              const key = rowKey(row, idx);
+            {rows.map((row, rowIdx) => {
+              const key = rowKey(row, rowIdx);
               const isDirty = dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]);
               const isSelected = selected.has(key);
+              const rowErr = errors[key];
               return (
-                <tr key={key} className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}>
-                  <td style={{ textAlign: "center" }}>
-                    <input type="checkbox" checked={isSelected} onChange={(e) => toggleRow(key, e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey)} />
+                <tr
+                  key={key}
+                  className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}
+                >
+                  <td style={{ textAlign: "center", padding: "0 4px" }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => toggleRow(key, e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey)}
+                    />
                   </td>
-                  {columns.map((col) => (
-                    <td key={col.key}>{renderCell(col, row, idx, updateCell)}</td>
-                  ))}
-                  <td>
-                    <div className="admin-row-actions">
-                      <button className="admin-btn" disabled={savingKeys.has(key)} onClick={() => saveRow(idx)} type="button">
-                        {savingKeys.has(key) ? "Saving…" : "Save"}
-                      </button>
-                      <button className="admin-btn danger" onClick={() => deleteRow(idx)} type="button">
-                        Delete
-                      </button>
-                    </div>
-                    {errors[key] && <div className="admin-error">{errors[key]}</div>}
+                  {columns.map((col, colIdx) => {
+                    const isActive = editCell?.rowIdx === rowIdx && editCell?.colIdx === colIdx;
+                    return (
+                      <td
+                        key={col.key}
+                        className={isActive ? "ss-cell active" : "ss-cell"}
+                        onClick={() => !isActive && enterCell(rowIdx, colIdx)}
+                      >
+                        {isActive ? (
+                          <ActiveCell
+                            col={col}
+                            row={row}
+                            rowIdx={rowIdx}
+                            colIdx={colIdx}
+                            inputRef={inputRef}
+                            onUpdate={updateCell}
+                            onKeyDown={handleKeyDown}
+                            onBlur={exitCell}
+                          />
+                        ) : (
+                          <span className={`ss-display${col.type === "boolean" ? " ss-bool" : ""}`}>
+                            {displayValue(col, row)}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td style={{ padding: "0 4px", textAlign: "center" }}>
+                    <button
+                      className="ss-del-btn"
+                      title="Delete row"
+                      onClick={() => deleteRow(rowIdx)}
+                      type="button"
+                    >×</button>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        {Object.entries(errors).map(([k, msg]) => msg ? (
+          <div key={k} className="admin-error" style={{ padding: "4px 8px" }}>{msg}</div>
+        ) : null)}
       </div>
     </div>
   );
 }
 
-function renderCell(col: Column, row: Row, idx: number, updateCell: (idx: number, key: string, value: unknown) => void) {
+interface ActiveCellProps {
+  col: Column;
+  row: Row;
+  rowIdx: number;
+  colIdx: number;
+  inputRef: React.MutableRefObject<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>;
+  onUpdate: (idx: number, key: string, value: unknown) => void;
+  onKeyDown: (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => void;
+  onBlur: () => void;
+}
+
+function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, onBlur }: ActiveCellProps) {
   const value = row[col.key];
 
+  const sharedProps = {
+    onKeyDown: (e: React.KeyboardEvent) => onKeyDown(e, rowIdx, colIdx),
+    onBlur,
+  };
+
   if (col.type === "boolean") {
-    return <input type="checkbox" checked={!!value} onChange={(e) => updateCell(idx, col.key, e.target.checked)} />;
+    return (
+      <input
+        ref={inputRef as React.MutableRefObject<HTMLInputElement>}
+        type="checkbox"
+        checked={!!value}
+        onChange={(e) => onUpdate(rowIdx, col.key, e.target.checked)}
+        {...sharedProps}
+        className="ss-input"
+      />
+    );
   }
 
   if (col.type === "select") {
     return (
-      <select value={typeof value === "string" ? value : ""} onChange={(e) => updateCell(idx, col.key, e.target.value)}>
+      <select
+        ref={inputRef as React.MutableRefObject<HTMLSelectElement>}
+        value={typeof value === "string" ? value : ""}
+        onChange={(e) => onUpdate(rowIdx, col.key, e.target.value)}
+        {...sharedProps}
+        className="ss-input"
+      >
         <option value="">—</option>
         {col.options?.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+          <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
     );
   }
 
   if (col.type === "json") {
-    const text = typeof value === "string" ? value : value != null ? JSON.stringify(value) : "";
-    return <textarea value={text} onChange={(e) => updateCell(idx, col.key, e.target.value)} placeholder={col.placeholder} />;
+    const text = typeof value === "string" ? value : value != null ? JSON.stringify(value, null, 2) : "";
+    return (
+      <textarea
+        ref={inputRef as React.MutableRefObject<HTMLTextAreaElement>}
+        value={text}
+        onChange={(e) => onUpdate(rowIdx, col.key, e.target.value)}
+        placeholder={col.placeholder}
+        {...sharedProps}
+        className="ss-input ss-textarea"
+        rows={3}
+      />
+    );
   }
 
   if (col.type === "number") {
     const numVal = value === null || value === undefined ? "" : String(value);
     return (
       <input
+        ref={inputRef as React.MutableRefObject<HTMLInputElement>}
         type="number"
         value={numVal}
-        onChange={(e) => updateCell(idx, col.key, e.target.value === "" ? null : Number(e.target.value))}
+        onChange={(e) => onUpdate(rowIdx, col.key, e.target.value === "" ? null : Number(e.target.value))}
         step="any"
+        {...sharedProps}
+        className="ss-input"
       />
     );
   }
 
   return (
     <input
+      ref={inputRef as React.MutableRefObject<HTMLInputElement>}
       type="text"
       value={typeof value === "string" ? value : value == null ? "" : String(value)}
-      onChange={(e) => updateCell(idx, col.key, e.target.value)}
+      onChange={(e) => onUpdate(rowIdx, col.key, e.target.value)}
       placeholder={col.placeholder}
+      {...sharedProps}
+      className="ss-input"
     />
   );
 }

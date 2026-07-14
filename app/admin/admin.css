@@ -504,3 +504,107 @@ table.admin-table tr.selected.dirty td {
   padding: 4px 6px;
   text-align: left;
 }
+
+/* ---------- SPREADSHEET TABLE ---------- */
+
+table.admin-table.ss-table th {
+  padding: 5px 8px;
+}
+
+table.admin-table.ss-table td {
+  padding: 0;
+  border-top: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+  height: 28px;
+  vertical-align: middle;
+  cursor: default;
+}
+
+table.admin-table.ss-table td:last-child {
+  border-right: none;
+}
+
+/* Active cell gets blue outline like Excel */
+table.admin-table.ss-table td.ss-cell.active {
+  outline: 2px solid #1a73e8;
+  outline-offset: -1px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Display-mode cell: plain text, no borders */
+.ss-display {
+  display: block;
+  padding: 0 6px;
+  font-size: 12.5px;
+  line-height: 28px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  user-select: none;
+}
+
+.ss-display.ss-bool {
+  text-align: center;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+/* Edit-mode input: frameless, fills the cell */
+.ss-input {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 28px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border: none;
+  outline: none;
+  background: #fff;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--ink);
+}
+
+.ss-input[type="checkbox"] {
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+  cursor: pointer;
+}
+
+.ss-input[type="number"] {
+  text-align: right;
+}
+
+.ss-textarea {
+  resize: vertical;
+  min-height: 60px;
+  padding: 4px 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Row delete button */
+.ss-del-btn {
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 120ms, color 120ms;
+}
+
+table.admin-table.ss-table tr:hover .ss-del-btn {
+  opacity: 1;
+}
+
+.ss-del-btn:hover {
+  color: var(--red);
+}
