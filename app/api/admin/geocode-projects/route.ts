@@ -62,7 +62,7 @@ If you are not confident in the exact coordinates, return null for both fields.`
   }
 }
 
-async function fetchImageViaClaude(name: string, address: string | null): Promise<string | null> {
+async function fetchImageViaClaude(name: string, address: string | null, year: string | null): Promise<string | null> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
 
@@ -70,7 +70,7 @@ async function fetchImageViaClaude(name: string, address: string | null): Promis
   const prompt = `You are a real estate research assistant. Find a direct URL to a real photograph of this building.
 
 Building: ${name}
-Location: ${location}
+Address: ${location}${year ? `\nYear: ${year}` : ""}
 
 Return ONLY valid JSON — no explanation, no markdown:
 {"imageUrl": "<direct image URL to a photo of this building, or null if unknown>"}
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
   const { id, addressOverride } = await req.json() as { id: string; addressOverride?: string };
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, name: true, address: true, lat: true, lng: true, imageUrl: true },
+    select: { id: true, name: true, address: true, lat: true, lng: true, imageUrl: true, deliveryLabel: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!project.name) return NextResponse.json({ ok: false, reason: "no name" });
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
   const needsImage = !project.imageUrl?.trim();
   let imageUrl: string | null = null;
   if (needsImage) {
-    imageUrl = await fetchImageViaClaude(project.name, address);
+    imageUrl = await fetchImageViaClaude(project.name, address, project.deliveryLabel?.trim() || null);
     console.log(`[image] "${project.name}" →`, imageUrl ?? "not found");
   }
 
