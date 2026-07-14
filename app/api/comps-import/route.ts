@@ -115,9 +115,9 @@ async function importCompBuildingStats(rows: ImportRow[], mode: ImportMode): Pro
       return { buildingId, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent), medRent: csvNum(r.medRent), minRent: csvNum(r.minRent), maxRent: csvNum(r.maxRent), nRent: csvNum(r.nRent), avgPsf: csvNum(r.avgPsf), medPsf: csvNum(r.medPsf), minPsf: csvNum(r.minPsf), maxPsf: csvNum(r.maxPsf), nPsf: csvNum(r.nPsf), avgSf: csvNum(r.avgSf), medSf: csvNum(r.medSf), minSf: csvNum(r.minSf), maxSf: csvNum(r.maxSf), nSf: csvNum(r.nSf) };
     })
     .filter((d): d is NonNullable<typeof d> => d !== null);
-  if (mode === "replace") {
+  if (mode === "replace" && data.length > 0) {
     await prisma.compBuildingStat.deleteMany();
-    if (data.length) await prisma.compBuildingStat.createMany({ data });
+    await prisma.compBuildingStat.createMany({ data });
   } else {
     for (const d of data) await prisma.compBuildingStat.upsert({ where: { buildingId_unitType: { buildingId: d.buildingId, unitType: d.unitType } }, update: d, create: d });
   }
@@ -138,9 +138,9 @@ async function importCompBuildingQuarterStats(rows: ImportRow[], mode: ImportMod
       return { buildingId, quarter, quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType, avgRent: csvNum(r.avgRent), avgPsf: csvNum(r.avgPsf), n: csvNum(r.n) ?? 0 };
     })
     .filter((d): d is NonNullable<typeof d> => d !== null);
-  if (mode === "replace") {
+  if (mode === "replace" && data.length > 0) {
     await prisma.compBuildingQuarterStat.deleteMany();
-    if (data.length) await prisma.compBuildingQuarterStat.createMany({ data });
+    await prisma.compBuildingQuarterStat.createMany({ data });
   } else {
     for (const d of data) await prisma.compBuildingQuarterStat.upsert({ where: { buildingId_quarter_unitType: { buildingId: d.buildingId, quarter: d.quarter, unitType: d.unitType } }, update: d, create: d });
   }
@@ -155,9 +155,9 @@ async function importOverallStats(rows: ImportRow[], mode: ImportMode): Promise<
     if (mapped.unitType) byUnitType.set(mapped.unitType, mapped);
   }
   const data = [...byUnitType.values()];
-  if (mode === "replace") {
+  if (mode === "replace" && data.length > 0) {
     await prisma.overallUnitStat.deleteMany();
-    if (data.length) await prisma.overallUnitStat.createMany({ data });
+    await prisma.overallUnitStat.createMany({ data });
   } else {
     for (const d of data) await prisma.overallUnitStat.upsert({ where: { unitType: d.unitType }, update: d, create: d });
   }
@@ -176,9 +176,9 @@ async function importTypeStats(rows: ImportRow[], mode: ImportMode): Promise<num
     if (d.propertyType && d.unitType) byKey.set(`${d.propertyType}::${d.unitType}`, d);
   }
   const data = [...byKey.values()];
-  if (mode === "replace") {
+  if (mode === "replace" && data.length > 0) {
     await prisma.typeUnitStat.deleteMany();
-    if (data.length) await prisma.typeUnitStat.createMany({ data });
+    await prisma.typeUnitStat.createMany({ data });
   } else {
     for (const d of data) await prisma.typeUnitStat.upsert({ where: { propertyType_unitType: { propertyType: d.propertyType, unitType: d.unitType } }, update: d, create: d });
   }
@@ -193,9 +193,9 @@ async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number>
     if (d.quarter && d.unitType) byKey.set(`${d.quarter}::${d.unitType}`, d);
   }
   const data = [...byKey.values()];
-  if (mode === "replace") {
+  if (mode === "replace" && data.length > 0) {
     await prisma.trendPoint.deleteMany();
-    if (data.length) await prisma.trendPoint.createMany({ data });
+    await prisma.trendPoint.createMany({ data });
   } else {
     for (const d of data) await prisma.trendPoint.upsert({ where: { quarter_unitType: { quarter: d.quarter, unitType: d.unitType } }, update: d, create: d });
   }
