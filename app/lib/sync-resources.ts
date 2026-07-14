@@ -1,6 +1,7 @@
 import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@/app/generated/prisma/client";
 import { csvNum, csvBool, csvStr } from "@/app/lib/sync";
+import { RESOURCE_FIELDS } from "@/app/lib/column-mapper";
 
 export const RESOURCES = [
   "projects",
@@ -24,6 +25,33 @@ export const SHEET_URL_FIELD: Record<Resource, string> = {
   trend: "trendSheetUrl",
   "lease-comps": "",
 };
+
+// Resources that can be exactly recognized by their own literal column-key template
+// (the CSV each per-table page's admin export produces). "lease-comps" is deliberately
+// excluded — it has no such template; it's only ever reached via the lease-level detector
+// in lease-import.ts, which works off fuzzy header aliases instead of exact keys.
+const EXACT_RESOURCES: Resource[] = RESOURCES.filter((r) => r !== "lease-comps");
+
+// Recognizes a parsed sheet as one of the app's own exact per-table templates by literal
+// column-key match (not the fuzzy alias matching column-mapper.ts uses for the manual-mapping
+// wizard). Requires every required field for a resource to be present as a row key, then picks
+// whichever resource explains the most of the row's actual keys — so a superset like
+// "comp-building-quarter-stats" (which also requires "quarter"/"unitType") isn't confused with
+// "trend" just because both share those two required keys.
+export function detectExactResource(rows: Record<string, string>[]): Resource | null {
+  if (!rows.length) return null;
+  const keys = new Set(Object.keys(rows[0]));
+  let best: { resource: Resource; score: number } | null = null;
+  for (const resource of EXACT_RESOURCES) {
+    const fields = RESOURCE_FIELDS[resource];
+    const requiredKeys = fields.filter((f) => f.required).map((f) => f.key);
+    if (!requiredKeys.every((k) => keys.has(k))) continue;
+    const fieldKeySet = new Set(fields.map((f) => f.key));
+    const matched = [...keys].filter((k) => fieldKeySet.has(k)).length;
+    if (!best || matched > best.score) best = { resource, score: matched };
+  }
+  return best ? best.resource : null;
+}
 
 export async function syncResource(resource: Resource, rows: Record<string, string>[]): Promise<number> {
   switch (resource) {

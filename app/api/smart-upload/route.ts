@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/api-auth";
 import { parseSheetBuffer } from "@/app/lib/sync";
-import { detectExactResource, syncResource, RESOURCE_LABELS } from "@/app/lib/sync-resources";
+import { detectExactResource, syncResource } from "@/app/lib/sync-resources";
+import { RESOURCE_LABELS } from "@/app/lib/column-mapper";
 import { extractLeaseRows, previewLeaseImport, applyLeaseImport } from "@/app/lib/lease-import";
 
 // The single drop target for any spreadsheet, in whatever shape it comes in. Tries, in order:
