@@ -38,7 +38,9 @@ function parseCsv(text: string): Record<string, string>[] {
 
 // ─── Excel parser ──────────────────────────────────────────────────────────────
 
-async function parseExcel(buf: ArrayBuffer): Promise<Record<string, string>[]> {
+export type ParsedSheet = { sheetName: string; rows: Record<string, string>[] };
+
+async function parseExcel(buf: ArrayBuffer): Promise<ParsedSheet[]> {
   const XLSX = await import("xlsx");
   const wb = XLSX.read(buf, { type: "array" });
 
@@ -51,22 +53,19 @@ async function parseExcel(buf: ArrayBuffer): Promise<Record<string, string>[]> {
 
   function parseSheet(grid: string[][]): Record<string, string>[] {
     if (grid.length < 2) return [];
-    // Find header row: highest-scoring row in first 20 lines
     let headerRowIdx = 0, bestScore = -1;
     for (let i = 0; i < Math.min(grid.length, 20); i++) {
       const s = scoreRow(grid[i]);
       if (s > bestScore) { bestScore = s; headerRowIdx = i; }
       if (s >= 8) break;
     }
-    if (bestScore < 2) return []; // sheet has no recognisable header
-
+    if (bestScore < 2) return [];
     const slots: { name: string; colIdx: number }[] = [];
     grid[headerRowIdx].forEach((h, j) => {
       const name = String(h ?? "").trim();
       if (name && !/^__EMPTY/i.test(name)) slots.push({ name, colIdx: j });
     });
     if (slots.length < 2) return [];
-
     const rows: Record<string, string>[] = [];
     for (let i = headerRowIdx + 1; i < grid.length; i++) {
       const row = grid[i];
@@ -77,19 +76,17 @@ async function parseExcel(buf: ArrayBuffer): Promise<Record<string, string>[]> {
     return rows;
   }
 
-  // Parse every sheet and pick the one with the most data rows.
-  // Sheets named "notes", "legend", "lookup", "readme", "instructions" are skipped.
   const skipPattern = /notes|legend|lookup|readme|instructions|changelog|key$/i;
-  let best: Record<string, string>[] = [];
-  for (const name of wb.SheetNames) {
-    if (skipPattern.test(name)) continue;
-    const grid = XLSX.utils.sheet_to_json(wb.Sheets[name], {
+  const results: ParsedSheet[] = [];
+  for (const sheetName of wb.SheetNames) {
+    if (skipPattern.test(sheetName)) continue;
+    const grid = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {
       header: 1, defval: "", raw: false,
     }) as string[][];
     const rows = parseSheet(grid);
-    if (rows.length > best.length) best = rows;
+    if (rows.length > 0) results.push({ sheetName, rows });
   }
-  return best;
+  return results;
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -110,8 +107,18 @@ const IMPORT_RESOURCES: Resource[] = [
 ];
 
 type Config = Record<string, string | null>;
-type Step = "drop" | "map" | "preview" | "done";
+type Step = "drop" | "map" | "preview" | "done" | "multi";
 type ImportMode = "replace" | "upsert";
+
+type SheetJob = {
+  sheetName: string;
+  rows: Record<string, string>[];
+  resource: Resource;
+  mappings: Record<string, string | null>;
+  include: boolean;
+  status: "pending" | "validating" | "importing" | "done" | "error";
+  result?: string;
+};
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -142,6 +149,9 @@ export default function SyncPage() {
   const [validating, setValidating] = useState(false);
   const [filteredIndices, setFilteredIndices] = useState<Set<number>>(new Set());
   const [filterReasons, setFilterReasons] = useState<Record<number, string>>({});
+  const [sheetJobs, setSheetJobs] = useState<SheetJob[]>([]);
+  const [multiImporting, setMultiImporting] = useState(false);
+  const [multiMode, setMultiMode] = useState<ImportMode>("upsert");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -156,17 +166,84 @@ export default function SyncPage() {
     setFileName(file.name);
     const isExcel = /\.xlsx?$/i.test(file.name) || file.type.includes("spreadsheetml");
     const buf = await file.arrayBuffer();
-    const parsed = isExcel
-      ? await parseExcel(buf)
-      : parseCsv(new TextDecoder("utf-8").decode(buf));
+
+    if (isExcel) {
+      const sheets = await parseExcel(buf);
+      if (!sheets.length) { alert("No data rows found in this file."); return; }
+
+      if (sheets.length > 1) {
+        // Multi-sheet: go to multi-import flow
+        setStep("multi");
+        setAiMapping(true);
+        // Build initial jobs with heuristic mapping while AI runs
+        const initial: SheetJob[] = sheets.map(({ sheetName, rows }) => {
+          const hdrs = Object.keys(rows[0] ?? {});
+          const fallback = detectResource(hdrs);
+          const r = fallback?.resource ?? "lease-comps";
+          return { sheetName, rows, resource: r, mappings: autoMapColumns(hdrs, r), include: true, status: "pending" };
+        });
+        setSheetJobs(initial);
+
+        // AI-map each sheet in parallel
+        const aiResults = await Promise.all(sheets.map(async ({ sheetName, rows }) => {
+          const hdrs = Object.keys(rows[0] ?? {});
+          try {
+            const res = await fetch("/api/ai-map", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ headers: hdrs, sampleRows: rows.slice(0, 10), fileName: `${file.name} / ${sheetName}` }),
+            });
+            if (res.ok) {
+              const data = await res.json() as { resource: Resource; mappings: Record<string, string | null> };
+              return { sheetName, resource: data.resource, mappings: data.mappings };
+            }
+          } catch { /* fall back to heuristic */ }
+          const fallback = detectResource(hdrs);
+          const r = fallback?.resource ?? "lease-comps";
+          return { sheetName, resource: r, mappings: autoMapColumns(hdrs, r) };
+        }));
+
+        setSheetJobs((prev) => prev.map((job) => {
+          const ai = aiResults.find((r) => r.sheetName === job.sheetName);
+          return ai ? { ...job, resource: ai.resource, mappings: ai.mappings } : job;
+        }));
+        setAiMapping(false);
+        return;
+      }
+
+      // Single-sheet Excel — use existing single-sheet flow
+      const { rows } = sheets[0];
+      const hdrs = Object.keys(rows[0] ?? {});
+      setRawRows(rows); setHeaders(hdrs);
+      setAiMappedFields(new Set()); setAiReasoning(null); setAiMapping(true); setStep("map");
+      try {
+        const res = await fetch("/api/ai-map", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ headers: hdrs, sampleRows: rows.slice(0, 10), fileName: file.name }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { resource: Resource; mappings: Record<string, string | null>; reasoning?: string };
+          setResource(data.resource); setMappings(data.mappings);
+          setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
+          setAiReasoning(data.reasoning ?? null);
+        } else {
+          const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
+          setResource(r); setMappings(autoMapColumns(hdrs, r));
+        }
+      } catch {
+        const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
+        setResource(r); setMappings(autoMapColumns(hdrs, r));
+      } finally { setAiMapping(false); }
+      return;
+    }
+
+    // CSV — existing single-sheet flow
+    const parsed = parseCsv(new TextDecoder("utf-8").decode(buf));
     if (!parsed.length) { alert("No data rows found in this file."); return; }
     const hdrs = Object.keys(parsed[0]);
     setRawRows(parsed); setHeaders(hdrs);
-    setAiMappedFields(new Set());
-    setAiReasoning(null);
-    setAiMapping(true);
-    setStep("map");
-
+    setAiMappedFields(new Set()); setAiReasoning(null); setAiMapping(true); setStep("map");
     try {
       const res = await fetch("/api/ai-map", {
         method: "POST",
@@ -175,24 +252,17 @@ export default function SyncPage() {
       });
       if (res.ok) {
         const data = await res.json() as { resource: Resource; mappings: Record<string, string | null>; reasoning?: string };
-        setResource(data.resource);
-        setMappings(data.mappings);
+        setResource(data.resource); setMappings(data.mappings);
         setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
         setAiReasoning(data.reasoning ?? null);
       } else {
-        const fallback = detectResource(hdrs);
-        const r = fallback?.resource ?? "lease-comps";
-        setResource(r);
-        setMappings(autoMapColumns(hdrs, r));
+        const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
+        setResource(r); setMappings(autoMapColumns(hdrs, r));
       }
     } catch {
-      const fallback = detectResource(hdrs);
-      const r = fallback?.resource ?? "lease-comps";
-      setResource(r);
-      setMappings(autoMapColumns(hdrs, r));
-    } finally {
-      setAiMapping(false);
-    }
+      const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
+      setResource(r); setMappings(autoMapColumns(hdrs, r));
+    } finally { setAiMapping(false); }
   }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -300,7 +370,72 @@ export default function SyncPage() {
     } finally { setSubmitting(false); setStep("done"); }
   }
 
-  function resetDrop() { setStep("drop"); setImportResult(null); setRawRows([]); setHeaders([]); setFileName(""); setAiMappedFields(new Set()); setAiReasoning(null); setFilteredIndices(new Set()); setFilterReasons({}); }
+  function resetDrop() {
+    setStep("drop"); setImportResult(null); setRawRows([]); setHeaders([]); setFileName("");
+    setAiMappedFields(new Set()); setAiReasoning(null); setFilteredIndices(new Set()); setFilterReasons({});
+    setSheetJobs([]); setMultiImporting(false);
+  }
+
+  async function runMultiImport() {
+    const jobs = sheetJobs.filter((j) => j.include);
+    if (!jobs.length) return;
+    setMultiImporting(true);
+
+    for (const job of jobs) {
+      setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName ? { ...j, status: "validating" } : j));
+
+      // Validate rows
+      let cleanRows = job.rows;
+      try {
+        const fields = RESOURCE_FIELDS[job.resource].filter((f) => Object.values(job.mappings).includes(f.key));
+        const mappedRows = job.rows.map((row) => {
+          const out: Record<string, string> = {};
+          for (const [h, f] of Object.entries(job.mappings)) { if (f) out[f] = row[h] ?? ""; }
+          return out;
+        });
+        const vRes = await fetch("/api/admin/validate-rows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: job.resource, rows: mappedRows, fields }),
+        });
+        if (vRes.ok) {
+          const { bad } = await vRes.json() as { bad: number[] };
+          const badSet = new Set(bad);
+          cleanRows = job.rows.filter((_, i) => !badSet.has(i));
+        }
+      } catch { /* proceed with all rows */ }
+
+      setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName ? { ...j, status: "importing" } : j));
+
+      // Map rows
+      const mappedRows = cleanRows.map((row) => {
+        const out: Record<string, string> = {};
+        for (const [h, f] of Object.entries(job.mappings)) { if (f) out[f] = row[h] ?? ""; }
+        return out;
+      });
+
+      try {
+        const res = await fetch("/api/comps-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: job.resource, rows: mappedRows, mode: multiMode }),
+        });
+        const body = await res.json();
+        if (res.ok) {
+          setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName
+            ? { ...j, status: "done", result: `${body.rowsImported} rows imported` } : j));
+        } else {
+          setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName
+            ? { ...j, status: "error", result: body.error ?? "Import failed" } : j));
+        }
+      } catch (e) {
+        setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName
+          ? { ...j, status: "error", result: e instanceof Error ? e.message : "Import failed" } : j));
+      }
+    }
+
+    setMultiImporting(false);
+  }
 
   // ── Sheet sync ────────────────────────────────────────────────────────────
 
@@ -363,6 +498,82 @@ export default function SyncPage() {
           <div style={{ color: "#64748b", fontSize: "0.83rem" }}>.csv, .xlsx, .xls — any layout</div>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
             onChange={(e) => { if (e.target.files?.[0]) parseFile(e.target.files[0]); }} />
+        </div>
+      )}
+
+      {/* ── Multi-sheet import ── */}
+      {step === "multi" && (
+        <div style={{ marginBottom: "3rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.2rem", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600 }}>{fileName}</span>
+            {aiMapping
+              ? <span style={{ color: "#64748b", fontSize: "0.88rem" }}>Claude is mapping {sheetJobs.length} sheets…</span>
+              : <span style={{ color: "#64748b", fontSize: "0.88rem" }}>{sheetJobs.length} sheets detected</span>}
+            {!aiMapping && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 20, padding: "2px 10px", fontSize: "0.78rem", color: "#15803d", fontWeight: 600 }}>✦ AI-mapped</span>}
+          </div>
+
+          {aiMapping ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 1rem", gap: "0.75rem", color: "#475569" }}>
+              <div style={{ width: 32, height: 32, border: "3px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+              <div style={{ fontWeight: 600, fontSize: "1rem" }}>Claude is reading all {sheetJobs.length} sheets…</div>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: "1.5rem" }}>
+                {sheetJobs.map((job) => {
+                  const statusColor = { pending: "#64748b", validating: "#2563eb", importing: "#d97706", done: "#16a34a", error: "#dc2626" }[job.status];
+                  const statusIcon = { pending: "○", validating: "⟳", importing: "↑", done: "✓", error: "✗" }[job.status];
+                  return (
+                    <div key={job.sheetName} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: job.include ? "#f8fafc" : "#f1f5f9", border: `1px solid ${job.include ? "#e2e8f0" : "#cbd5e1"}`, borderRadius: 8, opacity: job.include ? 1 : 0.5 }}>
+                      <input type="checkbox" checked={job.include} disabled={multiImporting}
+                        onChange={(e) => setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName ? { ...j, include: e.target.checked } : j))} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{job.sheetName}</span>
+                          <span style={{ fontSize: "0.78rem", color: "#64748b" }}>→</span>
+                          <select value={job.resource} disabled={multiImporting}
+                            onChange={(e) => setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName ? { ...j, resource: e.target.value as Resource, mappings: autoMapColumns(Object.keys(j.rows[0] ?? {}), e.target.value as Resource) } : j))}
+                            style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: "0.82rem", background: "#fff" }}>
+                            {IMPORT_RESOURCES.map((r) => <option key={r} value={r}>{RESOURCE_LABELS[r]}</option>)}
+                          </select>
+                          <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>{job.rows.length.toLocaleString()} rows</span>
+                        </div>
+                        {job.result && <div style={{ fontSize: "0.8rem", color: statusColor, marginTop: 2 }}>{job.result}</div>}
+                      </div>
+                      <span style={{ fontSize: "1rem", color: statusColor, fontWeight: 700 }}>{statusIcon}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginBottom: "1.2rem" }}>
+                <div style={{ fontWeight: 500, fontSize: "0.88rem", marginBottom: 6 }}>Import mode</div>
+                <div style={{ display: "flex", gap: 20 }}>
+                  {(["upsert", "replace"] as ImportMode[]).map((m) => (
+                    <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+                      <input type="radio" name="multiMode" value={m} checked={multiMode === m} onChange={() => setMultiMode(m)} disabled={multiImporting} />
+                      {m === "upsert" ? <span><strong>Merge</strong> — add / update records</span> : <span><strong>Replace</strong> — delete existing rows first</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                {!multiImporting && sheetJobs.every((j) => !j.include || j.status === "done" || j.status === "error") && sheetJobs.some((j) => j.status === "done") ? (
+                  <button onClick={resetDrop} style={{ padding: "8px 18px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
+                    Import another file
+                  </button>
+                ) : (
+                  <button onClick={runMultiImport} disabled={multiImporting || aiMapping || sheetJobs.filter((j) => j.include).length === 0}
+                    style={{ padding: "8px 18px", background: multiImporting || aiMapping ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: multiImporting || aiMapping ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    {multiImporting ? "Importing…" : `Import ${sheetJobs.filter((j) => j.include).length} sheets`}
+                  </button>
+                )}
+                {!multiImporting && <button onClick={resetDrop} style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer" }}>← Start over</button>}
+              </div>
+            </>
+          )}
         </div>
       )}
 
