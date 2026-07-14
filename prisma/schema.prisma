@@ -20,6 +20,7 @@ model Project {
   deliveryLabel String // d: year like "2027", or "TBD", "Lease-up"
   sponsor       String
   lender        String
+  address       String?
   lat           Float
   lng           Float
   isRudin       Boolean @default(false)

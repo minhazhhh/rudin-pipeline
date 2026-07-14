@@ -57,7 +57,8 @@ Key signals to look for in the VALUES:
 - Statistical aggregates (avg/med/min/max rent columns together) → comp-building-stats or overall-stats
 - Quarter labels like "Q1 2024" → comp-building-quarter-stats or trend
 - Only building-level info with no units/rents → comp-buildings
-- Pipeline/delivery dates, borough, sponsor → projects
+- Pipeline/delivery dates, borough, sponsor, or street addresses → projects
+- A column with street addresses (e.g. "1801 Market St") should map to address in projects
 - Property type breakdown (class A/B/C) + unit types → type-stats
 
 Rules:

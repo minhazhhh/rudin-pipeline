@@ -9,7 +9,8 @@ export interface FieldDef {
 
 export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
   projects: [
-    { key: "name", label: "Name", required: true, aliases: ["name", "project name", "project", "building", "building name", "address"] },
+    { key: "name", label: "Name", required: true, aliases: ["name", "project name", "project", "building", "building name"] },
+    { key: "address", label: "Address", required: false, aliases: ["address", "street address", "full address", "property address", "location address"] },
     { key: "borough", label: "Borough", required: false, aliases: ["borough", "neighborhood", "boro", "location"] },
     { key: "status", label: "Status", required: false, aliases: ["status", "project status", "stage"] },
     { key: "category", label: "Category", required: false, aliases: ["category", "type", "project type"] },
