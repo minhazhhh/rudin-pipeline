@@ -588,6 +588,18 @@ table.admin-table.ss-table td.ss-cell.active {
   line-height: 1.4;
 }
 
+/* Inline error row */
+table.admin-table.ss-table tr.ss-err-row td {
+  border-top: none;
+  padding: 0 8px 4px;
+}
+
+.ss-err-cell {
+  font-size: 11.5px;
+  color: var(--red);
+  padding: 2px 6px 4px !important;
+}
+
 /* Row delete button */
 .ss-del-btn {
   background: none;

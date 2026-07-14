@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ColumnType = "text" | "number" | "boolean" | "select" | "json";
 
@@ -10,7 +10,7 @@ export interface Column {
   key: string;
   label: string;
   type: ColumnType;
-  options?: { value: string; label: string }[]; // for type "select"
+  options?: { value: string; label: string }[];
   width?: string;
   placeholder?: string;
 }
@@ -36,12 +36,25 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [editCell, setEditCell] = useState<CellRef | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
+
+  // Keep refs in sync so callbacks always see latest values without stale closures
   const rowsRef = useRef(rows);
+  const dirtyRef = useRef(dirty);
   rowsRef.current = rows;
+  dirtyRef.current = dirty;
 
   function rowKey(row: Row, idx: number): string {
     const id = row[idKey];
     return typeof id === "string" && id ? id : `new-${idx}`;
+  }
+
+  function markDirty(idx: number) {
+    // Use rowsRef so we always get the stable id (or new-N) regardless of render timing
+    const key = rowKey(rowsRef.current[idx], idx);
+    setDirty((prev) => {
+      if (prev.has(key)) return prev;
+      return new Set(prev).add(key);
+    });
   }
 
   function updateCell(idx: number, key: string, value: unknown) {
@@ -50,12 +63,11 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
       next[idx] = { ...next[idx], [key]: value };
       return next;
     });
-    setDirty((prev) => new Set(prev).add(rowKey(rowsRef.current[idx], idx)));
+    markDirty(idx);
   }
 
   function enterCell(rowIdx: number, colIdx: number) {
-    const col = columns[colIdx];
-    if (!col) return;
+    if (!columns[colIdx]) return;
     setEditCell({ rowIdx, colIdx });
   }
 
@@ -69,83 +81,34 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     setEditCell({ rowIdx: r, colIdx: c });
   }
 
-  // Parse Excel/Sheets clipboard (TSV) and flood-fill the grid from the active cell.
-  // Adds blank rows at the bottom if the paste extends past the current row count.
-  function handlePaste(e: React.ClipboardEvent, startRow: number, startCol: number) {
-    const text = e.clipboardData.getData("text/plain");
-    // Only intercept multi-cell pastes (contains tab or newline beyond a single cell)
-    const lines = text.split(/\r?\n/).filter((l) => l !== "");
-    const cells = lines.map((l) => l.split("\t"));
-    if (cells.length === 1 && cells[0].length === 1) return; // single cell — let browser handle
-
-    e.preventDefault();
-
-    setRows((prev) => {
-      const next = [...prev];
-      const newDirtyKeys: string[] = [];
-
-      for (let ri = 0; ri < cells.length; ri++) {
-        const targetRow = startRow + ri;
-        // Append new empty rows as needed
-        while (next.length <= targetRow) next.push({ ...emptyRow });
-
-        const rowCopy = { ...next[targetRow] };
-        for (let ci = 0; ci < cells[ri].length; ci++) {
-          const colIdx = startCol + ci;
-          if (colIdx >= columns.length) break;
-          const col = columns[colIdx];
-          const raw = cells[ri][ci].trim();
-          let coerced: unknown = raw;
-          if (col.type === "number") coerced = raw === "" ? null : Number(raw.replace(/,/g, ""));
-          else if (col.type === "boolean") coerced = raw.toLowerCase() === "true" || raw === "1" || raw.toLowerCase() === "yes";
-          rowCopy[col.key] = coerced;
-        }
-        next[targetRow] = rowCopy;
-        // Compute key from the original row (before edits) so new rows get new-N keys
-        const key = (() => {
-          const id = next[targetRow][idKey];
-          return typeof id === "string" && id ? id : `new-${targetRow}`;
-        })();
-        newDirtyKeys.push(key);
-      }
-
-      // Update dirty set outside via a queued state update
-      setDirty((prev) => {
-        const n = new Set(prev);
-        newDirtyKeys.forEach((k) => n.add(k));
-        return n;
-      });
-
-      return next;
-    });
-
-    // Move focus to last pasted cell
-    const lastRow = Math.min(startRow + cells.length - 1, startRow + cells.length - 1);
-    const lastCol = Math.min(startCol + (cells[0]?.length ?? 1) - 1, columns.length - 1);
-    setEditCell({ rowIdx: lastRow, colIdx: lastCol });
-  }
-
-  // Focus the active input whenever editCell changes
   useEffect(() => {
     if (!editCell) return;
     const t = setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
-        if ("select" in inputRef.current && typeof inputRef.current.select === "function") {
-          (inputRef.current as HTMLInputElement).select();
+        if (inputRef.current instanceof HTMLInputElement) {
+          inputRef.current.select();
         }
       }
     }, 0);
     return () => clearTimeout(t);
   }, [editCell]);
 
+  // Ctrl+S saves all dirty rows
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveAllDirty();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   function handleKeyDown(e: React.KeyboardEvent, rowIdx: number, colIdx: number) {
     const col = columns[colIdx];
-    if (e.key === "Escape") {
-      e.preventDefault();
-      exitCell();
-      return;
-    }
+    if (e.key === "Escape") { e.preventDefault(); exitCell(); return; }
     if (e.key === "Tab") {
       e.preventDefault();
       if (e.shiftKey) {
@@ -157,23 +120,62 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
       }
       return;
     }
-    if (e.key === "Enter" && col.type !== "json") {
-      e.preventDefault();
-      moveTo(rowIdx + 1, colIdx);
-      return;
-    }
-    if (col.type !== "text" && col.type !== "number" && col.type !== "json") return;
-    if (e.key === "ArrowDown" && col.type !== "json") {
-      e.preventDefault();
-      moveTo(rowIdx + 1, colIdx);
-    } else if (e.key === "ArrowUp" && col.type !== "json") {
-      e.preventDefault();
-      moveTo(rowIdx - 1, colIdx);
+    if (e.key === "Enter" && col.type !== "json") { e.preventDefault(); moveTo(rowIdx + 1, colIdx); return; }
+    if (col.type === "text" || col.type === "number") {
+      if (e.key === "ArrowDown") { e.preventDefault(); moveTo(rowIdx + 1, colIdx); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); moveTo(rowIdx - 1, colIdx); }
     }
   }
 
-  async function saveRow(idx: number): Promise<boolean> {
-    const row = rows[idx];
+  // Parse Excel/Sheets TSV paste and flood-fill from active cell
+  function handlePaste(e: React.ClipboardEvent, startRow: number, startCol: number) {
+    const text = e.clipboardData.getData("text/plain");
+    const lines = text.split(/\r?\n/).filter((l) => l !== "");
+    const grid = lines.map((l) => l.split("\t"));
+    if (grid.length === 1 && grid[0].length === 1) return; // single cell — let browser handle normally
+    e.preventDefault();
+
+    const keysToMarkDirty: string[] = [];
+
+    setRows((prev) => {
+      const next = [...prev];
+      for (let ri = 0; ri < grid.length; ri++) {
+        const targetRow = startRow + ri;
+        while (next.length <= targetRow) next.push({ ...emptyRow });
+        const rowCopy = { ...next[targetRow] };
+        for (let ci = 0; ci < grid[ri].length; ci++) {
+          const colIdx = startCol + ci;
+          if (colIdx >= columns.length) break;
+          const col = columns[colIdx];
+          const raw = grid[ri][ci].trim();
+          let coerced: unknown = raw;
+          if (col.type === "number") coerced = raw === "" ? null : Number(raw.replace(/,/g, ""));
+          else if (col.type === "boolean") coerced = /^(true|1|yes)$/i.test(raw);
+          rowCopy[col.key] = coerced;
+        }
+        next[targetRow] = rowCopy;
+        // Collect key using the id already present in next[targetRow]
+        const id = next[targetRow][idKey];
+        keysToMarkDirty.push(typeof id === "string" && id ? id : `new-${targetRow}`);
+      }
+      return next;
+    });
+
+    // Update dirty AFTER setRows so it's a separate state update (not inside an updater)
+    setDirty((prev) => {
+      const n = new Set(prev);
+      keysToMarkDirty.forEach((k) => n.add(k));
+      return n;
+    });
+
+    const lastRow = startRow + grid.length - 1;
+    const lastCol = Math.min(startCol + (grid[0]?.length ?? 1) - 1, columns.length - 1);
+    setEditCell({ rowIdx: lastRow, colIdx: lastCol });
+  }
+
+  async function saveRow(idx: number, currentRows: Row[]): Promise<boolean> {
+    const row = currentRows[idx];
+    if (!row) return false;
     const key = rowKey(row, idx);
     setSavingKeys((s) => new Set(s).add(key));
     setErrors((e) => ({ ...e, [key]: "" }));
@@ -182,9 +184,8 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     for (const col of columns) {
       let v = row[col.key];
       if (col.type === "json" && typeof v === "string") {
-        try {
-          v = v.trim() ? JSON.parse(v) : null;
-        } catch {
+        try { v = v.trim() ? JSON.parse(v) : null; }
+        catch {
           setErrors((e) => ({ ...e, [key]: `Invalid JSON in "${col.label}"` }));
           setSavingKeys((s) => { const n = new Set(s); n.delete(key); return n; });
           return false;
@@ -203,7 +204,9 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setErrors((e) => ({ ...e, [key]: typeof body.error === "string" ? body.error : "Save failed." }));
+      const msg = typeof body.error === "string" ? body.error
+        : (body.error?.formErrors?.[0] ?? body.error?.fieldErrors ? "Validation error — check field values" : "Save failed");
+      setErrors((e) => ({ ...e, [key]: msg }));
       return false;
     }
 
@@ -214,11 +217,16 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   }
 
   async function saveAllDirty() {
-    setBulkSaving(true);
-    const idxs = rows.map((row, idx) => ({ row, idx, key: rowKey(row, idx) }))
-      .filter(({ key, row }) => dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]))
+    // Snapshot rows NOW (called synchronously from click or keydown handler)
+    const snapshot = rowsRef.current;
+    const currentDirty = dirtyRef.current;
+    const idxs = snapshot
+      .map((row, idx) => ({ idx, key: rowKey(row, idx), isNew: !(typeof row[idKey] === "string" && row[idKey]) }))
+      .filter(({ key, isNew }) => isNew || currentDirty.has(key))
       .map(({ idx }) => idx);
-    await Promise.all(idxs.map((i) => saveRow(i)));
+    if (idxs.length === 0) return;
+    setBulkSaving(true);
+    await Promise.all(idxs.map((i) => saveRow(i, snapshot)));
     setBulkSaving(false);
   }
 
@@ -252,7 +260,7 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     if (failed > 0) alert(`${failed} row(s) could not be deleted.`);
   }
 
-  const allKeys = rows.map((row, idx) => rowKey(row, idx));
+  const allKeys = rows.map(rowKey);
   const dirtyCount = rows.filter((row, idx) => {
     const key = rowKey(row, idx);
     return dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]);
@@ -280,20 +288,14 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
   const someSelected = !allSelected && allKeys.some((k) => selected.has(k));
   function toggleAll() { allSelected ? setSelected(new Set()) : setSelected(new Set(allKeys)); }
-
-  function addRow() {
-    setRows((prev) => [...prev, { ...emptyRow }]);
-  }
+  function addRow() { setRows((prev) => [...prev, { ...emptyRow }]); }
 
   function displayValue(col: Column, row: Row): string {
     const v = row[col.key];
     if (v === null || v === undefined || v === "") return "";
     if (col.type === "boolean") return v ? "✓" : "";
     if (col.type === "json") return typeof v === "string" ? v : JSON.stringify(v);
-    if (col.type === "select") {
-      const opt = col.options?.find((o) => o.value === v);
-      return opt ? opt.label : String(v);
-    }
+    if (col.type === "select") return col.options?.find((o) => o.value === v)?.label ?? String(v);
     return String(v);
   }
 
@@ -303,7 +305,14 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button className="admin-btn secondary" onClick={addRow} type="button">+ Add row</button>
           {dirtyCount > 0 && (
-            <button className="admin-btn" onClick={saveAllDirty} disabled={bulkSaving} type="button">
+            <button
+              className="admin-btn"
+              onMouseDown={(e) => e.preventDefault()} // prevent blur stealing focus from active cell
+              onClick={saveAllDirty}
+              disabled={bulkSaving}
+              type="button"
+              title="Ctrl+S"
+            >
               {bulkSaving ? "Saving…" : `Save ${dirtyCount} row${dirtyCount !== 1 ? "s" : ""}`}
             </button>
           )}
@@ -339,64 +348,70 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
             {rows.map((row, rowIdx) => {
               const key = rowKey(row, rowIdx);
               const isDirty = dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]);
-              const isSelected = selected.has(key);
+              const isSaving = savingKeys.has(key);
               const rowErr = errors[key];
+              const isSelected = selected.has(key);
               return (
-                <tr
-                  key={key}
-                  className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}
-                >
-                  <td style={{ textAlign: "center", padding: "0 4px" }}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => toggleRow(key, e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey)}
-                    />
-                  </td>
-                  {columns.map((col, colIdx) => {
-                    const isActive = editCell?.rowIdx === rowIdx && editCell?.colIdx === colIdx;
-                    return (
-                      <td
-                        key={col.key}
-                        className={isActive ? "ss-cell active" : "ss-cell"}
-                        onClick={() => !isActive && enterCell(rowIdx, colIdx)}
-                      >
-                        {isActive ? (
-                          <ActiveCell
-                            col={col}
-                            row={row}
-                            rowIdx={rowIdx}
-                            colIdx={colIdx}
-                            inputRef={inputRef}
-                            onUpdate={updateCell}
-                            onKeyDown={handleKeyDown}
-                            onBlur={exitCell}
-                            onPaste={handlePaste}
-                          />
-                        ) : (
-                          <span className={`ss-display${col.type === "boolean" ? " ss-bool" : ""}`}>
-                            {displayValue(col, row)}
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td style={{ padding: "0 4px", textAlign: "center" }}>
-                    <button
-                      className="ss-del-btn"
-                      title="Delete row"
-                      onClick={() => deleteRow(rowIdx)}
-                      type="button"
-                    >×</button>
-                  </td>
-                </tr>
+                <>
+                  <tr
+                    key={key}
+                    className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}
+                  >
+                    <td style={{ textAlign: "center", padding: "0 4px" }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => toggleRow(key, e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey)}
+                      />
+                    </td>
+                    {columns.map((col, colIdx) => {
+                      const isActive = editCell?.rowIdx === rowIdx && editCell?.colIdx === colIdx;
+                      return (
+                        <td
+                          key={col.key}
+                          className={isActive ? "ss-cell active" : "ss-cell"}
+                          onClick={() => !isActive && enterCell(rowIdx, colIdx)}
+                          style={{ opacity: isSaving ? 0.5 : 1 }}
+                        >
+                          {isActive ? (
+                            <ActiveCell
+                              col={col}
+                              row={row}
+                              rowIdx={rowIdx}
+                              colIdx={colIdx}
+                              inputRef={inputRef}
+                              onUpdate={updateCell}
+                              onKeyDown={handleKeyDown}
+                              onBlur={exitCell}
+                              onPaste={handlePaste}
+                            />
+                          ) : (
+                            <span className={`ss-display${col.type === "boolean" ? " ss-bool" : ""}`}>
+                              {displayValue(col, row)}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td style={{ padding: "0 4px", textAlign: "center" }}>
+                      {isSaving ? (
+                        <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>…</span>
+                      ) : (
+                        <button className="ss-del-btn" title="Delete row" onClick={() => deleteRow(rowIdx)} type="button">×</button>
+                      )}
+                    </td>
+                  </tr>
+                  {rowErr && (
+                    <tr key={`${key}-err`} className="ss-err-row">
+                      <td />
+                      <td colSpan={columns.length + 1} className="ss-err-cell">{rowErr}</td>
+                    </tr>
+                  )}
+                </>
               );
             })}
           </tbody>
         </table>
-        {Object.entries(errors).map(([k, msg]) => msg ? (
-          <div key={k} className="admin-error" style={{ padding: "4px 8px" }}>{msg}</div>
-        ) : null)}
       </div>
     </div>
   );
@@ -416,11 +431,11 @@ interface ActiveCellProps {
 
 function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, onBlur, onPaste }: ActiveCellProps) {
   const value = row[col.key];
-
-  const sharedProps = {
+  const shared = {
     onKeyDown: (e: React.KeyboardEvent) => onKeyDown(e, rowIdx, colIdx),
     onPaste: (e: React.ClipboardEvent) => onPaste(e, rowIdx, colIdx),
     onBlur,
+    className: "ss-input",
   };
 
   if (col.type === "boolean") {
@@ -430,8 +445,7 @@ function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, o
         type="checkbox"
         checked={!!value}
         onChange={(e) => onUpdate(rowIdx, col.key, e.target.checked)}
-        {...sharedProps}
-        className="ss-input"
+        {...shared}
       />
     );
   }
@@ -442,13 +456,10 @@ function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, o
         ref={inputRef as React.MutableRefObject<HTMLSelectElement>}
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onUpdate(rowIdx, col.key, e.target.value)}
-        {...sharedProps}
-        className="ss-input"
+        {...shared}
       >
         <option value="">—</option>
-        {col.options?.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
+        {col.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     );
   }
@@ -461,24 +472,22 @@ function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, o
         value={text}
         onChange={(e) => onUpdate(rowIdx, col.key, e.target.value)}
         placeholder={col.placeholder}
-        {...sharedProps}
-        className="ss-input ss-textarea"
         rows={3}
+        {...shared}
+        className="ss-input ss-textarea"
       />
     );
   }
 
   if (col.type === "number") {
-    const numVal = value === null || value === undefined ? "" : String(value);
     return (
       <input
         ref={inputRef as React.MutableRefObject<HTMLInputElement>}
         type="number"
-        value={numVal}
+        value={value === null || value === undefined ? "" : String(value)}
         onChange={(e) => onUpdate(rowIdx, col.key, e.target.value === "" ? null : Number(e.target.value))}
         step="any"
-        {...sharedProps}
-        className="ss-input"
+        {...shared}
       />
     );
   }
@@ -490,8 +499,7 @@ function ActiveCell({ col, row, rowIdx, colIdx, inputRef, onUpdate, onKeyDown, o
       value={typeof value === "string" ? value : value == null ? "" : String(value)}
       onChange={(e) => onUpdate(rowIdx, col.key, e.target.value)}
       placeholder={col.placeholder}
-      {...sharedProps}
-      className="ss-input"
+      {...shared}
     />
   );
 }
