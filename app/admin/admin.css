@@ -255,6 +255,14 @@ table.admin-table tr.dirty td {
   background: #fbf6ea;
 }
 
+table.admin-table tr.selected td {
+  background: #eef3ff;
+}
+
+table.admin-table tr.selected.dirty td {
+  background: #e8f0ff;
+}
+
 .admin-row-actions {
   display: flex;
   gap: 4px;

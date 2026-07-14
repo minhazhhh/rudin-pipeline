@@ -28,6 +28,8 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function rowKey(row: Row, idx: number): string {
     const id = row[idKey];
@@ -115,8 +117,42 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     const res = await fetch(`${apiBase}/${existingId}`, { method: "DELETE" });
     if (res.ok) {
       setRows((prev) => prev.filter((_, i) => i !== idx));
+      setSelected((prev) => { const n = new Set(prev); n.delete(existingId); return n; });
     } else {
       alert("Delete failed.");
+    }
+  }
+
+  async function deleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} selected row(s)? This can't be undone.`)) return;
+    setBulkDeleting(true);
+    const ids = [...selected].filter((k) => !k.startsWith("new-"));
+    const results = await Promise.all(ids.map((id) => fetch(`${apiBase}/${id}`, { method: "DELETE" })));
+    const failed = results.filter((r) => !r.ok).length;
+    setRows((prev) => prev.filter((row, idx) => !selected.has(rowKey(row, idx))));
+    setSelected(new Set());
+    setBulkDeleting(false);
+    if (failed > 0) alert(`${failed} row(s) could not be deleted.`);
+  }
+
+  function toggleRow(key: string) {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      n.has(key) ? n.delete(key) : n.add(key);
+      return n;
+    });
+  }
+
+  const allKeys = rows.map((row, idx) => rowKey(row, idx));
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
+  const someSelected = !allSelected && allKeys.some((k) => selected.has(k));
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allKeys));
     }
   }
 
@@ -130,12 +166,26 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
         <button className="admin-btn secondary" onClick={addRow} type="button">
           + Add row
         </button>
+        {selected.size > 0 && (
+          <button className="admin-btn danger" onClick={deleteSelected} disabled={bulkDeleting} type="button">
+            {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
+          </button>
+        )}
         <span className="admin-badge">{rows.length} rows</span>
       </div>
       <div className="admin-table-wrap">
         <table className="admin-table">
           <thead>
             <tr>
+              <th style={{ width: "32px", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                  onChange={toggleAll}
+                  title="Select all"
+                />
+              </th>
               {columns.map((c) => (
                 <th key={c.key} style={{ width: c.width }}>
                   {c.label}
@@ -152,8 +202,12 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
             {rows.map((row, idx) => {
               const key = rowKey(row, idx);
               const isDirty = dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]);
+              const isSelected = selected.has(key);
               return (
-                <tr key={key} className={isDirty ? "dirty" : ""}>
+                <tr key={key} className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}>
+                  <td style={{ textAlign: "center" }}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleRow(key)} />
+                  </td>
                   {columns.map((col) => (
                     <td key={col.key}>{renderCell(col, row, idx, updateCell)}</td>
                   ))}
