@@ -4,15 +4,10 @@ import EditableTable, { Column, Row } from "../components/EditableTable";
 export const dynamic = "force-dynamic";
 
 export default async function CompBuildingStatsAdminPage() {
-  const [stats, buildings] = await Promise.all([
-    prisma.compBuildingStat.findMany({ include: { building: { select: { name: true } } } }),
-    prisma.compBuilding.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-  ]);
-
-  const buildingOptions = buildings.map((b) => ({ value: b.id, label: b.name }));
+  const stats = await prisma.compBuildingStat.findMany({ include: { building: { select: { name: true } } } });
 
   const columns: Column[] = [
-    { key: "buildingId", label: "Building", type: "select", options: buildingOptions, width: "11.0%" },
+    { key: "buildingName", label: "Building", type: "text", width: "11.0%", placeholder: "Building name…" },
     { key: "unitType", label: "Unit Type", type: "text", width: "5.3%", placeholder: "ST / 1BD / 2BD…" },
     { key: "avgRent", label: "Avg Rent", type: "number", width: "5.3%" },
     { key: "medRent", label: "Med Rent", type: "number", width: "5.3%" },
@@ -32,7 +27,7 @@ export default async function CompBuildingStatsAdminPage() {
   ];
 
   const emptyRow: Row = {
-    buildingId: buildingOptions[0]?.value ?? "",
+    buildingName: "",
     unitType: "",
     avgRent: null,
     medRent: null,
@@ -53,7 +48,7 @@ export default async function CompBuildingStatsAdminPage() {
 
   const rows: Row[] = stats.map((s) => ({
     id: s.id,
-    buildingId: s.buildingId,
+    buildingName: (s as typeof s & { building?: { name: string } }).building?.name ?? "",
     unitType: s.unitType,
     avgRent: s.avgRent,
     medRent: s.medRent,
@@ -79,7 +74,6 @@ export default async function CompBuildingStatsAdminPage() {
         Per unit-type rent/SF/PSF stats for each comp building, powering the &quot;By Building&quot; tab. One row per
         building + unit type.
       </p>
-      {buildingOptions.length === 0 && <p className="admin-error">Add a Comp Building first.</p>}
       <EditableTable columns={columns} apiBase="/api/comp-building-stats" initialRows={rows} emptyRow={emptyRow} />
     </div>
   );
