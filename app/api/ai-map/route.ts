@@ -78,7 +78,7 @@ Respond with ONLY valid JSON, no markdown, no explanation outside the JSON:
         "X-Title": "Rudin Pipeline",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-opus-4-8",
+        model: "anthropic/claude-opus-4-5",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1024,
         temperature: 0,
@@ -87,6 +87,7 @@ Respond with ONLY valid JSON, no markdown, no explanation outside the JSON:
 
     if (!response.ok) {
       const err = await response.text();
+      console.error("OpenRouter response:", response.status, err);
       throw new Error(`OpenRouter error ${response.status}: ${err}`);
     }
 
