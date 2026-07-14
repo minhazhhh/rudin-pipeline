@@ -62,25 +62,6 @@ If you are not confident in the exact coordinates, return null for both fields.`
   }
 }
 
-const UA = { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" };
-
-async function fetchCommonsImage(query: string): Promise<string | null> {
-  try {
-    // Search Wikimedia Commons for images tagged with the building name
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|size|mime&format=json&origin=*`;
-    const res = await fetch(url, { headers: UA });
-    if (!res.ok) return null;
-    const data = await res.json() as { query?: { pages?: Record<string, { imageinfo?: { url: string; width: number; height: number; mime: string }[] }> } };
-    const pages = Object.values(data.query?.pages ?? {});
-    // Pick the largest image that's a real photo (jpeg/png) and at least 400px wide
-    const candidates = pages
-      .flatMap((p) => p.imageinfo ?? [])
-      .filter((ii) => (ii.mime === "image/jpeg" || ii.mime === "image/png") && ii.width >= 400)
-      .sort((a, b) => b.width - a.width);
-    return candidates[0]?.url ?? null;
-  } catch { return null; }
-}
-
 async function fetchImageViaClaude(name: string, address: string | null): Promise<string | null> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
@@ -97,7 +78,7 @@ Return ONLY valid JSON — no explanation, no markdown:
 Rules:
 - The URL must end in .jpg, .jpeg, .png, or .webp
 - It must be a photo of the actual building exterior, not a logo, map, or icon
-- Prefer Wikimedia Commons, NYC open data, or well-known real estate photo sources
+- Prefer Wikimedia Commons URLs (upload.wikimedia.org) — these are reliably public
 - If you are not confident the URL is real and publicly accessible, return null`;
 
   try {
@@ -116,7 +97,10 @@ Rules:
         temperature: 0,
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[image] Claude error:", res.status, await res.text());
+      return null;
+    }
     const data = await res.json() as { choices: { message: { content: string } }[] };
     const text = data.choices[0]?.message?.content ?? "";
     const match = text.match(/\{[\s\S]*\}/);
@@ -124,10 +108,12 @@ Rules:
     const parsed = JSON.parse(match[0]) as { imageUrl: string | null };
     const url = parsed.imageUrl;
     if (!url || url === "null") return null;
-    // Sanity-check: must look like a real image URL
     if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) return null;
     return url;
-  } catch { return null; }
+  } catch (e) {
+    console.error("[image] Claude exception:", e);
+    return null;
+  }
 }
 
 // GET — list projects that need geocoding or images
@@ -179,16 +165,11 @@ export async function POST(req: NextRequest) {
     if (!coords) return NextResponse.json({ ok: false, reason: "not found" });
   }
 
-  // Fetch building image if missing
-  // 1. Wikimedia Commons photo search (most reliable for real building images)
-  // 2. Claude fallback (uses training knowledge to find a known image URL)
+  // Fetch building image if missing via Claude
   const needsImage = !project.imageUrl?.trim();
   let imageUrl: string | null = null;
   if (needsImage) {
-    const nameQuery = `${project.name} building New York`;
-    imageUrl = await fetchCommonsImage(nameQuery);
-    if (!imageUrl && address) imageUrl = await fetchCommonsImage(`${address.split(",")[0]} New York`);
-    if (!imageUrl) imageUrl = await fetchImageViaClaude(project.name, address);
+    imageUrl = await fetchImageViaClaude(project.name, address);
     console.log(`[image] "${project.name}" →`, imageUrl ?? "not found");
   }
 
