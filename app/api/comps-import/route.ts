@@ -275,7 +275,7 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
   const existingNames = new Set(buildings.map((b: { id: string; name: string }) => b.name));
   for (const name of buildingNames) {
     if (!existingNames.has(name)) {
-      const created = await prisma.compBuilding.create({ data: { name } });
+      const created = await prisma.compBuilding.create({ data: { name, propertyType: "Market" } });
       buildings.push(created);
     }
   }
