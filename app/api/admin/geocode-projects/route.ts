@@ -18,37 +18,38 @@ async function geocodeAddress(query: string): Promise<{ lat: number; lng: number
   }
 }
 
-export async function POST(req: NextRequest) {
+// GET — list projects that need geocoding
+export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
 
   const projects = await prisma.project.findMany({
-    where: { OR: [{ lat: 0, lng: 0 }, { lat: null as never }, { lng: null as never }] },
-    select: { id: true, name: true, address: true, lat: true, lng: true },
+    where: { OR: [{ lat: 0, lng: 0 }] },
+    select: { id: true, name: true, address: true },
+    orderBy: { createdAt: "asc" },
   });
 
-  let updated = 0;
-  let failed = 0;
-  const results: { name: string; status: string; lat?: number; lng?: number }[] = [];
+  return NextResponse.json({ projects });
+}
 
-  for (const p of projects) {
-    const query = p.address?.trim() || p.name?.trim();
-    if (!query) { failed++; results.push({ name: p.name, status: "no address" }); continue; }
+// POST with { id } — geocode a single project and save it
+export async function POST(req: NextRequest) {
+  const unauthorized = requireAdmin(req);
+  if (unauthorized) return unauthorized;
 
-    // Nominatim rate limit: 1 req/sec
-    await new Promise((r) => setTimeout(r, 1100));
+  const { id } = await req.json() as { id: string };
+  const project = await prisma.project.findUnique({
+    where: { id },
+    select: { id: true, name: true, address: true },
+  });
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const coords = await geocodeAddress(query);
-    if (!coords) {
-      failed++;
-      results.push({ name: p.name, status: "not found" });
-      continue;
-    }
+  const query = project.address?.trim() || project.name?.trim();
+  if (!query) return NextResponse.json({ ok: false, reason: "no address" });
 
-    await prisma.project.update({ where: { id: p.id }, data: coords });
-    updated++;
-    results.push({ name: p.name, status: "ok", ...coords });
-  }
+  const coords = await geocodeAddress(query);
+  if (!coords) return NextResponse.json({ ok: false, reason: "not found" });
 
-  return NextResponse.json({ updated, failed, total: projects.length, results });
+  await prisma.project.update({ where: { id }, data: coords });
+  return NextResponse.json({ ok: true, ...coords });
 }
