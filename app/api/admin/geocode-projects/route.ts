@@ -67,19 +67,17 @@ async function fetchImageViaClaude(name: string, address: string | null, year: s
   if (!apiKey) return null;
 
   const location = address?.trim() ? address : `${name}, New York, NY`;
-  const prompt = `You are a real estate research assistant. Find a direct URL to a real photograph of this building.
+
+  // Step 1: ask Claude for the Wikipedia article title — it knows these reliably
+  const prompt = `You are a real estate research assistant. What is the exact English Wikipedia article title for this building?
 
 Building: ${name}
 Address: ${location}${year ? `\nYear: ${year}` : ""}
 
 Return ONLY valid JSON — no explanation, no markdown:
-{"imageUrl": "<direct image URL to a photo of this building, or null if unknown>"}
+{"title": "<exact Wikipedia article title, e.g. One Penn Plaza, or null if no Wikipedia article exists>"}
 
-Rules:
-- The URL must end in .jpg, .jpeg, .png, or .webp
-- It must be a photo of the actual building exterior, not a logo, map, or icon
-- Prefer Wikimedia Commons URLs (upload.wikimedia.org) — these are reliably public
-- If you are not confident the URL is real and publicly accessible, return null`;
+If you are not confident a Wikipedia article exists for this specific building, return null.`;
 
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -93,7 +91,7 @@ Rules:
       body: JSON.stringify({
         model: "anthropic/claude-opus-4-5",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 128,
+        max_tokens: 64,
         temperature: 0,
       }),
     });
@@ -105,11 +103,18 @@ Rules:
     const text = data.choices[0]?.message?.content ?? "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
-    const parsed = JSON.parse(match[0]) as { imageUrl: string | null };
-    const url = parsed.imageUrl;
-    if (!url || url === "null") return null;
-    if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) return null;
-    return url;
+    const parsed = JSON.parse(match[0]) as { title: string | null };
+    const title = parsed.title;
+    if (!title || title === "null") return null;
+
+    // Step 2: fetch the Wikipedia page summary to get the actual image URL
+    const summaryRes = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      { headers: { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" } }
+    );
+    if (!summaryRes.ok) return null;
+    const summary = await summaryRes.json() as { originalimage?: { source: string }; thumbnail?: { source: string } };
+    return summary.originalimage?.source || summary.thumbnail?.source || null;
   } catch (e) {
     console.error("[image] Claude exception:", e);
     return null;
