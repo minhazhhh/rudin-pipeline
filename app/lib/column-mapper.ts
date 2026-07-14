@@ -39,7 +39,7 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
   ],
   "comp-building-stats": [
     { key: "buildingName", label: "Building Name", required: true, aliases: ["buildingname", "building name", "building", "property", "property name", "address", "bldg", "bldg name"] },
-    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "unit", "bed type", "bedroom type", "type", "unit size", "apt type", "bedroom"] },
+    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom type", "unit size", "apt type", "bedroom", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent", "avg rent ($)", "average rental", "rent avg"] },
     { key: "medRent", label: "Median Rent", required: false, aliases: ["medrent", "med rent", "median rent", "med. rent", "median"] },
     { key: "minRent", label: "Min Rent", required: false, aliases: ["minrent", "min rent", "minimum rent", "min. rent", "rent min"] },
@@ -60,13 +60,13 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "buildingName", label: "Building Name", required: true, aliases: ["buildingname", "building name", "building", "property", "property name", "address", "bldg"] },
     { key: "quarter", label: "Quarter", required: true, aliases: ["quarter", "qtr", "q", "period", "time period", "date", "quarter label"] },
     { key: "quarterOrder", label: "Quarter Order", required: false, aliases: ["quarterorder", "quarter order", "order", "sort order", "qtr order", "quarter #"] },
-    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "unit", "bed type", "bedroom type", "type", "unit size", "apt type"] },
+    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom type", "unit size", "apt type", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent", "avg rent ($)"] },
     { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf", "avg$/sf", "$/sf avg"] },
     { key: "n", label: "n (leases)", required: false, aliases: ["n", "count", "lease count", "# leases", "leases", "total", "n leases"] },
   ],
   "overall-stats": [
-    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "unit", "bed type", "bedroom type", "type", "bedroom"] },
+    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom type", "type", "bedroom", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent"] },
     { key: "medRent", label: "Median Rent", required: false, aliases: ["medrent", "med rent", "median rent"] },
     { key: "minRent", label: "Min Rent", required: false, aliases: ["minrent", "min rent", "minimum rent"] },
@@ -85,7 +85,7 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
   ],
   "type-stats": [
     { key: "propertyType", label: "Property Type", required: true, aliases: ["propertytype", "property type", "type", "classification", "class"] },
-    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "unit", "bed type", "bedroom"] },
+    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent"] },
     { key: "medRent", label: "Median Rent", required: false, aliases: ["medrent", "med rent", "median rent"] },
     { key: "minRent", label: "Min Rent", required: false, aliases: ["minrent", "min rent", "minimum rent"] },
@@ -100,21 +100,21 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
   trend: [
     { key: "quarter", label: "Quarter", required: true, aliases: ["quarter", "qtr", "q", "period", "time period", "date"] },
     { key: "quarterOrder", label: "Quarter Order", required: false, aliases: ["quarterorder", "quarter order", "order", "sort order", "qtr order"] },
-    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "unit", "bed type", "bedroom"] },
+    { key: "unitType", label: "Unit Type", required: true, aliases: ["unittype", "unit type", "bed type", "bedroom", "beds", "bedrooms"] },
     { key: "avgRent", label: "Avg Rent", required: false, aliases: ["avgrent", "avg rent", "average rent", "avg. rent", "mean rent"] },
     { key: "avgPsf", label: "Avg $/SF", required: false, aliases: ["avgpsf", "avg psf", "average psf", "avg $/sf"] },
   ],
   // Individual lease transaction records — matches Rudin workbook "Data" sheet format
   "lease-comps": [
     { key: "building", label: "Building", required: true, aliases: ["building", "building name", "property", "property name", "bldg", "address", "comp building"] },
-    { key: "unit", label: "Unit", required: false, aliases: ["unit", "unit id", "unit number", "unit no", "apt", "apartment", "suite", "residence", "#"] },
-    { key: "unitType", label: "Unit Type", required: false, aliases: ["unit type", "unittype", "type", "bed type", "bedroom type", "unit size", "apt type", "bedroom", "beds"] },
-    { key: "unitSf", label: "Unit SF", required: false, aliases: ["unit sf", "unitsf", "sqft", "sq ft", "square feet", "sf", "unit sqft", "size sf", "net sf", "area sf"] },
-    { key: "grossRent", label: "Gross Rent", required: false, aliases: ["gross rent", "grossrent", "rent", "asking rent", "gross monthly rent", "monthly rent", "gross"] },
-    { key: "grossPsf", label: "Gross $/SF", required: false, aliases: ["gross $/sf", "grosspsf", "gross/sf", "psf", "rent psf", "$/sf", "price per sf", "rent per sf"] },
-    { key: "netRent", label: "Net Rent", required: false, aliases: ["net rent", "netrent", "net monthly rent", "effective rent", "net effective rent", "net"] },
+    { key: "unit", label: "Unit", required: false, aliases: ["unit", "unit id", "unit number", "unit no", "unit #", "apt", "apt #", "apartment", "suite", "residence", "#"] },
+    { key: "unitType", label: "Unit Type", required: false, aliases: ["unit type", "unittype", "bed type", "bedroom type", "unit size", "apt type", "bedroom", "beds", "bedrooms", "floorplan", "floorplan name", "floorplan type", "plan type", "plan"] },
+    { key: "unitSf", label: "Unit SF", required: false, aliases: ["unit sf", "unitsf", "sqft", "sq ft", "square feet", "sf", "unit sqft", "size sf", "net sf", "area sf", "size", "area"] },
+    { key: "grossRent", label: "Gross Rent", required: false, aliases: ["gross rent", "grossrent", "rent", "asking rent", "gross monthly rent", "monthly rent", "gross", "listed rent", "advertised rent"] },
+    { key: "grossPsf", label: "Gross $/SF", required: false, aliases: ["gross $/sf", "grosspsf", "gross/sf", "asking psf", "asking $/sf", "psf", "rent psf", "$/sf", "price per sf", "rent per sf", "list psf", "advertised psf"] },
+    { key: "netRent", label: "Net Rent", required: false, aliases: ["net rent", "netrent", "net monthly rent", "effective rent", "net effective rent", "net", "effective", "net asking rent"] },
     { key: "concession", label: "Concession", required: false, aliases: ["concession", "concession months", "free months", "concessions", "free rent", "months free"] },
-    { key: "leaseDate", label: "Date", required: false, aliases: ["date", "lease date", "signed date", "commencement", "start date", "lease start", "executed"] },
+    { key: "leaseDate", label: "Date", required: false, aliases: ["date", "lease date", "leased date", "signed date", "commencement", "start date", "lease start", "executed", "first listed", "listing date", "listed date", "available date"] },
     { key: "quarter", label: "Quarter", required: false, aliases: ["quarter", "qtr", "fiscal quarter", "period", "time period"] },
     { key: "propertyType", label: "Property Type", required: false, aliases: ["property type", "propertytype", "building type", "conversion type", "class", "category"] },
   ],
@@ -160,8 +160,11 @@ function matchScore(header: string, alias: string): number {
   // Exact match
   if (h === a) return 100;
 
-  // One fully contains the other (e.g. "monthly gross rent ($)" contains "gross rent")
-  if (h.includes(a) || a.includes(h)) return 80;
+  // Header contains alias (e.g. "monthly gross rent ($)" contains "gross rent")
+  // Only allow alias-in-header when alias is at least 5 chars to avoid short alias ("unit", "sf") false-positives
+  if (a.length >= 5 && h.includes(a)) return 80;
+  // Alias contains header (e.g. alias "property name" contains header "property")
+  if (h.length >= 5 && a.includes(h)) return 75;
 
   // Token overlap: what fraction of alias tokens appear in header tokens
   const hTokens = new Set(h.split(" "));
@@ -216,13 +219,19 @@ export function detectResource(headers: string[]): { resource: Resource; score: 
   const resources = Object.keys(RESOURCE_FIELDS) as Resource[];
   let best: { resource: Resource; score: number } | null = null;
   for (const resource of resources) {
+    const fields = RESOURCE_FIELDS[resource];
     const mapping = autoMapColumns(headers, resource);
     const matched = Object.values(mapping).filter(Boolean).length;
     const requiredMatched = Object.values(mapping).filter((v) => {
       if (!v) return false;
-      return RESOURCE_FIELDS[resource].find((f) => f.key === v)?.required;
+      return fields.find((f) => f.key === v)?.required;
     }).length;
-    const score = requiredMatched * 10 + matched;
+    const totalRequired = fields.filter((f) => f.required).length;
+    // Penalise resources that have required fields we couldn't satisfy
+    const missedRequired = totalRequired - requiredMatched;
+    // Coverage ratio: fraction of this resource's fields that were matched
+    const coverage = matched / fields.length;
+    const score = requiredMatched * 8 - missedRequired * 6 + matched * 2 + coverage * 10;
     if (!best || score > best.score) best = { resource, score };
   }
   return best;
