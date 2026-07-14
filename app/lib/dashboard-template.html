@@ -2597,18 +2597,17 @@ function buildCDReport() {
   const allBldgs = Object.keys(AGG.bldg_stats).sort();
   const allUTs = AGG.ut_order.filter(t => allBldgs.some(b => AGG.bldg_stats[b]?.units?.[t]));
   const trendBldgs = Object.keys(AGG.bldg_trend || {}).sort();
-  // A wide-spread categorical palette (not just brand green/gold) so each
-  // building gets its own distinguishable color instead of repeating every
-  // ~10 buildings. Sized comfortably above the comp-building count so
-  // repeats shouldn't happen in practice; indexed by each building's
-  // position in the full sorted building list (allBldgs) so a given
-  // building is always the same color across both Custom Report modes.
+  // A monochrome blue ramp (light -> dark) instead of a categorical rainbow —
+  // each building gets its own shade, sized comfortably above the comp-building
+  // count so repeats shouldn't happen in practice. The light end is floored so
+  // white chip/legend text stays legible (~3.3:1+ contrast); indexed by each
+  // building's position in the full sorted building list (allBldgs) so a given
+  // building is always the same shade across both Custom Report modes.
   const BLDG_PALETTE = [
-    '#3b6e8f','#b5533c','#4a7c59','#a8895a','#7a5c8a','#b8792a',
-    '#4f8f9e','#8a4a55','#5f7a3d','#5a6b9e','#b85a86','#3a5a4a',
-    '#b8763f','#5a7d96','#8f5a3a','#4a8a7a','#9e5a6f','#6a5a3a',
-    '#3a6b8f','#a85a8a','#5a8f5a','#8a7a3a','#4a5a8a','#7a3f3f',
-    '#3a8a8a','#9e7a4f',
+    '#5c90cc','#548bc9','#4d86c7','#4580c4','#3d7bc2','#3b76ba',
+    '#3871b2','#366cab','#3367a3','#31629b','#2f5e93','#2c598c',
+    '#2a5484','#274f7c','#254a74','#22456d','#204065','#1d3b5d',
+    '#1b3655','#18314e','#162c46','#14273e','#112236',
   ];
   const bldgColor = (name) => BLDG_PALETTE[Math.max(0, allBldgs.indexOf(name)) % BLDG_PALETTE.length];
 
