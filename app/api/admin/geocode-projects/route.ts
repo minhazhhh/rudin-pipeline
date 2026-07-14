@@ -62,28 +62,71 @@ If you are not confident in the exact coordinates, return null for both fields.`
   }
 }
 
-async function fetchWikipediaImage(query: string): Promise<string | null> {
+const UA = { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" };
+
+async function fetchCommonsImage(query: string): Promise<string | null> {
   try {
-    // Search Wikipedia for the building
-    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=1&format=json&origin=*`;
-    const searchRes = await fetch(searchUrl, { headers: { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" } });
-    if (!searchRes.ok) return null;
-    const searchData = await searchRes.json() as { query: { search: { title: string }[] } };
-    const title = searchData.query?.search?.[0]?.title;
-    if (!title) return null;
+    // Search Wikimedia Commons for images tagged with the building name
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|size|mime&format=json&origin=*`;
+    const res = await fetch(url, { headers: UA });
+    if (!res.ok) return null;
+    const data = await res.json() as { query?: { pages?: Record<string, { imageinfo?: { url: string; width: number; height: number; mime: string }[] }> } };
+    const pages = Object.values(data.query?.pages ?? {});
+    // Pick the largest image that's a real photo (jpeg/png) and at least 400px wide
+    const candidates = pages
+      .flatMap((p) => p.imageinfo ?? [])
+      .filter((ii) => (ii.mime === "image/jpeg" || ii.mime === "image/png") && ii.width >= 400)
+      .sort((a, b) => b.width - a.width);
+    return candidates[0]?.url ?? null;
+  } catch { return null; }
+}
 
-    // Fetch the page summary which includes a thumbnail
-    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
-    const summaryRes = await fetch(summaryUrl, { headers: { "User-Agent": "rudin-pipeline/1.0 (mhasan@rudin.com)" } });
-    if (!summaryRes.ok) return null;
-    const summary = await summaryRes.json() as { thumbnail?: { source: string }; originalimage?: { source: string } };
+async function fetchImageViaClaude(name: string, address: string | null): Promise<string | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
 
-    // Prefer the full original image; fall back to thumbnail
-    const imgUrl = summary.originalimage?.source || summary.thumbnail?.source || null;
-    if (!imgUrl) return null;
+  const location = address?.trim() ? address : `${name}, New York, NY`;
+  const prompt = `You are a real estate research assistant. Find a direct URL to a real photograph of this building.
 
-    // Only accept actual building/place images (not icons/flags/logos which are tiny)
-    return imgUrl;
+Building: ${name}
+Location: ${location}
+
+Return ONLY valid JSON — no explanation, no markdown:
+{"imageUrl": "<direct image URL to a photo of this building, or null if unknown>"}
+
+Rules:
+- The URL must end in .jpg, .jpeg, .png, or .webp
+- It must be a photo of the actual building exterior, not a logo, map, or icon
+- Prefer Wikimedia Commons, NYC open data, or well-known real estate photo sources
+- If you are not confident the URL is real and publicly accessible, return null`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://rudin-pipeline.vercel.app",
+        "X-Title": "Rudin Pipeline",
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-opus-4-5",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 128,
+        temperature: 0,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { choices: { message: { content: string } }[] };
+    const text = data.choices[0]?.message?.content ?? "";
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]) as { imageUrl: string | null };
+    const url = parsed.imageUrl;
+    if (!url || url === "null") return null;
+    // Sanity-check: must look like a real image URL
+    if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) return null;
+    return url;
   } catch { return null; }
 }
 
@@ -136,12 +179,16 @@ export async function POST(req: NextRequest) {
     if (!coords) return NextResponse.json({ ok: false, reason: "not found" });
   }
 
-  // Fetch Wikipedia image if missing
+  // Fetch building image if missing
+  // 1. Wikimedia Commons photo search (most reliable for real building images)
+  // 2. Claude fallback (uses training knowledge to find a known image URL)
   const needsImage = !project.imageUrl?.trim();
   let imageUrl: string | null = null;
   if (needsImage) {
-    imageUrl = await fetchWikipediaImage(project.name);
-    if (!imageUrl && address) imageUrl = await fetchWikipediaImage(address.split(",")[0]);
+    const nameQuery = `${project.name} building New York`;
+    imageUrl = await fetchCommonsImage(nameQuery);
+    if (!imageUrl && address) imageUrl = await fetchCommonsImage(`${address.split(",")[0]} New York`);
+    if (!imageUrl) imageUrl = await fetchImageViaClaude(project.name, address);
     console.log(`[image] "${project.name}" →`, imageUrl ?? "not found");
   }
 
