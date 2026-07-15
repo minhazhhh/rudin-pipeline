@@ -209,6 +209,18 @@ model LeaseComp {
   createdAt    DateTime  @default(now())
 }
 
+// ─── Version history snapshots ───
+
+model Snapshot {
+  id        String   @id @default(cuid())
+  resource  String   // e.g. "comp-building-stats", "trend"
+  label     String   // human-readable description
+  data      Json     // full array of rows at snapshot time
+  createdAt DateTime @default(now())
+
+  @@index([resource, createdAt])
+}
+
 // ─── App config ───
 
 model SyncConfig {

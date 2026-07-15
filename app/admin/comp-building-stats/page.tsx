@@ -74,7 +74,7 @@ export default async function CompBuildingStatsAdminPage() {
         Per unit-type rent/SF/PSF stats for each comp building, powering the &quot;By Building&quot; tab. One row per
         building + unit type.
       </p>
-      <EditableTable columns={columns} apiBase="/api/comp-building-stats" initialRows={rows} emptyRow={emptyRow} />
+      <EditableTable columns={columns} apiBase="/api/comp-building-stats" initialRows={rows} emptyRow={emptyRow} resource="comp-building-stats" />
     </div>
   );
 }

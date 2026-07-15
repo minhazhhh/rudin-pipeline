@@ -21,11 +21,15 @@ export interface EditableTableProps {
   initialRows: Row[];
   emptyRow: Row;
   idKey?: string;
+  resource?: string; // resource key for snapshot history (e.g. "trend")
 }
+
+type SnapshotMeta = { id: string; label: string; createdAt: string };
+type SnapshotWithData = SnapshotMeta & { data: Row[] };
 
 type CellRef = { rowIdx: number; colIdx: number };
 
-export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id" }: EditableTableProps) {
+export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id", resource }: EditableTableProps) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
@@ -36,6 +40,13 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [editCell, setEditCell] = useState<CellRef | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
+
+  // History panel
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [previewSnap, setPreviewSnap] = useState<SnapshotWithData | null>(null);
+  const [restoring, setRestoring] = useState<string | null>(null);
 
   // Keep refs in sync so callbacks always see latest values without stale closures
   const rowsRef = useRef(rows);
@@ -217,7 +228,6 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   }
 
   async function saveAllDirty() {
-    // Snapshot rows NOW (called synchronously from click or keydown handler)
     const snapshot = rowsRef.current;
     const currentDirty = dirtyRef.current;
     const idxs = snapshot
@@ -225,9 +235,68 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
       .filter(({ key, isNew }) => isNew || currentDirty.has(key))
       .map(({ idx }) => idx);
     if (idxs.length === 0) return;
+
+    // Snapshot current DB state before saving so the edit can be undone
+    if (resource && idxs.length > 0) {
+      const existingCount = snapshot.filter((r) => typeof r[idKey] === "string" && r[idKey]).length;
+      if (existingCount > 0) {
+        fetch("/api/snapshots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource,
+            label: `Before manual edit — ${idxs.length} row${idxs.length !== 1 ? "s" : ""} changed`,
+            data: snapshot.filter((r) => typeof r[idKey] === "string" && r[idKey]),
+          }),
+        }).catch(() => {});
+      }
+    }
+
     setBulkSaving(true);
     await Promise.all(idxs.map((i) => saveRow(i, snapshot)));
     setBulkSaving(false);
+  }
+
+  async function loadHistory() {
+    if (!resource) return;
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/snapshots?resource=${encodeURIComponent(resource)}`);
+      if (res.ok) setSnapshots(await res.json());
+    } finally { setLoadingHistory(false); }
+  }
+
+  async function openHistory() {
+    setHistoryOpen(true);
+    setPreviewSnap(null);
+    await loadHistory();
+  }
+
+  async function previewSnapshot(id: string) {
+    const res = await fetch(`/api/snapshots/${id}`);
+    if (res.ok) setPreviewSnap(await res.json());
+  }
+
+  async function restoreSnapshot(id: string) {
+    if (!confirm("Restore this snapshot? Current data will be replaced. (A backup of current state will be saved first.)")) return;
+    setRestoring(id);
+    try {
+      const res = await fetch(`/api/snapshots/${id}`, { method: "POST" });
+      if (res.ok) {
+        // Reload the page so the table reflects restored data
+        window.location.reload();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert(`Restore failed: ${body.error ?? "Unknown error"}`);
+      }
+    } finally { setRestoring(null); }
+  }
+
+  async function deleteSnapshot(id: string) {
+    if (!confirm("Delete this version history entry?")) return;
+    await fetch(`/api/snapshots/${id}`, { method: "DELETE" });
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+    if (previewSnap?.id === id) setPreviewSnap(null);
   }
 
   async function deleteRow(idx: number) {
@@ -322,8 +391,145 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
             </button>
           )}
         </div>
-        <span className="admin-badge">{rows.length} rows</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {resource && (
+            <button className="admin-btn secondary" onClick={openHistory} type="button" title="View version history">
+              ↩ History
+            </button>
+          )}
+          <span className="admin-badge">{rows.length} rows</span>
+        </div>
       </div>
+
+      {/* ── History panel ── */}
+      {historyOpen && resource && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          display: "flex", alignItems: "stretch", justifyContent: "flex-end",
+        }}>
+          {/* Backdrop */}
+          <div
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)" }}
+            onClick={() => { setHistoryOpen(false); setPreviewSnap(null); }}
+          />
+          {/* Panel */}
+          <div style={{
+            position: "relative", zIndex: 1, width: previewSnap ? 780 : 400, maxWidth: "95vw",
+            background: "var(--surface)", borderLeft: "1px solid var(--border)",
+            display: "flex", flexDirection: "column", overflow: "hidden",
+            boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
+          }}>
+            {/* Header */}
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontWeight: 700, fontSize: "1rem", flex: 1 }}>Version History</span>
+              {previewSnap && (
+                <button
+                  onClick={() => setPreviewSnap(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", fontSize: "0.85rem" }}
+                >← Back</button>
+              )}
+              <button
+                onClick={() => { setHistoryOpen(false); setPreviewSnap(null); }}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", color: "var(--ink-faint)", lineHeight: 1 }}
+              >×</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
+              {loadingHistory ? (
+                <div style={{ padding: "2rem", textAlign: "center", color: "var(--ink-faint)" }}>Loading…</div>
+              ) : previewSnap ? (
+                // Preview mode: show rows
+                <div style={{ padding: "0 16px" }}>
+                  <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 600, fontSize: "0.92rem" }}>{previewSnap.label}</span>
+                    <span style={{ color: "var(--ink-faint)", fontSize: "0.8rem" }}>
+                      {new Date(previewSnap.createdAt).toLocaleString()} — {previewSnap.data.length} rows
+                    </span>
+                  </div>
+                  <div style={{ overflowX: "auto", fontSize: "0.78rem", marginBottom: 16 }}>
+                    <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 400 }}>
+                      <thead>
+                        <tr>
+                          {columns.map((c) => (
+                            <th key={c.key} style={{ padding: "4px 8px", background: "var(--surface-alt, #f8fafc)", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" }}>
+                              {c.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewSnap.data.slice(0, 50).map((row, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                            {columns.map((c) => (
+                              <td key={c.key} style={{ padding: "3px 8px", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {row[c.key] != null ? String(row[c.key]) : ""}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                        {previewSnap.data.length > 50 && (
+                          <tr><td colSpan={columns.length} style={{ padding: "4px 8px", color: "var(--ink-faint)", fontSize: "0.78rem" }}>
+                            … and {previewSnap.data.length - 50} more rows
+                          </td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    onClick={() => restoreSnapshot(previewSnap.id)}
+                    disabled={restoring === previewSnap.id}
+                    style={{
+                      padding: "8px 18px", background: restoring === previewSnap.id ? "#94a3b8" : "#16a34a",
+                      color: "#fff", border: "none", borderRadius: 6,
+                      cursor: restoring === previewSnap.id ? "not-allowed" : "pointer", fontWeight: 600,
+                    }}
+                  >
+                    {restoring === previewSnap.id ? "Restoring…" : "Restore this version"}
+                  </button>
+                </div>
+              ) : snapshots.length === 0 ? (
+                <div style={{ padding: "2rem 20px", color: "var(--ink-faint)", fontSize: "0.88rem" }}>
+                  No saved versions yet. Versions are created automatically before imports and bulk saves.
+                </div>
+              ) : (
+                // List mode
+                snapshots.map((snap) => (
+                  <div key={snap.id} style={{
+                    padding: "10px 20px", borderBottom: "1px solid var(--border)",
+                    display: "flex", alignItems: "flex-start", gap: 10,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 500, marginBottom: 2, lineHeight: 1.3 }}>
+                        {snap.label}
+                      </div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--ink-faint)" }}>
+                        {new Date(snap.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button
+                        onClick={() => previewSnapshot(snap.id)}
+                        style={{ padding: "4px 10px", border: "1px solid var(--border)", borderRadius: 5, background: "none", cursor: "pointer", fontSize: "0.8rem" }}
+                      >Preview</button>
+                      <button
+                        onClick={() => restoreSnapshot(snap.id)}
+                        disabled={restoring === snap.id}
+                        style={{ padding: "4px 10px", border: "none", borderRadius: 5, background: "#16a34a", color: "#fff", cursor: restoring === snap.id ? "not-allowed" : "pointer", fontSize: "0.8rem", fontWeight: 600 }}
+                      >{restoring === snap.id ? "…" : "Restore"}</button>
+                      <button
+                        onClick={() => deleteSnapshot(snap.id)}
+                        style={{ padding: "4px 8px", border: "1px solid var(--border)", borderRadius: 5, background: "none", cursor: "pointer", fontSize: "0.8rem", color: "var(--ink-faint)" }}
+                        title="Delete this history entry"
+                      >×</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="admin-table-wrap">
         <table className="admin-table ss-table">

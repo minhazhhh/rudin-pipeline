@@ -43,7 +43,7 @@ export default async function CompBuildingsAdminPage() {
         The set of comparable rental buildings used in the Rent Comparables tab. Add a building here first, then add
         its per-unit-type stats on the Comp Building Stats page.
       </p>
-      <EditableTable columns={COLUMNS} apiBase="/api/comp-buildings" initialRows={rows} emptyRow={EMPTY_ROW} />
+      <EditableTable columns={COLUMNS} apiBase="/api/comp-buildings" initialRows={rows} emptyRow={EMPTY_ROW} resource="comp-buildings" />
     </div>
   );
 }

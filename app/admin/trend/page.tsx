@@ -30,7 +30,7 @@ export default async function TrendAdminPage() {
         Quarterly average rent by unit type, powering the &quot;Trend&quot; chart. Sort Order should increase
         chronologically (e.g. year×10 + quarter number, so Q3 2024 = 20243).
       </p>
-      <EditableTable columns={COLUMNS} apiBase="/api/trend" initialRows={rows} emptyRow={EMPTY_ROW} />
+      <EditableTable columns={COLUMNS} apiBase="/api/trend" initialRows={rows} emptyRow={EMPTY_ROW} resource="trend" />
     </div>
   );
 }

@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
   const resource = resourceParam as Resource;
 
   try {
+    // Snapshot current state before any destructive write so it can be restored
+    await snapshotBefore(resource, rows.length, mode);
     const count = await importResource(resource, rows, mode);
     await prisma.syncConfig.update({ where: { id: 1 }, data: { lastSyncedAt: new Date() } });
     return NextResponse.json({ ok: true, resource, rowsImported: count, mode });
@@ -52,6 +54,38 @@ async function importResource(resource: Resource, rows: ImportRow[], mode: Impor
     case "trend": return importTrend(rows, mode);
     case "lease-comps": return importLeaseComps(rows, mode);
     case "comp-building-units": return importCompBuildingUnits(rows, mode);
+  }
+}
+
+async function snapshotBefore(resource: Resource, incomingCount: number, mode: ImportMode) {
+  try {
+    const current = await fetchCurrentForSnapshot(resource);
+    if (current.length === 0) return; // nothing to snapshot
+    const verb = mode === "replace" ? "Replace" : "Merge";
+    const label = `Before ${verb.toLowerCase()} — ${current.length} rows → ${incomingCount} incoming`;
+    await prisma.snapshot.create({ data: { resource, label, data: current as object[] } });
+    // Keep at most 20 snapshots per resource
+    const all = await prisma.snapshot.findMany({ where: { resource }, orderBy: { createdAt: "desc" }, select: { id: true } });
+    if (all.length > 20) {
+      const toDelete = all.slice(20).map((s) => s.id);
+      await prisma.snapshot.deleteMany({ where: { id: { in: toDelete } } });
+    }
+  } catch { /* snapshot failure is non-fatal */ }
+}
+
+async function fetchCurrentForSnapshot(resource: Resource): Promise<Record<string, unknown>[]> {
+  switch (resource) {
+    case "comp-building-stats":
+      return prisma.compBuildingStat.findMany({ include: { building: { select: { name: true } } } });
+    case "comp-building-quarter-stats":
+      return prisma.compBuildingQuarterStat.findMany({ include: { building: { select: { name: true } } } });
+    case "comp-buildings": return prisma.compBuilding.findMany();
+    case "overall-stats": return prisma.overallUnitStat.findMany();
+    case "type-stats": return prisma.typeUnitStat.findMany();
+    case "trend": return prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } });
+    case "projects": return prisma.project.findMany();
+    case "lease-comps": return prisma.leaseComp.findMany();
+    default: return [];
   }
 }
 
