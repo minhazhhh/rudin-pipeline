@@ -2594,14 +2594,16 @@ function buildCDTrend() {
 // ── CUSTOM REPORT ────────────────────────────────────────────────────────────
 function buildCDReport() {
   const el = document.getElementById('cd-report');
-  const allBldgs = Object.keys(AGG.bldg_stats).sort();
+  const allBldgs = (AGG.all_bldgs && AGG.all_bldgs.length) ? AGG.all_bldgs : Object.keys(AGG.bldg_stats).sort();
   const allUTs = AGG.ut_order.filter(t => allBldgs.some(b => AGG.bldg_stats[b]?.units?.[t]));
   const trendBldgs = Object.keys(AGG.bldg_trend || {}).sort();
   const BLDG_PALETTE = ['#0d4d3a','#a8895a','#5f8275','#6b7b75','#0a3e2f','#c99a5b','#3a6557','#94a89f','#082f24','#d8b98a'];
 
   let mode = 'buildings'; // 'buildings' | 'trend' | 'bldgtrend'
   let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf)
-  const selBldgs = new Set(['355 Lexington Ave'].filter(b => allBldgs.includes(b)));
+  const _defaultBldg = allBldgs.find(b => AGG.bldg_stats[b]) || allBldgs[0];
+  const selBldgs = new Set(['355 Lexington Ave'].filter(b => AGG.bldg_stats[b] && allBldgs.includes(b)));
+  if (!selBldgs.size && _defaultBldg) selBldgs.add(_defaultBldg);
   const selBldgsTime = new Set(trendBldgs.slice(0, 2));
   const selUTs = new Set(['ST', '1BD', '2BD'].filter(t => allUTs.includes(t)));
   const trendUTs = [...new Set(trendBldgs.flatMap(b => Object.values(AGG.bldg_trend[b]).flatMap(q => Object.keys(q))))]
