@@ -4,6 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RESOURCE_FIELDS, RESOURCE_LABELS, autoMapColumns, detectResource } from "@/app/lib/column-mapper";
 import type { Resource } from "@/app/lib/sync-resources";
 
+// ─── Client-side column-letter helper (for Calculations sheet formulas) ────────
+function colLetter(idx: number): string {
+  let result = "", n = idx + 1;
+  while (n > 0) { n--; result = String.fromCharCode(65 + (n % 26)) + result; n = Math.floor(n / 26); }
+  return result;
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type AiResult = {
@@ -177,6 +184,141 @@ function downloadXlsx(base64: string, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+// ─── Client-side normalization (no API key needed) ─────────────────────────────
+// Uses detectResource + autoMapColumns fuzzy-matching from column-mapper.ts
+
+async function normalizeClientSide(
+  sheets: { name: string; headers: string[]; rows: Record<string, string>[] }[],
+  originalFileName: string,
+): Promise<AiResult> {
+  const normalizedResources: Record<string, Record<string, string>[]> = {};
+  const sheetSummaries: string[] = [];
+
+  for (const sheet of sheets) {
+    if (!sheet.headers.length || !sheet.rows.length) continue;
+
+    const detected = detectResource(sheet.headers);
+    // Skip sheets with very low score (e.g. cover/legend sheets with no matching columns)
+    if (!detected || detected.score < 5) continue;
+
+    const resource = detected.resource;
+    const mapping = autoMapColumns(sheet.headers, resource);
+
+    const normalizedRows = sheet.rows
+      .map((row) => {
+        const out: Record<string, string> = {};
+        for (const [srcCol, targetField] of Object.entries(mapping)) {
+          if (targetField && row[srcCol] !== undefined) {
+            out[targetField] = String(row[srcCol] ?? "").trim();
+          }
+        }
+        return out;
+      })
+      .filter((row) => Object.values(row).some((v) => v !== ""));
+
+    if (!normalizedRows.length) continue;
+
+    if (!normalizedResources[resource]) {
+      normalizedResources[resource] = normalizedRows;
+    } else {
+      normalizedResources[resource].push(...normalizedRows);
+    }
+
+    sheetSummaries.push(`"${sheet.name}" → ${RESOURCE_LABELS[resource]} (${normalizedRows.length} rows)`);
+  }
+
+  // Generate normalized XLSX
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
+
+  for (const resource of IMPORT_ORDER) {
+    const rows = normalizedResources[resource];
+    if (!rows?.length) continue;
+
+    const fields = RESOURCE_FIELDS[resource];
+    const sheetLabel = RESOURCE_LABELS[resource].slice(0, 31);
+    const headerRow = fields.map((f) => f.label);
+    const dataRows = rows.map((row) => fields.map((f) => row[f.key] ?? ""));
+    const ws = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+    XLSX.utils.book_append_sheet(wb, ws, sheetLabel);
+  }
+
+  // Calculations sheet for lease-comps
+  const leaseRows = normalizedResources["lease-comps"];
+  if (leaseRows?.length) {
+    const lcFields = RESOURCE_FIELDS["lease-comps"];
+    const lcSheetName = RESOURCE_LABELS["lease-comps"].slice(0, 31);
+
+    const unitTypeCol  = colLetter(lcFields.findIndex((f) => f.key === "unitType"));
+    const grossRentCol = colLetter(lcFields.findIndex((f) => f.key === "grossRent"));
+    const netRentCol   = colLetter(lcFields.findIndex((f) => f.key === "netRent"));
+    const unitSfCol    = colLetter(lcFields.findIndex((f) => f.key === "unitSf"));
+    const dataEnd      = leaseRows.length + 1;
+
+    const rng = (col: string) => `'${lcSheetName}'!${col}2:${col}${dataEnd}`;
+
+    const calcLabels: string[][] = [
+      [`Calculations — based on '${lcSheetName}' data`, "", "", ""],
+      ["", "", "", ""],
+      ["Metric", "Value", "", ""],
+      ["Gross Rent — AVERAGE",     "", "", ""],
+      ["Gross Rent — MEDIAN",      "", "", ""],
+      ["Gross Rent — MIN",         "", "", ""],
+      ["Gross Rent — MAX",         "", "", ""],
+      ["Gross Rent — COUNT (> 0)", "", "", ""],
+      ["", "", "", ""],
+      ["Net Rent — AVERAGE", "", "", ""],
+      ["Net Rent — MEDIAN",  "", "", ""],
+      ["", "", "", ""],
+      ["Unit SF — AVERAGE", "", "", ""],
+      ["Unit SF — MEDIAN",  "", "", ""],
+      ["", "", "", ""],
+      ["By Unit Type", "Gross Rent AVG", "Net Rent AVG", "Unit SF AVG"],
+      ["ST",  "", "", ""],
+      ["1BD", "", "", ""],
+      ["2BD", "", "", ""],
+      ["3BD", "", "", ""],
+      ["4BD", "", "", ""],
+    ];
+
+    const calcWs = XLSX.utils.aoa_to_sheet(calcLabels);
+    const f = (cell: string, formula: string) => { calcWs[cell] = { t: "n", f: formula }; };
+
+    f("B4",  `AVERAGE(${rng(grossRentCol)})`);
+    f("B5",  `MEDIAN(${rng(grossRentCol)})`);
+    f("B6",  `MIN(${rng(grossRentCol)})`);
+    f("B7",  `MAX(${rng(grossRentCol)})`);
+    f("B8",  `COUNTIF(${rng(grossRentCol)},">0")`);
+    f("B10", `AVERAGE(${rng(netRentCol)})`);
+    f("B11", `MEDIAN(${rng(netRentCol)})`);
+    f("B13", `AVERAGE(${rng(unitSfCol)})`);
+    f("B14", `MEDIAN(${rng(unitSfCol)})`);
+
+    ["ST", "1BD", "2BD", "3BD", "4BD"].forEach((ut, i) => {
+      const row = 17 + i;
+      const criteria = `"${ut}"`;
+      f(`B${row}`, `AVERAGEIF(${rng(unitTypeCol)},${criteria},${rng(grossRentCol)})`);
+      f(`C${row}`, `AVERAGEIF(${rng(unitTypeCol)},${criteria},${rng(netRentCol)})`);
+      f(`D${row}`, `AVERAGEIF(${rng(unitTypeCol)},${criteria},${rng(unitSfCol)})`);
+    });
+
+    XLSX.utils.book_append_sheet(wb, calcWs, "Calculations");
+  }
+
+  if (wb.SheetNames.length === 0) {
+    const ws = XLSX.utils.aoa_to_sheet([["No data extracted — try manual import"]]);
+    XLSX.utils.book_append_sheet(wb, ws, "Info");
+  }
+
+  const xlsxBase64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" }) as string;
+  const normalizedFileName = `normalized-${originalFileName.replace(/\.xlsx?$/i, "").replace(/\.csv$/i, "")}.xlsx`;
+  const summary = sheetSummaries.length
+    ? `Detected: ${sheetSummaries.join(", ")}.`
+    : "No matching data found in file.";
+
+  return { resources: normalizedResources, xlsxBase64, fileName: normalizedFileName, summary };
+}
+
 // ─── Status icon ───────────────────────────────────────────────────────────────
 
 function StatusIcon({ state }: { state: ImportStatus["state"] }) {
@@ -306,18 +448,7 @@ export default function SyncPage() {
     if (!sheets.length) { setNormalizeError("No data found in file."); setStep("error"); return; }
 
     try {
-      const res = await fetch("/api/ai-normalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, sheets }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(errBody.error ?? `Server error ${res.status}`);
-      }
-
-      const result = await res.json() as AiResult;
+      const result = await normalizeClientSide(sheets, file.name);
       setAiResult(result);
       await runImports(result.resources);
     } catch (e) {
