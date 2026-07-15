@@ -35,26 +35,37 @@ export async function POST(req: NextRequest) {
   try {
     // Snapshot current state before any destructive write so it can be restored
     await snapshotBefore(resource, rows.length, mode);
-    const count = await importResource(resource, rows, mode);
+    const { count, derived } = await importResource(resource, rows, mode);
     await prisma.syncConfig.update({ where: { id: 1 }, data: { lastSyncedAt: new Date() } });
-    return NextResponse.json({ ok: true, resource, rowsImported: count, mode });
+    return NextResponse.json({ ok: true, resource, rowsImported: count, derived, mode });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });
   }
 }
 
-async function importResource(resource: Resource, rows: ImportRow[], mode: ImportMode): Promise<number> {
+type ImportResult = { count: number; derived?: string[] };
+
+async function importResource(resource: Resource, rows: ImportRow[], mode: ImportMode): Promise<ImportResult> {
   switch (resource) {
-    case "projects": return importProjects(rows, mode);
-    case "comp-buildings": return importCompBuildings(rows, mode);
-    case "comp-building-stats": return importCompBuildingStats(rows, mode);
-    case "comp-building-quarter-stats": return importCompBuildingQuarterStats(rows, mode);
-    case "overall-stats": return importOverallStats(rows, mode);
-    case "type-stats": return importTypeStats(rows, mode);
-    case "trend": return importTrend(rows, mode);
-    case "lease-comps": return importLeaseComps(rows, mode);
-    case "comp-building-units": return importCompBuildingUnits(rows, mode);
+    case "projects": return { count: await importProjects(rows, mode) };
+    case "comp-buildings": return { count: await importCompBuildings(rows, mode) };
+    case "comp-building-stats": return { count: await importCompBuildingStats(rows, mode) };
+    case "comp-building-quarter-stats": return { count: await importCompBuildingQuarterStats(rows, mode) };
+    case "overall-stats": return { count: await importOverallStats(rows, mode) };
+    case "type-stats": return { count: await importTypeStats(rows, mode) };
+    case "trend": return { count: await importTrend(rows, mode) };
+    case "lease-comps": return importLeaseCompsWithDerived(rows, mode);
+    case "comp-building-units": return { count: await importCompBuildingUnits(rows, mode) };
   }
+}
+
+async function importLeaseCompsWithDerived(rows: ImportRow[], mode: ImportMode): Promise<ImportResult> {
+  const count = await importLeaseComps(rows, mode);
+  // lease-comps import cascades into 4 derived tables — report them
+  return {
+    count,
+    derived: ["Comp Building Stats", "Comp Building Quarter Stats", "Rent Trend", "Overall Unit Stats"],
+  };
 }
 
 async function snapshotBefore(resource: Resource, incomingCount: number, mode: ImportMode) {
@@ -454,6 +465,25 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
       where: { quarter_unitType: { quarter: q, unitType: ut } },
       create: { quarter: q, quarterOrder: qOrder, unitType: ut, avgRent, avgPsf },
       update: { avgRent, avgPsf },
+    });
+  }
+
+  // OverallUnitStat — aggregate ALL leases across ALL buildings by unit type
+  const allLeasesForOverall = await prisma.leaseComp.findMany();
+  const overallMap = new Map<string, { rent: number[]; psf: number[]; sf: number[] }>();
+  for (const l of allLeasesForOverall) {
+    if (!l.unitType || !ALLOWED_UNIT_TYPES.includes(l.unitType)) continue;
+    if (!overallMap.has(l.unitType)) overallMap.set(l.unitType, { rent: [], psf: [], sf: [] });
+    if (l.grossRent !== null) overallMap.get(l.unitType)!.rent.push(l.grossRent);
+    if (l.grossPsf  !== null) overallMap.get(l.unitType)!.psf.push(l.grossPsf);
+    if (l.unitSf    !== null) overallMap.get(l.unitType)!.sf.push(l.unitSf);
+  }
+  for (const [ut, { rent, psf, sf }] of overallMap) {
+    const rentS = computeStats(rent), psfS = computeStats(psf), sfS = computeStats(sf);
+    await prisma.overallUnitStat.upsert({
+      where: { unitType: ut },
+      create: { unitType: ut, avgRent: rentS.avg, medRent: rentS.med, minRent: rentS.min, maxRent: rentS.max, nRent: rentS.n, avgPsf: psfS.avg, medPsf: psfS.med, minPsf: psfS.min, maxPsf: psfS.max, nPsf: psfS.n, avgSf: sfS.avg, medSf: sfS.med, minSf: sfS.min, maxSf: sfS.max, nSf: sfS.n },
+      update: { avgRent: rentS.avg, medRent: rentS.med, minRent: rentS.min, maxRent: rentS.max, nRent: rentS.n, avgPsf: psfS.avg, medPsf: psfS.med, minPsf: psfS.min, maxPsf: psfS.max, nPsf: psfS.n, avgSf: sfS.avg, medSf: sfS.med, minSf: sfS.min, maxSf: sfS.max, nSf: sfS.n },
     });
   }
 }

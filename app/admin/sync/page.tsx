@@ -107,7 +107,7 @@ const IMPORT_RESOURCES: Resource[] = [
 ];
 
 type Config = Record<string, string | null>;
-type Step = "drop" | "autoconfirm" | "map" | "preview" | "done" | "multi";
+type Step = "drop" | "autoconfirm" | "automulti" | "map" | "preview" | "done" | "multi";
 type ImportMode = "replace" | "upsert";
 
 type SheetJob = {
@@ -116,6 +116,7 @@ type SheetJob = {
   resource: Resource;
   mappings: Record<string, string | null>;
   include: boolean;
+  confidence: "high" | "low";
   status: "pending" | "validating" | "importing" | "done" | "error";
   result?: string;
 };
@@ -180,7 +181,7 @@ export default function SyncPage() {
           const hdrs = Object.keys(rows[0] ?? {});
           const fallback = detectResource(hdrs);
           const r = fallback?.resource ?? "lease-comps";
-          return { sheetName, rows, resource: r, mappings: autoMapColumns(hdrs, r), include: true, status: "pending" };
+          return { sheetName, rows, resource: r, mappings: autoMapColumns(hdrs, r), include: true, confidence: "low" as const, status: "pending" };
         });
         setSheetJobs(initial);
 
@@ -203,11 +204,25 @@ export default function SyncPage() {
           return { sheetName, resource: r, mappings: autoMapColumns(hdrs, r) };
         }));
 
-        setSheetJobs((prev) => prev.map((job) => {
+        const jobsWithConfidence = initial.map((job) => {
           const ai = aiResults.find((r) => r.sheetName === job.sheetName);
-          return ai ? { ...job, resource: ai.resource, mappings: ai.mappings } : job;
-        }));
+          if (!ai) return { ...job, confidence: "low" as const };
+          const mapped = Object.values(ai.mappings).filter(Boolean) as string[];
+          const req = RESOURCE_FIELDS[ai.resource].filter(f => f.required).map(f => f.key);
+          const allReqMapped = req.every(k => mapped.includes(k));
+          const conf: "high" | "low" = allReqMapped && mapped.length >= 3 ? "high" : "low";
+          return { ...job, resource: ai.resource, mappings: ai.mappings, confidence: conf };
+        });
+        setSheetJobs(jobsWithConfidence);
         setAiMapping(false);
+
+        // If ALL included sheets have high confidence → auto-import immediately
+        const allHighConfidence = jobsWithConfidence.every(j => !j.include || j.confidence === "high");
+        if (allHighConfidence) {
+          setStep("automulti");
+          runAutoMultiImport(jobsWithConfidence);
+        }
+        // else stay on "multi" for user review
         return;
       }
 
@@ -333,8 +348,9 @@ export default function SyncPage() {
         body: JSON.stringify({ resource, rows: buildMappedRows(true), mode }),
       });
       const body = await res.json();
+      const derivedMsg = body.derived?.length ? ` Also updated: ${(body.derived as string[]).join(", ")}.` : "";
       setImportResult(res.ok
-        ? { ok: true, message: `${mode === "replace" ? "Replaced all data with" : "Merged"} ${body.rowsImported} rows into ${RESOURCE_LABELS[resource]}.` }
+        ? { ok: true, message: `${mode === "replace" ? "Replaced all data with" : "Merged"} ${body.rowsImported} rows into ${RESOURCE_LABELS[resource]}.${derivedMsg}` }
         : { ok: false, message: body.error ?? "Unknown error" });
 
       if (res.ok && resource === "projects") {
@@ -432,7 +448,7 @@ export default function SyncPage() {
         const body = await res.json();
         if (res.ok) {
           setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName
-            ? { ...j, status: "done", result: `${body.rowsImported} rows imported` } : j));
+            ? { ...j, status: "done", result: `${body.rowsImported} rows imported${body.derived?.length ? ` + ${(body.derived as string[]).join(", ")}` : ""}` } : j));
         } else {
           setSheetJobs((prev) => prev.map((j) => j.sheetName === job.sheetName
             ? { ...j, status: "error", result: body.error ?? "Import failed" } : j));
@@ -443,6 +459,34 @@ export default function SyncPage() {
       }
     }
 
+    setMultiImporting(false);
+  }
+
+  async function runAutoMultiImport(jobs: SheetJob[]) {
+    setMultiImporting(true);
+    await Promise.all(jobs.map(async (job) => {
+      setSheetJobs(prev => prev.map(j => j.sheetName === job.sheetName ? { ...j, status: "importing" } : j));
+      const mappedRows = job.rows.map((row) => {
+        const out: Record<string, string> = {};
+        for (const [h, f] of Object.entries(job.mappings)) { if (f) out[f] = row[h] ?? ""; }
+        return out;
+      });
+      try {
+        const res = await fetch("/api/comps-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: job.resource, rows: mappedRows, mode: multiMode }),
+        });
+        const body = await res.json();
+        setSheetJobs(prev => prev.map(j => j.sheetName === job.sheetName
+          ? { ...j, status: res.ok ? "done" : "error", result: res.ok ? `${body.rowsImported} rows → ${RESOURCE_LABELS[job.resource]}${body.derived?.length ? ` + ${(body.derived as string[]).join(", ")}` : ""}` : (body.error ?? "Import failed") }
+          : j));
+      } catch (e) {
+        setSheetJobs(prev => prev.map(j => j.sheetName === job.sheetName
+          ? { ...j, status: "error", result: e instanceof Error ? e.message : "Import failed" }
+          : j));
+      }
+    }));
     setMultiImporting(false);
   }
 
@@ -571,6 +615,54 @@ export default function SyncPage() {
               ← Start over
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Auto multi-sheet import (all sheets high-confidence) ── */}
+      {step === "automulti" && (
+        <div style={{ marginBottom: "3rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1.4rem", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600 }}>{fileName}</span>
+            {multiImporting
+              ? <span style={{ color: "#64748b", fontSize: "0.88rem" }}>Importing {sheetJobs.filter(j => j.include).length} tables…</span>
+              : <span style={{ color: "#16a34a", fontSize: "0.88rem", fontWeight: 600 }}>All done</span>}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 20, padding: "2px 10px", fontSize: "0.78rem", color: "#15803d", fontWeight: 600 }}>✦ AI-mapped</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: "1.4rem" }}>
+            {sheetJobs.map((job) => {
+              const statusColor = { pending: "#94a3b8", validating: "#2563eb", importing: "#d97706", done: "#16a34a", error: "#dc2626" }[job.status];
+              return (
+                <div key={job.sheetName} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#f8fafc", border: `1px solid ${job.status === "done" ? "#86efac" : job.status === "error" ? "#fca5a5" : "#e2e8f0"}`, borderRadius: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: job.result ? 3 : 0 }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{job.sheetName}</span>
+                      <span style={{ fontSize: "0.78rem", color: "#64748b" }}>→</span>
+                      <span style={{ fontSize: "0.85rem", color: "#334155" }}>{RESOURCE_LABELS[job.resource]}</span>
+                      <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>{job.rows.length.toLocaleString()} rows</span>
+                    </div>
+                    {job.result && <div style={{ fontSize: "0.8rem", color: statusColor }}>{job.result}</div>}
+                  </div>
+                  <div style={{ flexShrink: 0, width: 22, textAlign: "center" }}>
+                    {job.status === "importing" || job.status === "validating"
+                      ? <div style={{ width: 18, height: 18, border: "2px solid #e2e8f0", borderTop: `2px solid ${statusColor}`, borderRadius: "50%", animation: "spin 0.9s linear infinite", display: "inline-block" }} />
+                      : <span style={{ fontSize: "1rem", color: statusColor, fontWeight: 700 }}>
+                          {job.status === "done" ? "✓" : job.status === "error" ? "✗" : "○"}
+                        </span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {!multiImporting && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={resetDrop} style={{ padding: "8px 18px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
+                Import another file
+              </button>
+              <button onClick={() => { setStep("multi"); }} style={{ padding: "8px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+                Review details
+              </button>
+            </div>
+          )}
         </div>
       )}
 
