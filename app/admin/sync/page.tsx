@@ -448,18 +448,7 @@ export default function SyncPage() {
     if (!sheets.length) { setNormalizeError("No data found in file."); setStep("error"); return; }
 
     try {
-      const res = await fetch("/api/ai-normalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, sheets }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(errBody.error ?? `Server error ${res.status}`);
-      }
-
-      const result = await res.json() as AiResult;
+      const result = await normalizeClientSide(sheets, file.name);
       setAiResult(result);
       await runImports(result.resources);
     } catch (e) {
@@ -646,9 +635,9 @@ export default function SyncPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "3rem 1rem", gap: "0.75rem", marginBottom: "3rem" }}>
           <div style={{ width: 40, height: 40, border: "3px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "50%", animation: "spin2 0.9s linear infinite" }} />
           <style>{`@keyframes spin2{to{transform:rotate(360deg)}}`}</style>
-          <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>Claude is reading your file…</div>
+          <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>Analyzing your file…</div>
           <div style={{ color: "#64748b", fontSize: "0.84rem" }}>
-            {fileName} — analyzing all sheets and mapping all columns
+            {fileName} — detecting sheets and mapping columns
           </div>
         </div>
       )}
