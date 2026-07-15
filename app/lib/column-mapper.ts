@@ -119,6 +119,24 @@ export const RESOURCE_FIELDS: Record<Resource, FieldDef[]> = {
     { key: "quarter", label: "Quarter", required: false, aliases: ["quarter", "qtr", "fiscal quarter", "period", "time period"] },
     { key: "propertyType", label: "Property Type", required: false, aliases: ["property type", "propertytype", "building type", "conversion type", "class", "category"] },
   ],
+  "comp-building-units": [
+    { key: "buildingName", label: "Building", required: true, aliases: ["building", "building name", "property", "property name", "bldg"] },
+    { key: "unitName", label: "Unit Name", required: false, aliases: ["unit name", "unit", "apartment", "apt"] },
+    { key: "unitNumber", label: "Unit Number", required: false, aliases: ["unit number", "unit no", "unit #", "apt #", "number"] },
+    { key: "unitType", label: "Unit Type", required: false, aliases: ["unit type", "unittype", "bed type", "bedroom type", "beds", "bedrooms", "floorplan"] },
+    { key: "floor", label: "Floor", required: false, aliases: ["floor", "floor number", "level"] },
+    { key: "sf", label: "SF", required: false, aliases: ["sf", "sqft", "sq ft", "square feet", "size", "unit sf"] },
+    { key: "bedrooms", label: "Bedrooms", required: false, aliases: ["bedrooms", "beds", "bd", "br"] },
+    { key: "bathrooms", label: "Bathrooms", required: false, aliases: ["bathrooms", "baths", "ba"] },
+    { key: "askingRent", label: "Asking Rent", required: false, aliases: ["asking rent", "listed rent", "advertised rent", "asking"] },
+    { key: "netRent", label: "Net Rent", required: false, aliases: ["net rent", "net effective rent", "effective rent", "net"] },
+    { key: "grossRent", label: "Gross Rent", required: false, aliases: ["gross rent", "gross", "monthly rent"] },
+    { key: "psf", label: "$/SF", required: false, aliases: ["psf", "$/sf", "price per sf", "rent psf"] },
+    { key: "concessions", label: "Concessions", required: false, aliases: ["concessions", "concession", "free months", "free rent"] },
+    { key: "leaseDate", label: "Lease Date", required: false, aliases: ["lease date", "date", "signed date", "executed"] },
+    { key: "leaseStartDate", label: "Lease Start", required: false, aliases: ["lease start", "start date", "commencement"] },
+    { key: "leaseEndDate", label: "Lease End", required: false, aliases: ["lease end", "end date", "expiration", "expires"] },
+  ],
 };
 
 export const RESOURCE_LABELS: Record<Resource, string> = {
@@ -130,6 +148,7 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   "type-stats": "Type × Unit Stats",
   trend: "Rent Trend",
   "lease-comps": "Lease Comp Records",
+  "comp-building-units": "Comp Building Units",
 };
 
 function normalize(s: string): string {
