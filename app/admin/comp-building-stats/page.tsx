@@ -80,7 +80,7 @@ export default async function CompBuildingStatsAdminPage() {
         building + unit type.
       </p>
       {buildingOptions.length === 0 && <p className="admin-error">Add a Comp Building first.</p>}
-      <EditableTable columns={columns} apiBase="/api/comp-building-stats" initialRows={rows} emptyRow={emptyRow} />
+      <EditableTable columns={columns} apiBase="/api/comp-building-stats" initialRows={rows} emptyRow={emptyRow} resource="comp-building-stats" />
     </div>
   );
 }

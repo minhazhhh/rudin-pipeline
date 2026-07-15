@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type ColumnType = "text" | "number" | "boolean" | "select" | "json";
 
@@ -21,9 +21,12 @@ export interface EditableTableProps {
   initialRows: Row[];
   emptyRow: Row; // template used when "Add row" is clicked
   idKey?: string;
+  resource?: string; // e.g. "comp-buildings" — enables version history panel
 }
 
-export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id" }: EditableTableProps) {
+type SnapMeta = { id: string; label: string; createdAt: string };
+
+export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id", resource }: EditableTableProps) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
@@ -31,6 +34,42 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
+
+  // ── Version history ────────────────────────────────────────────────────────
+  const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!resource || !historyOpen) return;
+    fetch(`/api/snapshots?resource=${encodeURIComponent(resource)}`)
+      .then((r) => r.json())
+      .then((data) => setSnapshots(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [resource, historyOpen]);
+
+  async function restoreSnapshot(id: string) {
+    if (!confirm("Restore to this version? Current data will be overwritten (a new snapshot is saved first so you can undo).")) return;
+    setRestoring(id); setRestoreMsg(null);
+    const res = await fetch(`/api/snapshots/${id}`, { method: "POST" });
+    const body = await res.json().catch(() => ({})) as { ok?: boolean; rowsRestored?: number; error?: string };
+    setRestoring(null);
+    if (res.ok) {
+      setRestoreMsg({ ok: true, text: `Restored ${body.rowsRestored ?? "?"} rows. Refresh to see changes.` });
+      // Refresh snapshot list
+      fetch(`/api/snapshots?resource=${encodeURIComponent(resource!)}`)
+        .then((r) => r.json()).then((data) => setSnapshots(Array.isArray(data) ? data : []));
+    } else {
+      setRestoreMsg({ ok: false, text: body.error ?? "Restore failed." });
+    }
+  }
+
+  async function deleteSnapshot(id: string) {
+    if (!confirm("Delete this snapshot?")) return;
+    await fetch(`/api/snapshots/${id}`, { method: "DELETE" });
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+  }
 
   function rowKey(row: Row, idx: number): string {
     const id = row[idKey];
@@ -243,6 +282,73 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
           </tbody>
         </table>
       </div>
+
+      {/* ── Version history ──────────────────────────────────────────────── */}
+      {resource && (
+        <div style={{ marginTop: "2rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+          <button
+            onClick={() => setHistoryOpen((o) => !o)}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.88rem", color: "#475569", fontWeight: 600 }}
+            type="button"
+          >
+            <span style={{ fontSize: "0.75rem", display: "inline-block", transform: historyOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+            Version history
+          </button>
+
+          {historyOpen && (
+            <div style={{ marginTop: "0.75rem" }}>
+              {restoreMsg && (
+                <div style={{ padding: "8px 12px", borderRadius: 6, marginBottom: "0.75rem", fontSize: "0.84rem",
+                  background: restoreMsg.ok ? "#f0fdf4" : "#fef2f2",
+                  border: `1px solid ${restoreMsg.ok ? "#86efac" : "#fca5a5"}`,
+                  color: restoreMsg.ok ? "#15803d" : "#dc2626" }}>
+                  {restoreMsg.text}
+                </div>
+              )}
+              {snapshots.length === 0 ? (
+                <p style={{ fontSize: "0.84rem", color: "#94a3b8" }}>No snapshots yet — one is saved automatically before each import.</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.83rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      <th style={{ padding: "6px 10px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Saved</th>
+                      <th style={{ padding: "6px 10px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Label</th>
+                      <th style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snapshots.map((s) => (
+                      <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "6px 10px", color: "#64748b", whiteSpace: "nowrap" }}>
+                          {new Date(s.createdAt).toLocaleString()}
+                        </td>
+                        <td style={{ padding: "6px 10px" }}>{s.label}</td>
+                        <td style={{ padding: "6px 10px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button
+                            onClick={() => restoreSnapshot(s.id)}
+                            disabled={restoring === s.id}
+                            style={{ padding: "3px 10px", fontSize: "0.8rem", background: restoring === s.id ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: restoring === s.id ? "not-allowed" : "pointer", marginRight: 6 }}
+                            type="button"
+                          >
+                            {restoring === s.id ? "Restoring…" : "Restore"}
+                          </button>
+                          <button
+                            onClick={() => deleteSnapshot(s.id)}
+                            style={{ padding: "3px 8px", fontSize: "0.8rem", background: "none", border: "1px solid #e2e8f0", borderRadius: 4, cursor: "pointer", color: "#94a3b8" }}
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

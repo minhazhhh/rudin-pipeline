@@ -91,7 +91,7 @@ export default async function ProjectsAdminPage() {
       {missingCoords > 0 && (
         <GeocodeButton missingCount={missingCoords} />
       )}
-      <EditableTable columns={COLUMNS} apiBase="/api/projects" initialRows={rows} emptyRow={EMPTY_ROW} />
+      <EditableTable columns={COLUMNS} apiBase="/api/projects" initialRows={rows} emptyRow={EMPTY_ROW} resource="projects" />
     </div>
   );
 }

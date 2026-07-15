@@ -44,7 +44,7 @@ export default async function TypeStatsAdminPage() {
         Averages broken out by property type (Conversion / Primary / Market) × unit type — powers the &quot;By
         Property Type&quot; tab.
       </p>
-      <EditableTable columns={COLUMNS} apiBase="/api/type-stats" initialRows={rows} emptyRow={EMPTY_ROW} />
+      <EditableTable columns={COLUMNS} apiBase="/api/type-stats" initialRows={rows} emptyRow={EMPTY_ROW} resource="type-stats" />
     </div>
   );
 }

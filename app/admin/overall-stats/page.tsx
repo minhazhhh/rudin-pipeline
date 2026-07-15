@@ -52,7 +52,7 @@ export default async function OverallStatsAdminPage() {
         Market-wide averages by unit type (all comp buildings combined) — powers the &quot;Overview&quot; tab summary
         cards.
       </p>
-      <EditableTable columns={COLUMNS} apiBase="/api/overall-stats" initialRows={rows} emptyRow={EMPTY_ROW} />
+      <EditableTable columns={COLUMNS} apiBase="/api/overall-stats" initialRows={rows} emptyRow={EMPTY_ROW} resource="overall-stats" />
     </div>
   );
 }
