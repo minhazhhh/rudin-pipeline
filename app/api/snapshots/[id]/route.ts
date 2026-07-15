@@ -41,11 +41,18 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/snapshots/[
     },
   });
 
-  // comps-import expects Record<string, string> — snapshot data has typed values, so stringify
+  // comps-import expects Record<string, string> — snapshot data has typed values, so stringify.
+  // Also flatten nested building relation: { building: { name: "Foo" } } → { buildingName: "Foo" }
   const snapRows = (snap.data as Record<string, unknown>[]).map((row) => {
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(row)) {
-      out[k] = v == null ? "" : String(v);
+      if (k === "building" && v && typeof v === "object" && "name" in v) {
+        out["buildingName"] = String((v as { name: unknown }).name ?? "");
+      } else if (v == null || typeof v === "object") {
+        // skip nested objects other than building
+      } else {
+        out[k] = String(v);
+      }
     }
     return out;
   });

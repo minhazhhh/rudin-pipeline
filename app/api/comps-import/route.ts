@@ -169,7 +169,8 @@ async function importCompBuildingQuarterStats(rows: ImportRow[], mode: ImportMod
       const quarter = csvStr(r.quarter);
       const unitType = csvStr(r.unitType);
       if (!buildingId || !quarter || !unitType) return null;
-      return { buildingId, quarter, quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType, avgRent: csvNum(r.avgRent), avgPsf: csvNum(r.avgPsf), n: csvNum(r.n) ?? 0 };
+      const quarterOrder = csvNum(r.quarterOrder) ?? deriveQuarterOrder(quarter);
+      return { buildingId, quarter, quarterOrder, unitType, avgRent: csvNum(r.avgRent), avgPsf: csvNum(r.avgPsf), n: csvNum(r.n) ?? 0 };
     })
     .filter((d): d is NonNullable<typeof d> => d !== null);
   if (mode === "replace" && data.length > 0) {
@@ -219,11 +220,24 @@ async function importTypeStats(rows: ImportRow[], mode: ImportMode): Promise<num
   return data.length;
 }
 
+function deriveQuarterOrder(quarter: string): number {
+  // Parse "Q3 2024" → 20243, "Q1 2025" → 20251, etc.
+  const m = quarter.trim().match(/Q(\d)\s+(\d{4})/i);
+  if (m) return parseInt(m[2]) * 10 + parseInt(m[1]);
+  // Fallback: try "2024 Q3" format
+  const m2 = quarter.trim().match(/(\d{4})\s+Q(\d)/i);
+  if (m2) return parseInt(m2[1]) * 10 + parseInt(m2[2]);
+  return 0;
+}
+
 async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number> {
   // Deduplicate by quarter+unitType
   const byKey = new Map<string, { quarter: string; quarterOrder: number; unitType: string; avgRent: number; avgPsf: number | null }>();
   for (const r of rows) {
-    const d = { quarter: csvStr(r.quarter), quarterOrder: csvNum(r.quarterOrder) ?? 0, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent) ?? 0, avgPsf: csvNum(r.avgPsf) };
+    const quarter = csvStr(r.quarter);
+    // Auto-derive quarterOrder from quarter label if not explicitly provided
+    const quarterOrder = csvNum(r.quarterOrder) ?? deriveQuarterOrder(quarter);
+    const d = { quarter, quarterOrder, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent) ?? 0, avgPsf: csvNum(r.avgPsf) };
     if (d.quarter && d.unitType) byKey.set(`${d.quarter}::${d.unitType}`, d);
   }
   const data = [...byKey.values()];

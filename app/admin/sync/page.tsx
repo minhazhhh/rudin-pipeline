@@ -215,7 +215,8 @@ export default function SyncPage() {
       const { rows } = sheets[0];
       const hdrs = Object.keys(rows[0] ?? {});
       setRawRows(rows); setHeaders(hdrs);
-      setAiMappedFields(new Set()); setAiReasoning(null); setAiMapping(true); setStep("map");
+      setAiMappedFields(new Set()); setAiReasoning(null); setAiMapping(true);
+      // Stay on "drop" step showing a spinner while AI works; only advance once we know where to go
       try {
         const res = await fetch("/api/ai-map", {
           method: "POST",
@@ -227,18 +228,17 @@ export default function SyncPage() {
           setResource(data.resource); setMappings(data.mappings);
           setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
           setAiReasoning(data.reasoning ?? null);
-          // Skip the wizard if all required fields mapped and at least 3 fields matched
           const requiredFields = RESOURCE_FIELDS[data.resource].filter((f) => f.required).map((f) => f.key);
           const mappedSet = new Set(Object.values(data.mappings).filter(Boolean) as string[]);
           const allRequiredMapped = requiredFields.every((k) => mappedSet.has(k));
-          if (allRequiredMapped && mappedSet.size >= 3) { setStep("autoconfirm"); return; }
+          setStep(allRequiredMapped && mappedSet.size >= 3 ? "autoconfirm" : "map");
         } else {
           const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
-          setResource(r); setMappings(autoMapColumns(hdrs, r));
+          setResource(r); setMappings(autoMapColumns(hdrs, r)); setStep("map");
         }
       } catch {
         const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
-        setResource(r); setMappings(autoMapColumns(hdrs, r));
+        setResource(r); setMappings(autoMapColumns(hdrs, r)); setStep("map");
       } finally { setAiMapping(false); }
       return;
     }
@@ -248,7 +248,7 @@ export default function SyncPage() {
     if (!parsed.length) { alert("No data rows found in this file."); return; }
     const hdrs = Object.keys(parsed[0]);
     setRawRows(parsed); setHeaders(hdrs);
-    setAiMappedFields(new Set()); setAiReasoning(null); setAiMapping(true); setStep("map");
+    setAiMappedFields(new Set()); setAiReasoning(null); setAiMapping(true);
     try {
       const res = await fetch("/api/ai-map", {
         method: "POST",
@@ -260,18 +260,17 @@ export default function SyncPage() {
         setResource(data.resource); setMappings(data.mappings);
         setAiMappedFields(new Set(Object.entries(data.mappings).filter(([, v]) => v !== null).map(([k]) => k)));
         setAiReasoning(data.reasoning ?? null);
-        // Skip the wizard if all required fields mapped and at least 3 fields matched
         const requiredFields = RESOURCE_FIELDS[data.resource].filter((f) => f.required).map((f) => f.key);
         const mappedSet = new Set(Object.values(data.mappings).filter(Boolean) as string[]);
         const allRequiredMapped = requiredFields.every((k) => mappedSet.has(k));
-        if (allRequiredMapped && mappedSet.size >= 3) { setStep("autoconfirm"); return; }
+        setStep(allRequiredMapped && mappedSet.size >= 3 ? "autoconfirm" : "map");
       } else {
         const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
-        setResource(r); setMappings(autoMapColumns(hdrs, r));
+        setResource(r); setMappings(autoMapColumns(hdrs, r)); setStep("map");
       }
     } catch {
       const fallback = detectResource(hdrs); const r = fallback?.resource ?? "lease-comps";
-      setResource(r); setMappings(autoMapColumns(hdrs, r));
+      setResource(r); setMappings(autoMapColumns(hdrs, r)); setStep("map");
     } finally { setAiMapping(false); }
   }, []);
 
@@ -489,25 +488,36 @@ export default function SyncPage() {
 
       {/* ── Drop zone ── */}
       {step === "drop" && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          onClick={() => fileInputRef.current?.click()}
-          style={{
-            border: `2px dashed ${dragging ? "#2563eb" : "#c8d3de"}`,
-            borderRadius: 10, padding: "2.5rem 2rem", textAlign: "center",
-            cursor: "pointer", background: dragging ? "#eff6ff" : "#f8fafc",
-            transition: "all 0.15s", marginBottom: "3rem",
-          }}
-        >
-          <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>⬇</div>
-          <div style={{ fontWeight: 600, fontSize: "1.05rem", marginBottom: "0.2rem" }}>
-            Drop a spreadsheet here, or click to browse
-          </div>
-          <div style={{ color: "#64748b", fontSize: "0.83rem" }}>.csv, .xlsx, .xls — any layout</div>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
-            onChange={(e) => { if (e.target.files?.[0]) parseFile(e.target.files[0]); }} />
+        <div style={{ marginBottom: "3rem" }}>
+          {aiMapping ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "3rem 1rem", gap: "0.75rem", color: "#475569", background: "#f8fafc", border: "2px dashed #c8d3de", borderRadius: 10 }}>
+              <div style={{ width: 32, height: 32, border: "3px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+              <div style={{ fontWeight: 600, fontSize: "1rem" }}>Reading {fileName}…</div>
+              <div style={{ fontSize: "0.83rem", color: "#64748b" }}>Claude is mapping columns</div>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${dragging ? "#2563eb" : "#c8d3de"}`,
+                borderRadius: 10, padding: "2.5rem 2rem", textAlign: "center",
+                cursor: "pointer", background: dragging ? "#eff6ff" : "#f8fafc",
+                transition: "all 0.15s",
+              }}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>⬇</div>
+              <div style={{ fontWeight: 600, fontSize: "1.05rem", marginBottom: "0.2rem" }}>
+                Drop a spreadsheet here, or click to browse
+              </div>
+              <div style={{ color: "#64748b", fontSize: "0.83rem" }}>.csv, .xlsx, .xls — any layout</div>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
+                onChange={(e) => { if (e.target.files?.[0]) parseFile(e.target.files[0]); }} />
+            </div>
+          )}
         </div>
       )}
 
