@@ -261,6 +261,38 @@ async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number>
   return data.length;
 }
 
+// Normalize a raw unitType string or bed/bath counts to standard codes
+// Priority: explicit type string → beds count → beds+baths inference
+function deriveUnitType(raw: string | undefined, beds: number | null, baths: number | null): string | null {
+  // 1. Explicit type string — try to normalize to standard code
+  const s = raw?.trim() ?? "";
+  if (s) {
+    const norm = s.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
+    if (/^(ST|STUDIO|0BD|0BR|STUDIO\+|ALCOVE)/.test(norm)) return "ST";
+    if (/^(1BD|1BR|1BED|ONE)/.test(norm)) return "1BD";
+    if (/^(2BD|2BR|2BED|TWO)/.test(norm)) return "2BD";
+    if (/^(3BD|3BR|3BED|THREE)/.test(norm)) return "3BD";
+    if (/^(4BD|4BR|4BED|FOUR)/.test(norm)) return "4BD";
+  }
+
+  // 2. Derive from numeric beds (with baths as tiebreaker for 0-bed rows)
+  if (beds !== null) {
+    if (beds === 0) return "ST"; // 0 beds = studio regardless of baths
+    if (beds === 1) return "1BD";
+    if (beds === 2) return "2BD";
+    if (beds === 3) return "3BD";
+    if (beds >= 4) return "4BD";
+  }
+
+  // 3. Infer from baths alone when beds is missing
+  // 1 bath with no bed info likely studio or 1BD — can't determine, return null
+  // But ≥2 baths with no beds strongly suggests ≥2BD
+  if (baths !== null && baths >= 2) return "2BD";
+
+  // 4. If raw string is non-empty but unrecognized, store as-is (don't discard data)
+  return s || null;
+}
+
 async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<number> {
   const data = rows
     .filter((r) => r.building?.trim())
@@ -273,10 +305,12 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
       // Derive quarter from leaseDate if not explicitly provided
       let quarter = r.quarter?.trim() || null;
       if (!quarter && leaseDate) quarter = quarterFromDate(leaseDate);
+      const beds = csvNum(r.bedrooms) ?? csvNum(r.beds);
+      const baths = csvNum(r.bathrooms) ?? csvNum(r.baths);
       return {
         building: csvStr(r.building),
         unit: r.unit?.trim() || null,
-        unitType: r.unitType?.trim() || null,
+        unitType: deriveUnitType(r.unitType, beds, baths),
         unitSf: csvNum(r.unitSf),
         grossRent: csvNum(r.grossRent),
         grossPsf: csvNum(r.grossPsf),
