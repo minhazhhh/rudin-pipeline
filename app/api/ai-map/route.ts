@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { RESOURCE_FIELDS } from "@/app/lib/column-mapper";
 import type { Resource } from "@/app/lib/sync-resources";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SCHEMA_SUMMARY = Object.entries(RESOURCE_FIELDS)
   .map(([resource, fields]) => {
@@ -12,9 +15,8 @@ const SCHEMA_SUMMARY = Object.entries(RESOURCE_FIELDS)
   .join("\n\n");
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "OPENROUTER_API_KEY not configured" }, { status: 500 });
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
   const { headers, sampleRows, fileName } = await req.json() as {
@@ -80,33 +82,13 @@ Respond with ONLY valid JSON, no markdown, no explanation outside the JSON:
 }`;
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://rudin-pipeline.vercel.app",
-        "X-Title": "Rudin Pipeline",
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-opus-4-5",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 1024,
-        temperature: 0,
-      }),
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }],
     });
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("OpenRouter response:", response.status, err);
-      throw new Error(`OpenRouter error ${response.status}: ${err}`);
-    }
-
-    const data = await response.json() as {
-      choices: { message: { content: string } }[];
-    };
-
-    const text = data.choices[0]?.message?.content ?? "";
+    const text = message.content[0]?.type === "text" ? message.content[0].text : "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Could not parse JSON from response");
 
