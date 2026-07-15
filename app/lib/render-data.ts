@@ -141,6 +141,8 @@ export async function loadDashboardData() {
     bldg_trend[b.name] = byQuarter;
   }
 
+  const all_bldgs = compBuildings.map((b) => b.name).sort();
+
   const AGG = {
     ut_stats,
     pt_ut_stats,
@@ -151,6 +153,7 @@ export async function loadDashboardData() {
     quarters: quarterSet,
     pt_order: PT_ORDER,
     ut_order: UT_ORDER,
+    all_bldgs,
   };
 
   const NAME_MAP: Record<string, string> = {};

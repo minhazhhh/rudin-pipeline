@@ -2596,7 +2596,7 @@ function buildCDTrend() {
 // ── CUSTOM REPORT ────────────────────────────────────────────────────────────
 function buildCDReport() {
   const el = document.getElementById('cd-report');
-  const allBldgs = Object.keys(AGG.bldg_stats).sort();
+  const allBldgs = (AGG.all_bldgs && AGG.all_bldgs.length) ? AGG.all_bldgs : Object.keys(AGG.bldg_stats).sort();
   const allUTs = AGG.ut_order.filter(t => allBldgs.some(b => AGG.bldg_stats[b]?.units?.[t]));
   const trendBldgs = Object.keys(AGG.bldg_trend || {}).sort();
   // A monochrome blue ramp (light -> dark) instead of a categorical rainbow —
@@ -2615,7 +2615,9 @@ function buildCDReport() {
 
   let mode = 'buildings'; // 'buildings' | 'trend' | 'bldgtrend'
   let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf)
-  const selBldgs = new Set(['355 Lexington Ave'].filter(b => allBldgs.includes(b)));
+  const _defaultBldg = allBldgs.find(b => AGG.bldg_stats[b]) || allBldgs[0];
+  const selBldgs = new Set(['355 Lexington Ave'].filter(b => AGG.bldg_stats[b] && allBldgs.includes(b)));
+  if (!selBldgs.size && _defaultBldg) selBldgs.add(_defaultBldg);
   const selBldgsTime = new Set(trendBldgs.slice(0, 2));
   const selUTs = new Set(['ST', '1BD', '2BD'].filter(t => allUTs.includes(t)));
   const trendUTs = [...new Set(trendBldgs.flatMap(b => Object.values(AGG.bldg_trend[b]).flatMap(q => Object.keys(q))))]
@@ -2785,12 +2787,21 @@ function buildCDReport() {
     } else {
       wireQuarterPicker('cd-report');
       const bWrap = document.getElementById('cd-report-bldgs-time');
-      trendBldgs.forEach((b, i) => {
-        const c = bldgColor(b);
-        bWrap.appendChild(chip(b, selBldgsTime.has(b), c, () => {
-          selBldgsTime.has(b) ? selBldgsTime.delete(b) : selBldgsTime.add(b);
-          render();
-        }));
+      allBldgs.forEach(b => {
+        const hasData = !!AGG.bldg_trend[b];
+        if (!hasData) {
+          const btn = document.createElement('button');
+          btn.textContent = b;
+          btn.title = 'No quarterly lease data available';
+          btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.38`;
+          bWrap.appendChild(btn);
+        } else {
+          const c = bldgColor(b);
+          bWrap.appendChild(chip(b, selBldgsTime.has(b), c, () => {
+            selBldgsTime.has(b) ? selBldgsTime.delete(b) : selBldgsTime.add(b);
+            render();
+          }));
+        }
       });
       const utWrap = document.getElementById('cd-report-single-ut');
       trendUTs.forEach(t => {
