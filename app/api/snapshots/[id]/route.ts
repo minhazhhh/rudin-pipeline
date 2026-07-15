@@ -41,11 +41,20 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/snapshots/[
     },
   });
 
+  // comps-import expects Record<string, string> — snapshot data has typed values, so stringify
+  const snapRows = (snap.data as Record<string, unknown>[]).map((row) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(row)) {
+      out[k] = v == null ? "" : String(v);
+    }
+    return out;
+  });
+
   // Restore via the import endpoint
   const importRes = await fetch(new URL("/api/comps-import", req.url), {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie: req.headers.get("cookie") ?? "" },
-    body: JSON.stringify({ resource: snap.resource, rows: snap.data, mode: "replace" }),
+    body: JSON.stringify({ resource: snap.resource, rows: snapRows, mode: "replace" }),
   });
   if (!importRes.ok) {
     const body = await importRes.json().catch(() => ({}));
