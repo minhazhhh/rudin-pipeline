@@ -11,6 +11,7 @@ export const RESOURCES = [
   "type-stats",
   "trend",
   "lease-comps",
+  "comp-building-units",
 ] as const;
 export type Resource = (typeof RESOURCES)[number];
 
@@ -23,6 +24,7 @@ export const SHEET_URL_FIELD: Record<Resource, string> = {
   "type-stats": "typeStatsSheetUrl",
   trend: "trendSheetUrl",
   "lease-comps": "",
+  "comp-building-units": "",
 };
 
 export async function syncResource(resource: Resource, rows: Record<string, string>[]): Promise<number> {
@@ -43,6 +45,8 @@ export async function syncResource(resource: Resource, rows: Record<string, stri
       return syncTrend(rows);
     case "lease-comps":
       throw new Error("lease-comps cannot be synced from a sheet URL — use the Comps Import wizard.");
+    case "comp-building-units":
+      throw new Error("comp-building-units cannot be synced from a sheet URL — use the Comps Import wizard.");
   }
 }
 
