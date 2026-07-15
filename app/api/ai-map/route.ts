@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { RESOURCE_FIELDS } from "@/app/lib/column-mapper";
 import type { Resource } from "@/app/lib/sync-resources";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
 
 const SCHEMA_SUMMARY = Object.entries(RESOURCE_FIELDS)
   .map(([resource, fields]) => {
@@ -15,8 +15,8 @@ const SCHEMA_SUMMARY = Object.entries(RESOURCE_FIELDS)
   .join("\n\n");
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
   }
 
   const { headers, sampleRows, fileName } = await req.json() as {
@@ -82,13 +82,9 @@ Respond with ONLY valid JSON, no markdown, no explanation outside the JSON:
 }`;
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const text = message.content[0]?.type === "text" ? message.content[0].text : "";
+    const model = genai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Could not parse JSON from response");
 

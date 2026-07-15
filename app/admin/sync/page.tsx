@@ -448,7 +448,18 @@ export default function SyncPage() {
     if (!sheets.length) { setNormalizeError("No data found in file."); setStep("error"); return; }
 
     try {
-      const result = await normalizeClientSide(sheets, file.name);
+      const res = await fetch("/api/ai-normalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, sheets }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(errBody.error ?? `Server error ${res.status}`);
+      }
+
+      const result = await res.json() as AiResult;
       setAiResult(result);
       await runImports(result.resources);
     } catch (e) {
