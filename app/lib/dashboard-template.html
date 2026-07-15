@@ -2610,10 +2610,26 @@ function buildCDReport() {
   let qFrom = AGG.quarters[0];
   let qTo = AGG.quarters[AGG.quarters.length - 1];
 
+  // Per-building date ranges for bldgtrend mode
+  const bldgDateRanges = new Map();
+  function getBldgRange(b) {
+    if (!bldgDateRanges.has(b)) bldgDateRanges.set(b, { from: _firstYM, to: _lastYM });
+    return bldgDateRanges.get(b);
+  }
+
   function filteredQs() {
     const fi = AGG.quarters.indexOf(qFrom);
     const ti = AGG.quarters.indexOf(qTo);
     return AGG.quarters.slice(fi < 0 ? 0 : fi, ti < 0 ? AGG.quarters.length : ti + 1);
+  }
+
+  function bldgFilteredQs(bldgName) {
+    const range = getBldgRange(bldgName);
+    return AGG.quarters.filter(q => {
+      const ym = quarterToYearMonth(q);
+      if (!ym) return true;
+      return ym >= range.from && ym <= range.to;
+    });
   }
 
   function chip(label, active, color, onClick) {
@@ -2684,11 +2700,10 @@ function buildCDReport() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
         </div>
       ` : `
-        ${quarterPicker('cd-report')}
         <div style="margin-bottom:10px">
           <span class="eyebrow">Buildings</span><span id="cd-report-bldgs-time-actions"></span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs-time"></div>
-          <div style="font-size:10px;color:var(--ink-faint);margin-top:6px">Only buildings with real quarterly lease data are listed here — coverage varies a lot by building, so expect gaps.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px" id="cd-report-bldgs-time"></div>
+          <div style="font-size:10px;color:var(--ink-faint);margin-top:6px">Only buildings with real quarterly lease data are listed here — coverage varies a lot by building, so expect gaps. Use the per-building date pickers to compare different time ranges.</div>
         </div>
         <div style="margin-bottom:4px">
           <span class="eyebrow">Unit Type (pick one)</span>
@@ -2721,12 +2736,20 @@ function buildCDReport() {
     if (mode === 'buildings') {
       const bWrap = document.getElementById('cd-report-bldgs');
       allBldgs.forEach(b => {
-        const pt = AGG.bldg_stats[b]?.pt || 'Market';
-        const c = PT_COLORS[pt] || '#6b7b75';
-        bWrap.appendChild(chip(b, selBldgs.has(b), c, () => {
-          selBldgs.has(b) ? selBldgs.delete(b) : selBldgs.add(b);
-          render();
-        }));
+        const hasData = !!AGG.bldg_stats[b];
+        if (!hasData) {
+          const btn = document.createElement('button');
+          btn.textContent = b;
+          btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.38`;
+          bWrap.appendChild(btn);
+        } else {
+          const pt = AGG.bldg_stats[b]?.pt || 'Market';
+          const c = PT_COLORS[pt] || '#6b7b75';
+          bWrap.appendChild(chip(b, selBldgs.has(b), c, () => {
+            selBldgs.has(b) ? selBldgs.delete(b) : selBldgs.add(b);
+            render();
+          }));
+        }
       });
       const utWrap = document.getElementById('cd-report-uts');
       allUTs.forEach(t => {

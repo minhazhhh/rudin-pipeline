@@ -420,15 +420,19 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
       };
     });
 
+  const affectedBuildingNames = [...new Set(data.map((d) => d.building))];
   if (mode === "replace") {
     await prisma.leaseComp.deleteMany();
-    if (data.length) await prisma.leaseComp.createMany({ data });
   } else {
-    if (data.length) await prisma.leaseComp.createMany({ data });
+    // Upsert: delete only leases for the affected buildings to avoid duplicates
+    if (affectedBuildingNames.length) {
+      await prisma.leaseComp.deleteMany({ where: { building: { in: affectedBuildingNames } } });
+    }
   }
+  if (data.length) await prisma.leaseComp.createMany({ data });
 
   // Recalculate all derived stats from the full LeaseComp table
-  const affectedBuildings = [...new Set(data.map((d) => d.building))];
+  const affectedBuildings = affectedBuildingNames;
   await recalculateLeaseCompStats(affectedBuildings);
 
   return data.length;
@@ -572,8 +576,8 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
         const psf  = computeStats(utLeases.map((l: { grossPsf: number | null }) => l.grossPsf).filter((n: number | null): n is number => n !== null));
         await prisma.compBuildingQuarterStat.upsert({
           where: { buildingId_quarter_unitType: { buildingId: b.id, quarter: q, unitType: ut } },
-          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.length },
-          update: { avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.length },
+          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.filter((l) => l.grossRent !== null).length || utLeases.length },
+          update: { avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.filter((l) => l.grossRent !== null).length || utLeases.length },
         });
       }
     }
@@ -598,6 +602,16 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
       create: { quarter: q, quarterOrder: qOrder, unitType: ut, avgRent, avgPsf },
       update: { avgRent, avgPsf },
     });
+  }
+
+  // Remove stale TrendPoint rows (quarters that disappeared from the data)
+  const activeKeys = [...trendMap.keys()].map(k => { const [q, ut] = k.split("::"); return { quarter: q, unitType: ut }; });
+  if (activeKeys.length) {
+    const existingTrend = await prisma.trendPoint.findMany({ select: { quarter: true, unitType: true } });
+    const stale = existingTrend.filter(t => !trendMap.has(`${t.quarter}::${t.unitType}`));
+    if (stale.length) {
+      await prisma.trendPoint.deleteMany({ where: { OR: stale.map(s => ({ quarter: s.quarter, unitType: s.unitType })) } });
+    }
   }
 
   // OverallUnitStat — aggregate ALL leases across ALL buildings by unit type
