@@ -2782,14 +2782,71 @@ function buildCDReport() {
       utActions.appendChild(linkBtn('Select All', () => { allUTs.forEach(t => selUTs.add(t)); render(); }));
       utActions.appendChild(linkBtn('Clear', () => { selUTs.clear(); render(); }));
     } else {
-      wireQuarterPicker('cd-report');
       const bWrap = document.getElementById('cd-report-bldgs-time');
-      trendBldgs.forEach((b, i) => {
-        const c = BLDG_PALETTE[i % BLDG_PALETTE.length];
-        bWrap.appendChild(chip(b, selBldgsTime.has(b), c, () => {
-          selBldgsTime.has(b) ? selBldgsTime.delete(b) : selBldgsTime.add(b);
-          render();
-        }));
+      const bldgPickerStyle = `padding:3px 7px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:10px;color:var(--ink);background:#fff;outline:none;cursor:pointer;min-width:110px`;
+      allBldgs.forEach((b, i) => {
+        const hasData = !!AGG.bldg_trend[b];
+        if (!hasData) {
+          const btn = document.createElement('button');
+          btn.textContent = b;
+          btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.38`;
+          bWrap.appendChild(btn);
+        } else {
+          const c = bldgColor(b);
+          bWrap.appendChild(chip(b, selBldgsTime.has(b), c, () => {
+            selBldgsTime.has(b) ? selBldgsTime.delete(b) : selBldgsTime.add(b);
+            render();
+          }));
+          if (selBldgsTime.has(b)) {
+            const range = getBldgRange(b);
+            const fromLabel = document.createElement('span');
+            fromLabel.textContent = 'From';
+            fromLabel.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:6px';
+            const fromInput = document.createElement('input');
+            fromInput.type = 'month';
+            fromInput.value = range.from;
+            fromInput.min = _firstYM;
+            fromInput.max = _lastYM;
+            fromInput.style.cssText = bldgPickerStyle;
+            fromInput.dataset.bldg = b;
+            fromInput.dataset.which = 'from';
+            const toLabel = document.createElement('span');
+            toLabel.textContent = 'To';
+            toLabel.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:6px';
+            const toInput = document.createElement('input');
+            toInput.type = 'month';
+            toInput.value = range.to;
+            toInput.min = _firstYM;
+            toInput.max = _lastYM;
+            toInput.style.cssText = bldgPickerStyle;
+            toInput.dataset.bldg = b;
+            toInput.dataset.which = 'to';
+            const sep = document.createElement('span');
+            sep.style.cssText = 'margin-right:12px';
+            bWrap.appendChild(fromLabel);
+            bWrap.appendChild(fromInput);
+            bWrap.appendChild(toLabel);
+            bWrap.appendChild(toInput);
+            bWrap.appendChild(sep);
+          }
+        }
+      });
+      // Wire per-building date pickers
+      bWrap.querySelectorAll('input[type="month"][data-bldg]').forEach(inp => {
+        inp.oninput = function() {
+          const bName = this.dataset.bldg;
+          const which = this.dataset.which;
+          const range = getBldgRange(bName);
+          if (which === 'from') {
+            range.from = this.value;
+            if (range.to < range.from) range.to = range.from;
+          } else {
+            range.to = this.value;
+            if (range.from > range.to) range.from = range.to;
+          }
+          bldgDateRanges.set(bName, range);
+          drawReportChart();
+        };
       });
       const utWrap = document.getElementById('cd-report-single-ut');
       trendUTs.forEach(t => {
@@ -2799,7 +2856,8 @@ function buildCDReport() {
       const bActions = document.getElementById('cd-report-bldgs-time-actions');
       bActions.appendChild(linkBtn('Reset', () => {
         selBldgsTime.clear();
-        if (trendBldgs[0]) selBldgsTime.add(trendBldgs[0]);
+        const firstWithData = allBldgs.find(b => !!AGG.bldg_trend[b]);
+        if (firstWithData) selBldgsTime.add(firstWithData);
         render();
       }));
     }
@@ -2840,15 +2898,18 @@ function buildCDReport() {
         };
       });
     } else {
-      const qs = filteredQs();
-      const bldgs = trendBldgs.filter(b => selBldgsTime.has(b));
-      labels = qs;
-      nLookup = { bldgs, qs, ut: singleUT };
-      datasets = bldgs.map((b, i) => {
-        const c = BLDG_PALETTE[trendBldgs.indexOf(b) % BLDG_PALETTE.length];
+      const bldgs = allBldgs.filter(b => selBldgsTime.has(b));
+      // Union of all buildings' filtered quarters as labels, in original quarter order
+      const labelSet = new Set();
+      bldgs.forEach(b => bldgFilteredQs(b).forEach(q => labelSet.add(q)));
+      labels = AGG.quarters.filter(q => labelSet.has(q));
+      nLookup = { bldgs, qs: labels, ut: singleUT };
+      datasets = bldgs.map((b) => {
+        const c = bldgColor(b);
+        const bQs = new Set(bldgFilteredQs(b));
         return {
           label: b,
-          data: qs.map(q => AGG.bldg_trend[b]?.[q]?.[singleUT]?.[metric] ?? null),
+          data: labels.map(q => bQs.has(q) ? (AGG.bldg_trend[b]?.[q]?.[singleUT]?.[metric] ?? null) : null),
           backgroundColor: c, borderColor: c, borderWidth: 1
         };
       });
