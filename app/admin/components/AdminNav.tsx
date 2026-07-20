@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/admin/projects", label: "Pipeline Projects" },
   { href: "/admin/comp-buildings", label: "Comp Buildings" },
   { href: "/admin/comp-building-stats", label: "Comp Building Stats" },
+  { href: "/admin/comp-stats-range", label: "Stats by Date Range" },
   { href: "/admin/overall-stats", label: "Overall Unit Stats" },
   { href: "/admin/type-stats", label: "Type × Unit Stats" },
   { href: "/admin/trend", label: "Rent Trend" },
