@@ -1210,7 +1210,6 @@ function render() {
   var vc = 0, vu = 0, vsf = 0;
   DATA.forEach(function(p, i) {
     if (!isVis(p)) { mkrs.push(null); return; }
-    if (!p.lat && !p.lng) { mkrs.push(null); return; } // skip ungeocoded
     vc++; if (p.u) vu += p.u; if (p.sf) vsf += p.sf;
     var c = SC[p.st] || "#888";
     var r = getR(p);
@@ -1285,7 +1284,7 @@ function render() {
       el.innerHTML = pinHtml;
       el.onclick = (function(idx2, pp, lat, lng) {
         return function() {
-          if (lat || lng) map.flyTo([lat, lng], 14, { duration: 0.9 });
+          map.flyTo([lat, lng], 14, { duration: 0.9 });
           openPeek(pp, idx2);
         };
       })(i, p, p.lat, p.lng);
@@ -1453,7 +1452,6 @@ window.openPeek = function(p, i) {
   var html = "";
   if (p.rudin) html += "<div class=\"peek-rudin-badge\">" + "<img src=\"" + APPLE_SRC + "\" style=\"width:13px;height:13px;object-fit:contain\" alt=\"\"> Rudin Property</div>";
   html += "<div class=\"peek-name\">" + p.n + "</div>";
-  if (p.addr) html += "<div style=\"font-size:11px;color:#aaa;margin:-4px 0 4px;\">" + p.addr + "</div>";
   html += "<div class=\"peek-status\" style=\"color:" + c + "\">" + p.st + (p.ct ? " &middot; " + p.ct : "") + "</div>";
   html += "<div class=\"peek-grid\">";
   html += "<div><div class=\"peek-cell-label\">Units</div><div class=\"peek-cell-val\">" + fmt(p.u) + "</div></div>";
@@ -2599,19 +2597,7 @@ function buildCDReport() {
   const allBldgs = (AGG.all_bldgs && AGG.all_bldgs.length) ? AGG.all_bldgs : Object.keys(AGG.bldg_stats).sort();
   const allUTs = AGG.ut_order.filter(t => allBldgs.some(b => AGG.bldg_stats[b]?.units?.[t]));
   const trendBldgs = Object.keys(AGG.bldg_trend || {}).sort();
-  // A monochrome blue ramp (light -> dark) instead of a categorical rainbow —
-  // each building gets its own shade, sized comfortably above the comp-building
-  // count so repeats shouldn't happen in practice. The light end is floored so
-  // white chip/legend text stays legible (~3.3:1+ contrast); indexed by each
-  // building's position in the full sorted building list (allBldgs) so a given
-  // building is always the same shade across both Custom Report modes.
-  const BLDG_PALETTE = [
-    '#5c90cc','#548bc9','#4d86c7','#4580c4','#3d7bc2','#3b76ba',
-    '#3871b2','#366cab','#3367a3','#31629b','#2f5e93','#2c598c',
-    '#2a5484','#274f7c','#254a74','#22456d','#204065','#1d3b5d',
-    '#1b3655','#18314e','#162c46','#14273e','#112236',
-  ];
-  const bldgColor = (name) => BLDG_PALETTE[Math.max(0, allBldgs.indexOf(name)) % BLDG_PALETTE.length];
+  const BLDG_PALETTE = ['#0d4d3a','#a8895a','#5f8275','#6b7b75','#0a3e2f','#c99a5b','#3a6557','#94a89f','#082f24','#d8b98a'];
 
   let mode = 'buildings'; // 'buildings' | 'trend' | 'bldgtrend'
   let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf)
@@ -2623,25 +2609,28 @@ function buildCDReport() {
   const trendUTs = [...new Set(trendBldgs.flatMap(b => Object.values(AGG.bldg_trend[b]).flatMap(q => Object.keys(q))))]
     .sort((a, b) => AGG.ut_order.indexOf(a) - AGG.ut_order.indexOf(b));
   let singleUT = trendUTs.includes('1BD') ? '1BD' : (trendUTs[0] || 'ST');
+  let qFrom = AGG.quarters[0];
+  let qTo = AGG.quarters[AGG.quarters.length - 1];
 
-  // Convert "Q2 2023" → "2023-04" (YYYY-MM of quarter start)
-  function quarterToYearMonth(q) {
-    const m = q && q.match(/Q(\d)\s+(\d{4})/i);
-    if (!m) return null;
-    const month = String((parseInt(m[1]) - 1) * 3 + 1).padStart(2, '0');
-    return `${m[2]}-${month}`;
+  // Per-building date ranges for bldgtrend mode
+  const bldgDateRanges = new Map();
+  function getBldgRange(b) {
+    if (!bldgDateRanges.has(b)) bldgDateRanges.set(b, { from: _firstYM, to: _lastYM });
+    return bldgDateRanges.get(b);
   }
 
-  const _firstYM = quarterToYearMonth(AGG.quarters[0]) || '2020-01';
-  const _lastYM  = quarterToYearMonth(AGG.quarters[AGG.quarters.length - 1]) || '2030-12';
-  let dateFrom = _firstYM;
-  let dateTo   = _lastYM;
-
   function filteredQs() {
+    const fi = AGG.quarters.indexOf(qFrom);
+    const ti = AGG.quarters.indexOf(qTo);
+    return AGG.quarters.slice(fi < 0 ? 0 : fi, ti < 0 ? AGG.quarters.length : ti + 1);
+  }
+
+  function bldgFilteredQs(bldgName) {
+    const range = getBldgRange(bldgName);
     return AGG.quarters.filter(q => {
       const ym = quarterToYearMonth(q);
       if (!ym) return true;
-      return ym >= dateFrom && ym <= dateTo;
+      return ym >= range.from && ym <= range.to;
     });
   }
 
@@ -2655,29 +2644,31 @@ function buildCDReport() {
   }
 
   function quarterPicker(idPrefix) {
-    const inputStyle = `padding:5px 10px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer;min-width:140px`;
     return `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="eyebrow">From</span>
-        <input type="month" id="${idPrefix}-from" value="${dateFrom}" min="${_firstYM}" max="${_lastYM}" style="${inputStyle}">
+        <select id="${idPrefix}-from" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+          ${AGG.quarters.map(q => `<option value="${q}"${q === qFrom ? ' selected' : ''}>${q}</option>`).join('')}
+        </select>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="eyebrow">To</span>
-        <input type="month" id="${idPrefix}-to" value="${dateTo}" min="${_firstYM}" max="${_lastYM}" style="${inputStyle}">
+        <select id="${idPrefix}-to" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+          ${AGG.quarters.map(q => `<option value="${q}"${q === qTo ? ' selected' : ''}>${q}</option>`).join('')}
+        </select>
       </div>
-      <span style="font-size:11px;color:var(--ink-soft)">${filteredQs().length} quarter${filteredQs().length === 1 ? '' : 's'}</span>
     </div>`;
   }
 
   function wireQuarterPicker(idPrefix) {
-    document.getElementById(`${idPrefix}-from`).oninput = function () {
-      dateFrom = this.value;
-      if (dateTo < dateFrom) dateTo = dateFrom;
+    document.getElementById(`${idPrefix}-from`).onchange = function () {
+      qFrom = this.value;
+      if (AGG.quarters.indexOf(qFrom) > AGG.quarters.indexOf(qTo)) qTo = qFrom;
       render();
     };
-    document.getElementById(`${idPrefix}-to`).oninput = function () {
-      dateTo = this.value;
-      if (dateFrom > dateTo) dateFrom = dateTo;
+    document.getElementById(`${idPrefix}-to`).onchange = function () {
+      qTo = this.value;
+      if (AGG.quarters.indexOf(qTo) < AGG.quarters.indexOf(qFrom)) qFrom = qTo;
       render();
     };
   }
@@ -2711,11 +2702,10 @@ function buildCDReport() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
         </div>
       ` : `
-        ${quarterPicker('cd-report')}
         <div style="margin-bottom:10px">
           <span class="eyebrow">Buildings</span><span id="cd-report-bldgs-time-actions"></span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-bldgs-time"></div>
-          <div style="font-size:10px;color:var(--ink-faint);margin-top:6px">Only buildings with real quarterly lease data are listed here — coverage varies a lot by building, so expect gaps.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px" id="cd-report-bldgs-time"></div>
+          <div style="font-size:10px;color:var(--ink-faint);margin-top:6px">Only buildings with real quarterly lease data are listed here — coverage varies a lot by building, so expect gaps. Use the per-building date pickers to compare different time ranges.</div>
         </div>
         <div style="margin-bottom:4px">
           <span class="eyebrow">Unit Type (pick one)</span>
@@ -2748,11 +2738,20 @@ function buildCDReport() {
     if (mode === 'buildings') {
       const bWrap = document.getElementById('cd-report-bldgs');
       allBldgs.forEach(b => {
-        const c = bldgColor(b);
-        bWrap.appendChild(chip(b, selBldgs.has(b), c, () => {
-          selBldgs.has(b) ? selBldgs.delete(b) : selBldgs.add(b);
-          render();
-        }));
+        const hasData = !!AGG.bldg_stats[b];
+        if (!hasData) {
+          const btn = document.createElement('button');
+          btn.textContent = b;
+          btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.38`;
+          bWrap.appendChild(btn);
+        } else {
+          const pt = AGG.bldg_stats[b]?.pt || 'Market';
+          const c = PT_COLORS[pt] || '#6b7b75';
+          bWrap.appendChild(chip(b, selBldgs.has(b), c, () => {
+            selBldgs.has(b) ? selBldgs.delete(b) : selBldgs.add(b);
+            render();
+          }));
+        }
       });
       const utWrap = document.getElementById('cd-report-uts');
       allUTs.forEach(t => {
@@ -2785,14 +2784,13 @@ function buildCDReport() {
       utActions.appendChild(linkBtn('Select All', () => { allUTs.forEach(t => selUTs.add(t)); render(); }));
       utActions.appendChild(linkBtn('Clear', () => { selUTs.clear(); render(); }));
     } else {
-      wireQuarterPicker('cd-report');
       const bWrap = document.getElementById('cd-report-bldgs-time');
-      allBldgs.forEach(b => {
+      const bldgPickerStyle = `padding:3px 7px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:10px;color:var(--ink);background:#fff;outline:none;cursor:pointer;min-width:110px`;
+      allBldgs.forEach((b, i) => {
         const hasData = !!AGG.bldg_trend[b];
         if (!hasData) {
           const btn = document.createElement('button');
           btn.textContent = b;
-          btn.title = 'No quarterly lease data available';
           btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.38`;
           bWrap.appendChild(btn);
         } else {
@@ -2801,7 +2799,56 @@ function buildCDReport() {
             selBldgsTime.has(b) ? selBldgsTime.delete(b) : selBldgsTime.add(b);
             render();
           }));
+          if (selBldgsTime.has(b)) {
+            const range = getBldgRange(b);
+            const fromLabel = document.createElement('span');
+            fromLabel.textContent = 'From';
+            fromLabel.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:6px';
+            const fromInput = document.createElement('input');
+            fromInput.type = 'month';
+            fromInput.value = range.from;
+            fromInput.min = _firstYM;
+            fromInput.max = _lastYM;
+            fromInput.style.cssText = bldgPickerStyle;
+            fromInput.dataset.bldg = b;
+            fromInput.dataset.which = 'from';
+            const toLabel = document.createElement('span');
+            toLabel.textContent = 'To';
+            toLabel.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:6px';
+            const toInput = document.createElement('input');
+            toInput.type = 'month';
+            toInput.value = range.to;
+            toInput.min = _firstYM;
+            toInput.max = _lastYM;
+            toInput.style.cssText = bldgPickerStyle;
+            toInput.dataset.bldg = b;
+            toInput.dataset.which = 'to';
+            const sep = document.createElement('span');
+            sep.style.cssText = 'margin-right:12px';
+            bWrap.appendChild(fromLabel);
+            bWrap.appendChild(fromInput);
+            bWrap.appendChild(toLabel);
+            bWrap.appendChild(toInput);
+            bWrap.appendChild(sep);
+          }
         }
+      });
+      // Wire per-building date pickers
+      bWrap.querySelectorAll('input[type="month"][data-bldg]').forEach(inp => {
+        inp.oninput = function() {
+          const bName = this.dataset.bldg;
+          const which = this.dataset.which;
+          const range = getBldgRange(bName);
+          if (which === 'from') {
+            range.from = this.value;
+            if (range.to < range.from) range.to = range.from;
+          } else {
+            range.to = this.value;
+            if (range.from > range.to) range.from = range.to;
+          }
+          bldgDateRanges.set(bName, range);
+          drawReportChart();
+        };
       });
       const utWrap = document.getElementById('cd-report-single-ut');
       trendUTs.forEach(t => {
@@ -2811,7 +2858,8 @@ function buildCDReport() {
       const bActions = document.getElementById('cd-report-bldgs-time-actions');
       bActions.appendChild(linkBtn('Reset', () => {
         selBldgsTime.clear();
-        if (trendBldgs[0]) selBldgsTime.add(trendBldgs[0]);
+        const firstWithData = allBldgs.find(b => !!AGG.bldg_trend[b]);
+        if (firstWithData) selBldgsTime.add(firstWithData);
         render();
       }));
     }
@@ -2852,15 +2900,18 @@ function buildCDReport() {
         };
       });
     } else {
-      const qs = filteredQs();
-      const bldgs = trendBldgs.filter(b => selBldgsTime.has(b));
-      labels = qs;
-      nLookup = { bldgs, qs, ut: singleUT };
-      datasets = bldgs.map((b, i) => {
+      const bldgs = allBldgs.filter(b => selBldgsTime.has(b));
+      // Union of all buildings' filtered quarters as labels, in original quarter order
+      const labelSet = new Set();
+      bldgs.forEach(b => bldgFilteredQs(b).forEach(q => labelSet.add(q)));
+      labels = AGG.quarters.filter(q => labelSet.has(q));
+      nLookup = { bldgs, qs: labels, ut: singleUT };
+      datasets = bldgs.map((b) => {
         const c = bldgColor(b);
+        const bQs = new Set(bldgFilteredQs(b));
         return {
           label: b,
-          data: qs.map(q => AGG.bldg_trend[b]?.[q]?.[singleUT]?.[metric] ?? null),
+          data: labels.map(q => bQs.has(q) ? (AGG.bldg_trend[b]?.[q]?.[singleUT]?.[metric] ?? null) : null),
           backgroundColor: c, borderColor: c, borderWidth: 1
         };
       });

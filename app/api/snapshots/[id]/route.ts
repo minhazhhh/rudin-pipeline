@@ -18,7 +18,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/snapshots
   return NextResponse.json({ ok: true });
 }
 
-// Restore: replay snapshot data back into the DB via the import route
+// POST — restore snapshot back into DB via comps-import
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/snapshots/[id]">) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/snapshots/[
     return NextResponse.json({ error: `Unknown resource "${snap.resource}"` }, { status: 400 });
   }
 
-  // First snapshot the current state so the restore itself is undoable
+  // Snapshot current state first so the restore itself is undoable
   const currentRows = await fetchCurrentRows(snap.resource as Resource);
   await prisma.snapshot.create({
     data: {
@@ -57,7 +57,6 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/snapshots/[
     return out;
   });
 
-  // Restore via the import endpoint
   const importRes = await fetch(new URL("/api/comps-import", req.url), {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie: req.headers.get("cookie") ?? "" },
@@ -65,10 +64,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/snapshots/[
   });
   if (!importRes.ok) {
     const body = await importRes.json().catch(() => ({}));
-    return NextResponse.json({ error: body.error ?? "Restore failed" }, { status: 500 });
+    return NextResponse.json({ error: (body as { error?: string }).error ?? "Restore failed" }, { status: 500 });
   }
-  const result = await importRes.json();
-  return NextResponse.json({ ok: true, rowsRestored: result.rowsImported });
+  const result = await importRes.json() as { rowsImported?: number; count?: number };
+  return NextResponse.json({ ok: true, rowsRestored: result.rowsImported ?? result.count ?? 0 });
 }
 
 async function fetchCurrentRows(resource: Resource): Promise<Record<string, unknown>[]> {

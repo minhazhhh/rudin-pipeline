@@ -261,36 +261,132 @@ async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number>
   return data.length;
 }
 
-// Normalize a raw unitType string or bed/bath counts to standard codes
-// Priority: explicit type string → beds count → beds+baths inference
-function deriveUnitType(raw: string | undefined, beds: number | null, baths: number | null): string | null {
-  // 1. Explicit type string — try to normalize to standard code
-  const s = raw?.trim() ?? "";
-  if (s) {
-    const norm = s.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
-    if (/^(ST|STUDIO|0BD|0BR|STUDIO\+|ALCOVE)/.test(norm)) return "ST";
-    if (/^(1BD|1BR|1BED|ONE)/.test(norm)) return "1BD";
-    if (/^(2BD|2BR|2BED|TWO)/.test(norm)) return "2BD";
-    if (/^(3BD|3BR|3BED|THREE)/.test(norm)) return "3BD";
-    if (/^(4BD|4BR|4BED|FOUR)/.test(norm)) return "4BD";
+// Normalize a raw unitType string, floorplan, bed/bath counts, and sf to standard codes.
+// Uses a scoring/evidence-accumulation approach: each signal votes for a bucket;
+// highest-voted bucket wins. Returns null when evidence is genuinely ambiguous.
+// Standard output codes: "ST", "1BD", "2BD", "3BD", "4BD"
+// Home-office variants: "ST+HO", "1BD+HO", "2BD+HO"
+function deriveUnitType(
+  raw: string | undefined,
+  beds: number | null,
+  baths: number | null,
+  sf: number | null,
+  floorplan: string | undefined
+): string | null {
+  // ── helpers ───────────────────────────────────────────────────────────────
+  function hasHO(s: string): boolean {
+    const u = s.toUpperCase();
+    return /\+\s*HO\b/.test(u) || /HOME\s*OFFICE/.test(u) || /\+\s*DEN\b/.test(u) || /\bDEN\b/.test(u);
   }
 
-  // 2. Derive from numeric beds (with baths as tiebreaker for 0-bed rows)
-  if (beds !== null) {
-    if (beds === 0) return "ST"; // 0 beds = studio regardless of baths
-    if (beds === 1) return "1BD";
-    if (beds === 2) return "2BD";
-    if (beds === 3) return "3BD";
-    if (beds >= 4) return "4BD";
+  type Bucket = "ST" | "1BD" | "2BD" | "3BD" | "4BD";
+  const scores: Record<Bucket, number> = { ST: 0, "1BD": 0, "2BD": 0, "3BD": 0, "4BD": 0 };
+  function vote(b: Bucket, w: number) { scores[b] += w; }
+  function bdsCode(n: number): Bucket { return n === 0 ? "ST" : n === 1 ? "1BD" : n === 2 ? "2BD" : n === 3 ? "3BD" : "4BD"; }
+
+  // Parse a text field (raw label or floorplan name/code) into evidence
+  function parseText(s: string, isFloorplan: boolean): { bucket: Bucket | null; weight: number } {
+    const t = s.trim();
+    if (!t) return { bucket: null, weight: 0 };
+
+    // Junior / Jr → always ST (partial wall, not a full bedroom)
+    if (/^JR\.?\s*1?\s*(BR|BED(ROOM)?)?$/i.test(t) || /^JUNIOR(\s*(1\s*)?(BR|BED(ROOM)?))?$/i.test(t)) {
+      return { bucket: "ST", weight: 10 };
+    }
+
+    // Bare single digit
+    if (/^\d$/.test(t)) return { bucket: bdsCode(parseInt(t)), weight: 9 };
+
+    // Slash format X/Y → X = beds
+    const slashM = t.match(/^(\d)\/(\d)$/);
+    if (slashM && parseInt(slashM[1]) <= 4) return { bucket: bdsCode(parseInt(slashM[1])), weight: 9 };
+
+    // "1 Bed/1 Bath" style
+    const bedBathSlash = t.match(/^(\d)\s*(?:bed|br|bedroom)s?\s*\/\s*\d\s*(?:bath|ba)s?$/i);
+    if (bedBathSlash) return { bucket: bdsCode(parseInt(bedBathSlash[1])), weight: 9 };
+
+    // Studio keywords
+    if (/\bSTUDIO\b/i.test(t) || /\bEFFICIENCY\b/i.test(t) || /^EFF$/i.test(t) ||
+        /\bCONVERTIBLE\b/i.test(t) || /^CONV$/i.test(t) || /\bFLEX\b/i.test(t)) {
+      return { bucket: "ST", weight: 10 };
+    }
+
+    // Alcove → always ST (NYC alcoves are always studios)
+    if (/\bALCOVE\b/i.test(t)) return { bucket: "ST", weight: 10 };
+
+    // "S" alone → ST (Studio floorplan convention)
+    if (/^S$/i.test(t)) return { bucket: "ST", weight: 9 };
+
+    // Floorplan codes starting with S (SA, S1, S-A) → ST
+    if (isFloorplan && /^S[A-Z0-9]/i.test(t)) return { bucket: "ST", weight: 7 };
+
+    // Loft / Studio Loft alone → ST (lower weight so beds can override)
+    if (/^LOFT$/i.test(t) || /^STUDIO\s*LOFT$/i.test(t)) return { bucket: "ST", weight: 5 };
+
+    // "0 BR / 0 Bed" → ST
+    if (/^0\s*(br|bed(room)?s?)$/i.test(t)) return { bucket: "ST", weight: 10 };
+
+    // Numeric bedroom patterns: "1BR", "1 Bed", "1-Bedroom", "1BD" etc.
+    const numBedM = t.match(/^(\d)[\s\-]*(?:bd|br|bed(?:room)?s?)(?:\s|$|\/|\+|,)/i);
+    if (numBedM) return { bucket: bdsCode(parseInt(numBedM[1])), weight: 10 };
+    const numBedFull = t.match(/^(\d)[\s\-]*(?:bd|br|bed(?:room)?s?)$/i);
+    if (numBedFull) return { bucket: bdsCode(parseInt(numBedFull[1])), weight: 10 };
+
+    // Word bedroom counts
+    const wordBedM = t.match(/^(one|two|three|four)\s*(?:bed(?:room)?s?)?/i);
+    if (wordBedM) {
+      const map: Record<string, Bucket> = { one: "1BD", two: "2BD", three: "3BD", four: "4BD" };
+      return { bucket: map[wordBedM[1].toLowerCase()], weight: 10 };
+    }
+
+    // "1B" shorthand (moderate confidence)
+    const shortB = t.match(/^(\d)B$/i);
+    if (shortB && parseInt(shortB[1]) <= 4) return { bucket: bdsCode(parseInt(shortB[1])), weight: 6 };
+
+    // "Studio A/1/..." in floorplan
+    if (isFloorplan && /^STUDIO\s*[A-Z0-9]/i.test(t)) return { bucket: "ST", weight: 7 };
+
+    // Ambiguous: letter+number floorplan codes, single non-S letters, ambiguous modifiers
+    // These contribute no votes (return null)
+    return { bucket: null, weight: 0 };
   }
 
-  // 3. Infer from baths alone when beds is missing
-  // 1 bath with no bed info likely studio or 1BD — can't determine, return null
-  // But ≥2 baths with no beds strongly suggests ≥2BD
-  if (baths !== null && baths >= 2) return "2BD";
+  // ── 1. Raw string ──────────────────────────────────────────────────────────
+  const rawStr = raw?.trim() ?? "";
+  if (rawStr) {
+    const r = parseText(rawStr, false);
+    if (r.bucket) vote(r.bucket, r.weight);
+  }
 
-  // 4. If raw string is non-empty but unrecognized, store as-is (don't discard data)
-  return s || null;
+  // ── 2. Floorplan ──────────────────────────────────────────────────────────
+  const fpStr = floorplan?.trim() ?? "";
+  if (fpStr) {
+    const f = parseText(fpStr, true);
+    if (f.bucket) vote(f.bucket, f.weight);
+  }
+
+  // ── 3. Beds column ────────────────────────────────────────────────────────
+  if (beds !== null && beds >= 0 && beds <= 10) vote(bdsCode(beds), 8);
+
+  // ── 4. SF — very conservative tiebreaker only ─────────────────────────────
+  if (sf !== null && sf < 620) vote("ST", 2);
+
+  // ── Resolve winner ────────────────────────────────────────────────────────
+  const buckets: Bucket[] = ["ST", "1BD", "2BD", "3BD", "4BD"];
+  let winner: Bucket | null = null;
+  let maxScore = 0;
+  for (const b of buckets) {
+    if (scores[b] > maxScore) { maxScore = scores[b]; winner = b; }
+  }
+
+  // Require minimum confidence
+  if (!winner || maxScore < 2) return null;
+
+  // Apply +HO suffix only when raw string explicitly declares it
+  const rawHO = rawStr ? hasHO(rawStr) : false;
+  if (rawHO && winner && winner !== "3BD" && winner !== "4BD") return winner + "+HO";
+
+  return winner;
 }
 
 async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<number> {
@@ -307,10 +403,12 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
       if (!quarter && leaseDate) quarter = quarterFromDate(leaseDate);
       const beds = csvNum(r.bedrooms) ?? csvNum(r.beds);
       const baths = csvNum(r.bathrooms) ?? csvNum(r.baths);
+      const sf = csvNum(r.sf) ?? csvNum(r.unitSf);
+      const fp = r.floorplan?.trim() || r.floorplanName?.trim() || r.planType?.trim();
       return {
         building: csvStr(r.building),
         unit: r.unit?.trim() || null,
-        unitType: deriveUnitType(r.unitType, beds, baths),
+        unitType: deriveUnitType(r.unitType, beds, baths, sf, fp),
         unitSf: csvNum(r.unitSf),
         grossRent: csvNum(r.grossRent),
         grossPsf: csvNum(r.grossPsf),
@@ -322,15 +420,19 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
       };
     });
 
+  const affectedBuildingNames = [...new Set(data.map((d) => d.building))];
   if (mode === "replace") {
     await prisma.leaseComp.deleteMany();
-    if (data.length) await prisma.leaseComp.createMany({ data });
   } else {
-    if (data.length) await prisma.leaseComp.createMany({ data });
+    // Upsert: delete only leases for the affected buildings to avoid duplicates
+    if (affectedBuildingNames.length) {
+      await prisma.leaseComp.deleteMany({ where: { building: { in: affectedBuildingNames } } });
+    }
   }
+  if (data.length) await prisma.leaseComp.createMany({ data });
 
   // Recalculate all derived stats from the full LeaseComp table
-  const affectedBuildings = [...new Set(data.map((d) => d.building))];
+  const affectedBuildings = affectedBuildingNames;
   await recalculateLeaseCompStats(affectedBuildings);
 
   return data.length;
@@ -474,8 +576,8 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
         const psf  = computeStats(utLeases.map((l: { grossPsf: number | null }) => l.grossPsf).filter((n: number | null): n is number => n !== null));
         await prisma.compBuildingQuarterStat.upsert({
           where: { buildingId_quarter_unitType: { buildingId: b.id, quarter: q, unitType: ut } },
-          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.length },
-          update: { avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.length },
+          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.filter((l) => l.grossRent !== null).length || utLeases.length },
+          update: { avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.filter((l) => l.grossRent !== null).length || utLeases.length },
         });
       }
     }
@@ -500,6 +602,16 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
       create: { quarter: q, quarterOrder: qOrder, unitType: ut, avgRent, avgPsf },
       update: { avgRent, avgPsf },
     });
+  }
+
+  // Remove stale TrendPoint rows (quarters that disappeared from the data)
+  const activeKeys = [...trendMap.keys()].map(k => { const [q, ut] = k.split("::"); return { quarter: q, unitType: ut }; });
+  if (activeKeys.length) {
+    const existingTrend = await prisma.trendPoint.findMany({ select: { quarter: true, unitType: true } });
+    const stale = existingTrend.filter(t => !trendMap.has(`${t.quarter}::${t.unitType}`));
+    if (stale.length) {
+      await prisma.trendPoint.deleteMany({ where: { OR: stale.map(s => ({ quarter: s.quarter, unitType: s.unitType })) } });
+    }
   }
 
   // OverallUnitStat — aggregate ALL leases across ALL buildings by unit type

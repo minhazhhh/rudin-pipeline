@@ -141,6 +141,8 @@ export async function loadDashboardData() {
     bldg_trend[b.name] = byQuarter;
   }
 
+  // All comp building names (sorted), regardless of whether they have stats or trend data.
+  // Used by the dashboard to show greyed-out unavailable buildings in selectors.
   const all_bldgs = compBuildings.map((b) => b.name).sort();
 
   const AGG = {
