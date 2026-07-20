@@ -879,6 +879,146 @@ table.cmp-table td.r{text-align:right}
 #peek::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
 
 #map *:focus,#map *:focus-visible,.leaflet-interactive:focus,.leaflet-interactive:focus-visible,path:focus,circle:focus{outline:none!important;box-shadow:none!important}
+
+/* ═══════════════════════════════════════════════════════
+   2026 UI REFRESH — visual polish + responsive layout
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Topbar ── */
+.topbar{
+  height:56px;padding:0 24px;
+  background:linear-gradient(135deg,#080808 0%,#0f1a15 100%);
+  border-bottom:1px solid rgba(255,255,255,.07);
+  justify-content:space-between;
+}
+/* RUDIN wordmark inline style is fixed — boost its size via adjacent sibling targeting */
+.topbar > span:first-child { font-size: 24px !important; letter-spacing: -.015em !important; }
+
+/* ── Nav ── */
+.nav{padding:0 24px;background:var(--paper-raised);position:relative}
+.nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:var(--line)}
+.nav-tab{font-size:13px;padding:0 20px;height:56px;letter-spacing:.005em}
+.nav-tab.on::after{left:20px;right:20px;background:var(--accent);border-radius:2px 2px 0 0}
+
+/* ── Sidebar — responsive width ── */
+@media(max-width:1280px){
+  .sidebar{width:288px!important}
+}
+@media(max-width:1080px){
+  .sidebar{width:260px!important}
+  .sv{font-size:20px!important}
+  .metric-value{font-size:20px}
+}
+
+/* ── Sidebar collapse on tablet/phone ── */
+@media(max-width:860px){
+  .sidebar{
+    position:fixed!important;top:112px;left:0;bottom:0;z-index:1200!important;
+    width:288px!important;
+    transform:translateX(-100%);
+    transition:transform 320ms cubic-bezier(.4,0,.2,1)!important;
+    box-shadow:4px 0 32px rgba(0,0,0,.18)!important;
+  }
+  .sidebar.sb-open{transform:translateX(0)!important}
+  /* sidebar toggle button */
+  #sb-toggle{
+    display:flex!important;
+    position:fixed;top:68px;left:0;z-index:1199;
+    width:36px;height:36px;
+    background:var(--accent);color:#fff;border:none;cursor:pointer;
+    align-items:center;justify-content:center;font-size:16px;
+    border-radius:0 4px 4px 0;box-shadow:2px 0 12px rgba(0,0,0,.18);
+    transition:background 200ms;font-family:inherit;
+  }
+  #sb-toggle:hover{background:#0a3e2f}
+  /* Scrim */
+  #sb-scrim{display:none;position:fixed;inset:0;z-index:1198;background:rgba(0,0,0,.35)}
+  #sb-scrim.on{display:block}
+}
+@media(min-width:861px){#sb-toggle{display:none!important}#sb-scrim{display:none!important}}
+
+/* ── Overlay panels — clamp to viewport ── */
+#peek{
+  width:min(420px,100vw)!important;
+  right:calc(-1 * min(440px,100vw))!important;
+}
+#peek.open{right:0!important}
+#cp{
+  width:min(680px,96vw)!important;
+  right:calc(-1 * min(700px,100vw))!important;
+}
+#cp.on{right:0!important}
+@media(max-width:480px){
+  #peek-img{height:220px!important}
+  #peek-body{padding:18px 16px!important}
+  .peek-name{font-size:17px!important}
+}
+
+/* ── Comp-dash header — wraps gracefully ── */
+.cd-header{gap:10px}
+@media(max-width:1000px){
+  .cd-tab{padding:6px 12px;font-size:10.5px}
+}
+@media(max-width:800px){
+  .cd-header{height:auto;min-height:56px;padding:10px 16px;flex-wrap:wrap}
+  .cd-tabs{overflow-x:auto;scrollbar-width:none;flex-shrink:1;gap:4px;padding-bottom:2px}
+  .cd-tabs::-webkit-scrollbar{display:none}
+  .cd-tab{white-space:nowrap;flex-shrink:0;padding:5px 11px;font-size:10px}
+}
+
+/* ── Comp-dash content — responsive padding ── */
+@media(max-width:900px){
+  .page-shell{padding:22px 18px 48px}
+  .section-block{margin-bottom:28px}
+}
+@media(max-width:600px){
+  .page-shell{padding:14px 12px 32px}
+  .cd-card{padding:16px}
+  .cd-ph{margin-bottom:12px;padding-bottom:10px}
+  .grid-2{gap:16px}
+  .cd-g2,.cd-g3{gap:12px}
+}
+
+/* ── Compare bar responsive ── */
+@media(max-width:768px){
+  .compare-bar{padding:10px 16px;flex-wrap:wrap;gap:10px}
+  .compare-pills{flex-wrap:wrap}
+}
+
+/* ── Card refinements ── */
+.cd-card{
+  border-radius:3px;
+  box-shadow:0 1px 3px rgba(21,32,28,.04),0 2px 8px rgba(21,32,28,.03);
+}
+.cd-grid{border-radius:3px;overflow:hidden}
+.surface{border-radius:3px}
+
+/* ── Map legend position shift on small screens ── */
+@media(max-width:860px){
+  #legend{bottom:80px!important;right:12px!important}
+  .map-legend{bottom:80px;right:12px}
+  .compare-fab{bottom:80px}
+}
+
+/* ── Metric value legibility ── */
+.h-display{font-size:clamp(22px,2.5vw,32px)}
+.metric-card-value{font-size:clamp(18px,1.8vw,24px)}
+
+/* ── Table overflow ── */
+.table-wrap,.cd-card div[style*="overflow-x:auto"]{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── Nav actions hide label on small screens ── */
+@media(max-width:640px){
+  .nav-action span:not(.icon){display:none}
+  .nav-action{padding:0 11px;gap:0}
+}
+
+/* ── Topbar: hide secondary elements under 480px ── */
+@media(max-width:480px){
+  .topbar{padding:0 14px;height:52px}
+  .topbar > span:first-child{font-size:20px!important}
+  .topbar-meta,.topbar-badge,.brand-sep,.brand-sub{display:none}
+}
 </style>
 </head><body>
 <div class="app">
@@ -1048,6 +1188,8 @@ table.cmp-table td.r{text-align:right}
   </div>
   <div id="cmp-body" style="padding:18px;flex:1"></div>
 </div>
+<button id="sb-toggle" aria-label="Toggle filters">&#9776;</button>
+<div id="sb-scrim"></div>
 </div><!-- end .main -->
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -3128,6 +3270,22 @@ function buildCDReport() {
       dot.classList.remove('over-marker');
     }
   });
+})();
+
+// Mobile sidebar toggle
+(function() {
+  var sbToggle = document.getElementById('sb-toggle');
+  var sbScrim = document.getElementById('sb-scrim');
+  var sidebar = document.querySelector('.sidebar');
+  if (!sbToggle || !sbScrim || !sidebar) return;
+  sbToggle.onclick = function() {
+    sidebar.classList.toggle('sb-open');
+    sbScrim.classList.toggle('on');
+  };
+  sbScrim.onclick = function() {
+    sidebar.classList.remove('sb-open');
+    sbScrim.classList.remove('on');
+  };
 })();
 </script>
 </body></html>
