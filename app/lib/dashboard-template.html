@@ -2688,7 +2688,12 @@ function buildCDReport() {
     const chartTitle = mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building')
       : mode === 'trend' ? (metric === 'gr' ? 'Avg Rent by Quarter' : '$/SF by Quarter (market-wide)')
       : mode === 'daterange' ? 'Results by Building & Unit Type'
-      : `${metric === 'gr' ? 'Avg Rent' : '$/SF'} by Quarter — ${singleUT}`;
+      : (metric === 'gr' ? 'Avg Rent' : '$/SF') + ' by Quarter — ' + singleUT;
+
+    // Pre-compute to avoid nested backtick-in-backtick-in-backtick in template strings
+    const drErrorHtml = drError ? '<span style="margin-left:12px;font-size:11px;color:#c0392b">' + drError + '</span>' : '';
+    const drLoadingHtml = drLoading ? '<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>' : '';
+    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select a date range and buildings, then click Run.</span>' : '';
 
     h += `<div class="cd-card" style="margin-bottom:16px">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -2742,15 +2747,14 @@ function buildCDReport() {
         </div>
         <div style="margin-top:10px">
           <button id="cd-dr-run" style="padding:6px 18px;background:var(--accent);color:#fff;border:none;border-radius:1px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;letter-spacing:.03em">Run</button>
-          ${drError ? `<span style="margin-left:12px;font-size:11px;color:#c0392b">${drError}</span>` : ''}
-          ${drLoading ? `<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>` : ''}
+          ${drErrorHtml}${drLoadingHtml}
         </div>
       `}
     </div>
 
     <div class="cd-card">
       <div class="cd-ph">${chartTitle}</div>
-      ${mode === 'daterange' ? `<div id="cd-dr-results" style="margin-top:8px">${drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select a date range and buildings, then click Run.</span>' : ''}</div>` : `
+      ${mode === 'daterange' ? '<div id="cd-dr-results" style="margin-top:8px">' + drResultsPlaceholder + '</div>' : `
       <div style="position:relative;height:220px">
         <canvas id="cd-report-chart"></canvas>
       </div>
