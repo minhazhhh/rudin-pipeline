@@ -2599,8 +2599,18 @@ function buildCDReport() {
   const trendBldgs = Object.keys(AGG.bldg_trend || {}).sort();
   const BLDG_PALETTE = ['#0d4d3a','#a8895a','#5f8275','#6b7b75','#0a3e2f','#c99a5b','#3a6557','#94a89f','#082f24','#d8b98a'];
 
-  let mode = 'buildings'; // 'buildings' | 'trend' | 'bldgtrend'
+  let mode = 'buildings'; // 'buildings' | 'trend' | 'bldgtrend' | 'daterange'
   let metric = 'gr'; // 'gr' (avg rent) | 'psf' ($/sf)
+
+  // Date-range mode state
+  const _today = new Date();
+  const _yearAgo = new Date(_today); _yearAgo.setFullYear(_today.getFullYear() - 1);
+  let drFrom = _yearAgo.toISOString().slice(0, 10);
+  let drTo   = _today.toISOString().slice(0, 10);
+  const drSelBldgs = new Set(allBldgs.slice(0, 4));
+  let drRows = null;
+  let drLoading = false;
+  let drError = null;
   const _defaultBldg = allBldgs.find(b => AGG.bldg_stats[b]) || allBldgs[0];
   const selBldgs = new Set(['355 Lexington Ave'].filter(b => AGG.bldg_stats[b] && allBldgs.includes(b)));
   if (!selBldgs.size && _defaultBldg) selBldgs.add(_defaultBldg);
@@ -2677,6 +2687,7 @@ function buildCDReport() {
     let h = '';
     const chartTitle = mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building')
       : mode === 'trend' ? (metric === 'gr' ? 'Avg Rent by Quarter' : '$/SF by Quarter (market-wide)')
+      : mode === 'daterange' ? 'Results by Building & Unit Type'
       : `${metric === 'gr' ? 'Avg Rent' : '$/SF'} by Quarter — ${singleUT}`;
 
     h += `<div class="cd-card" style="margin-bottom:16px">
@@ -2701,7 +2712,7 @@ function buildCDReport() {
           <span class="eyebrow">Unit Types</span><span id="cd-report-uts-actions"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-uts"></div>
         </div>
-      ` : `
+      ` : mode === 'bldgtrend' ? `
         <div style="margin-bottom:10px">
           <span class="eyebrow">Buildings</span><span id="cd-report-bldgs-time-actions"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px" id="cd-report-bldgs-time"></div>
@@ -2711,15 +2722,39 @@ function buildCDReport() {
           <span class="eyebrow">Unit Type (pick one)</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-single-ut"></div>
         </div>
+      ` : `
+        <div style="margin-bottom:10px">
+          <span class="eyebrow">Date Range</span>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:10px;color:var(--ink-soft)">From</span>
+              <input id="cd-dr-from" type="date" value="${drFrom}" style="padding:5px 9px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:10px;color:var(--ink-soft)">To</span>
+              <input id="cd-dr-to" type="date" value="${drTo}" style="padding:5px 9px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <span class="eyebrow">Buildings</span><span id="cd-dr-bldgs-actions"></span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-dr-bldgs"></div>
+        </div>
+        <div style="margin-top:10px">
+          <button id="cd-dr-run" style="padding:6px 18px;background:var(--accent);color:#fff;border:none;border-radius:1px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;letter-spacing:.03em">Run</button>
+          ${drError ? `<span style="margin-left:12px;font-size:11px;color:#c0392b">${drError}</span>` : ''}
+          ${drLoading ? `<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>` : ''}
+        </div>
       `}
     </div>
 
     <div class="cd-card">
       <div class="cd-ph">${chartTitle}</div>
+      ${mode === 'daterange' ? `<div id="cd-dr-results" style="margin-top:8px">${drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select a date range and buildings, then click Run.</span>' : ''}</div>` : `
       <div style="position:relative;height:220px">
         <canvas id="cd-report-chart"></canvas>
       </div>
-      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px">${mode === 'bldgtrend' ? 'Gaps mean no leases for that building in that quarter. Hover a bar to see the lease count behind it — treat single-digit counts as directional, not precise.' : 'Gaps in the chart mean no data is available for that combination.'}</div>
+      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px">${mode === 'bldgtrend' ? 'Gaps mean no leases for that building in that quarter. Hover a bar to see the lease count behind it — treat single-digit counts as directional, not precise.' : 'Gaps in the chart mean no data is available for that combination.'}</div>`}
     </div>`;
 
     el.innerHTML = h;
@@ -2729,11 +2764,14 @@ function buildCDReport() {
     modeWrap.appendChild(chip('Compare Buildings', mode === 'buildings', 'var(--accent)', () => { mode = 'buildings'; render(); }));
     modeWrap.appendChild(chip('Trend Over Time', mode === 'trend', 'var(--accent)', () => { mode = 'trend'; render(); }));
     modeWrap.appendChild(chip('Buildings Over Time', mode === 'bldgtrend', 'var(--accent)', () => { mode = 'bldgtrend'; render(); }));
+    modeWrap.appendChild(chip('Date Range', mode === 'daterange', 'var(--accent)', () => { mode = 'daterange'; drRows = null; render(); }));
 
-    // Metric toggle (all modes)
+    // Metric toggle (not shown for daterange — table shows all columns)
     const metricWrap = document.getElementById('cd-report-metric');
-    metricWrap.appendChild(chip('Avg Rent', metric === 'gr', 'var(--gold)', () => { metric = 'gr'; render(); }));
-    metricWrap.appendChild(chip('$/SF', metric === 'psf', 'var(--gold)', () => { metric = 'psf'; render(); }));
+    if (mode !== 'daterange') {
+      metricWrap.appendChild(chip('Avg Rent', metric === 'gr', 'var(--gold)', () => { metric = 'gr'; render(); }));
+      metricWrap.appendChild(chip('$/SF', metric === 'psf', 'var(--gold)', () => { metric = 'psf'; render(); }));
+    }
 
     if (mode === 'buildings') {
       const bWrap = document.getElementById('cd-report-bldgs');
@@ -2862,13 +2900,118 @@ function buildCDReport() {
         if (firstWithData) selBldgsTime.add(firstWithData);
         render();
       }));
+    } else if (mode === 'daterange') {
+      // Wire date inputs
+      document.getElementById('cd-dr-from').oninput = function() {
+        drFrom = this.value;
+        if (drTo < drFrom) drTo = drFrom;
+        drRows = null;
+        render();
+      };
+      document.getElementById('cd-dr-to').oninput = function() {
+        drTo = this.value;
+        if (drFrom > drTo) drFrom = drTo;
+        drRows = null;
+        render();
+      };
+
+      // Building chips — all buildings, no data gate
+      const drBWrap = document.getElementById('cd-dr-bldgs');
+      allBldgs.forEach(b => {
+        const pt = AGG.bldg_stats[b]?.pt || 'Market';
+        const c = PT_COLORS[pt] || '#6b7b75';
+        drBWrap.appendChild(chip(b, drSelBldgs.has(b), c, () => {
+          drSelBldgs.has(b) ? drSelBldgs.delete(b) : drSelBldgs.add(b);
+          drRows = null;
+          render();
+        }));
+      });
+      const drBActions = document.getElementById('cd-dr-bldgs-actions');
+      drBActions.appendChild(linkBtn('Select All', () => { allBldgs.forEach(b => drSelBldgs.add(b)); drRows = null; render(); }));
+      drBActions.appendChild(linkBtn('Clear', () => { drSelBldgs.clear(); drRows = null; render(); }));
+
+      // Run button
+      document.getElementById('cd-dr-run').onclick = async function() {
+        if (!drSelBldgs.size || !drFrom || !drTo) {
+          drError = 'Select at least one building and a date range.';
+          render();
+          return;
+        }
+        drError = null;
+        drLoading = true;
+        drRows = null;
+        render();
+        try {
+          const res = await fetch('/api/comp-stats-range', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ buildings: [...drSelBldgs], startDate: drFrom, endDate: drTo })
+          });
+          if (!res.ok) throw new Error('Server error ' + res.status);
+          const data = await res.json();
+          drRows = data.rows || [];
+          drLoading = false;
+          render();
+          renderDrResults();
+        } catch (e) {
+          drError = e.message || 'Failed to load data.';
+          drLoading = false;
+          render();
+        }
+      };
+
+      // If we already have results, render them
+      if (drRows !== null) renderDrResults();
     }
 
     drawReportChart();
   }
 
+  function renderDrResults() {
+    const el = document.getElementById('cd-dr-results');
+    if (!el) return;
+    if (!drRows || !drRows.length) {
+      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No lease comps found for this date range and building selection.</span>';
+      return;
+    }
+    // Group rows by building
+    const byBldg = {};
+    drRows.forEach(r => {
+      if (!byBldg[r.building]) byBldg[r.building] = [];
+      byBldg[r.building].push(r);
+    });
+    const cols = ['unitType','avgRent','medRent','minRent','maxRent','avgPsf','medPsf','n'];
+    const colLabels = { unitType:'Unit Type', avgRent:'Avg Rent', medRent:'Med Rent', minRent:'Min', maxRent:'Max', avgPsf:'Avg $/SF', medPsf:'Med $/SF', n:'Leases' };
+    const thStyle = 'padding:5px 10px;text-align:right;font-size:10px;font-weight:600;color:var(--ink-soft);border-bottom:1px solid var(--line);white-space:nowrap';
+    const thStyleL = 'padding:5px 10px;text-align:left;font-size:10px;font-weight:600;color:var(--ink-soft);border-bottom:1px solid var(--line);white-space:nowrap';
+    const tdStyle = 'padding:4px 10px;text-align:right;font-size:11px;color:var(--ink);border-bottom:1px solid rgba(0,0,0,.04)';
+    const tdStyleL = 'padding:4px 10px;text-align:left;font-size:11px;color:var(--ink);border-bottom:1px solid rgba(0,0,0,.04)';
+    let html = '';
+    Object.keys(byBldg).sort().forEach(bldg => {
+      html += `<div style="margin-bottom:18px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">${bldg}</div>`;
+      html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`;
+      html += `<thead><tr><th style="${thStyleL}">${colLabels.unitType}</th>${['avgRent','medRent','minRent','maxRent','avgPsf','medPsf','n'].map(c=>`<th style="${thStyle}">${colLabels[c]}</th>`).join('')}</tr></thead>`;
+      html += `<tbody>`;
+      byBldg[bldg].forEach(r => {
+        html += `<tr>
+          <td style="${tdStyleL}">${r.unitType||'—'}</td>
+          <td style="${tdStyle}">${r.avgRent!=null?fmtR(r.avgRent):'—'}</td>
+          <td style="${tdStyle}">${r.medRent!=null?fmtR(r.medRent):'—'}</td>
+          <td style="${tdStyle}">${r.minRent!=null?fmtR(r.minRent):'—'}</td>
+          <td style="${tdStyle}">${r.maxRent!=null?fmtR(r.maxRent):'—'}</td>
+          <td style="${tdStyle}">${r.avgPsf!=null?fmtP(r.avgPsf):'—'}</td>
+          <td style="${tdStyle}">${r.medPsf!=null?fmtP(r.medPsf):'—'}</td>
+          <td style="${tdStyle}">${r.n||0}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div></div>`;
+    });
+    el.innerHTML = html;
+  }
+
   let reportChartInst = null;
   function drawReportChart() {
+    if (mode === 'daterange') return;
     const canvas = document.getElementById('cd-report-chart');
     if (!canvas) return;
     if (reportChartInst) reportChartInst.destroy();
