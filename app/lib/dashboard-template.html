@@ -2825,7 +2825,7 @@ function buildCDReport() {
       const utActions = document.getElementById('cd-report-uts-actions');
       utActions.appendChild(linkBtn('Select All', () => { allUTs.forEach(t => selUTs.add(t)); render(); }));
       utActions.appendChild(linkBtn('Clear', () => { selUTs.clear(); render(); }));
-    } else {
+    } else if (mode === 'bldgtrend') {
       const bWrap = document.getElementById('cd-report-bldgs-time');
       const bldgPickerStyle = `padding:3px 7px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:10px;color:var(--ink);background:#fff;outline:none;cursor:pointer;min-width:110px`;
       allBldgs.forEach((b, i) => {
