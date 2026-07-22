@@ -939,14 +939,13 @@ table.cmp-table td.r{text-align:right}
 
 /* ── Quick Underwrite Panel ── */
 #uw-btn{
-  position:fixed;bottom:28px;right:24px;z-index:1400;
-  width:52px;height:52px;border-radius:50%;
-  background:var(--accent);color:#fff;border:none;cursor:pointer;
-  font-size:22px;box-shadow:0 4px 18px rgba(0,0,0,.3);
-  display:flex;align-items:center;justify-content:center;
-  transition:background 200ms,transform 150ms;
+  background:rgba(255,255,255,.12);color:#fff;border:none;cursor:pointer;
+  font-size:13px;font-weight:500;letter-spacing:.2px;
+  padding:0 16px;height:100%;white-space:nowrap;
+  border-left:1px solid rgba(255,255,255,.15);
+  transition:background 200ms;font-family:inherit;
 }
-#uw-btn:hover{background:#0a3e2f;transform:scale(1.08)}
+#uw-btn:hover{background:rgba(255,255,255,.22)}
 #uw-scrim{display:none;position:fixed;inset:0;z-index:1401;background:rgba(0,0,0,.35)}
 #uw-scrim.on{display:block}
 #uw-drawer{
@@ -1095,6 +1094,7 @@ table.cmp-table td.r{text-align:right}
 <div class="nav">
   <button class="nav-tab on" id="navtab-map" onclick="navToMap(this)">Pipeline Map</button>
   <button class="nav-tab" id="navtab-comps" onclick="navToComps(this)">Rent Comparables</button>
+  <button id="uw-btn" title="Quick Underwrite">&#129518; Underwrite</button>
 </div>
 
 <div id="map-cursor-dot"></div>
@@ -1258,7 +1258,6 @@ table.cmp-table td.r{text-align:right}
 <div id="sb-scrim"></div>
 
 <!-- Quick Underwrite Panel -->
-<button id="uw-btn" title="Quick Underwrite">&#129518;</button>
 <div id="uw-scrim"></div>
 <div id="uw-drawer" role="dialog" aria-label="Quick Underwrite">
   <div id="uw-head">
@@ -3553,7 +3552,7 @@ function buildCDReport() {
       if (!resp.ok) throw new Error('API error ' + resp.status);
       var data = await resp.json();
       var stats = data.stats || {};
-      var totalLeases = data.totalLeases || 0;
+      var totalLeases = data.totalBuildings || 0;
 
       var unitCount  = parseInt(document.getElementById('uw-units').value, 10) || 150;
       var avgSf      = parseFloat(document.getElementById('uw-avgsf').value) || 750;
@@ -3595,7 +3594,7 @@ function buildCDReport() {
       document.getElementById('uw-ner-mo').textContent = fmtMo(nerMonthly);
       document.getElementById('uw-ner-yr').textContent = fmtDollar(nerAnnual) + ' / year';
       document.getElementById('uw-psf').textContent = blendedPsf > 0 ? '$' + blendedPsf.toFixed(2) : '—';
-      document.getElementById('uw-comps-n').textContent = compN + ' comp transactions';
+      document.getElementById('uw-comps-n').textContent = compN + ' comp lease records';
       document.getElementById('uw-ppu').textContent = fmtMo(blendedRent);
 
       // Competing supply from DATA pipeline
