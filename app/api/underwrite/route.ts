@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/app/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,12 +20,12 @@ export async function POST(req: Request) {
       unitTypes?: string[];
     };
 
-    const where: Record<string, unknown> = { grossRent: { gt: 0 } };
-    if (propertyTypes?.length) where.propertyType = { in: propertyTypes };
-    if (unitTypes?.length) where.unitType = { in: unitTypes };
-
     const leases = await prisma.leaseComp.findMany({
-      where,
+      where: {
+        grossRent: { gt: 0 },
+        ...(propertyTypes?.length ? { propertyType: { in: propertyTypes } } : {}),
+        ...(unitTypes?.length ? { unitType: { in: unitTypes } } : {}),
+      },
       select: { unitType: true, grossRent: true, unitSf: true, grossPsf: true },
     });
 
