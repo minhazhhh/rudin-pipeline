@@ -3023,7 +3023,7 @@ function buildCDReport() {
     // Pre-compute to avoid nested backtick-in-backtick-in-backtick in template strings
     const drErrorHtml = drError ? '<span style="margin-left:12px;font-size:11px;color:#c0392b">' + drError + '</span>' : '';
     const drLoadingHtml = drLoading ? '<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>' : '';
-    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select a date range and buildings, then click Run.</span>' : '';
+    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select buildings and click Run to see all-time comp stats.</span>' : '';
 
     h += `<div class="cd-card" style="margin-bottom:16px">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -3265,33 +3265,39 @@ function buildCDReport() {
       drBActions.appendChild(linkBtn('Clear', () => { drSelBldgs.clear(); drRows = null; render(); }));
 
       // Run button
-      document.getElementById('cd-dr-run').onclick = async function() {
-        if (!drSelBldgs.size || !drFrom || !drTo) {
-          drError = 'Select at least one building and a date range.';
+      document.getElementById('cd-dr-run').onclick = function() {
+        if (!drSelBldgs.size) {
+          drError = 'Select at least one building.';
           render();
           return;
         }
         drError = null;
-        drLoading = true;
-        drRows = null;
-        render();
-        try {
-          const res = await fetch('/api/comp-stats-range', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ buildings: [...drSelBldgs], startDate: drFrom, endDate: drTo })
+        drRows = [];
+        var bldgs = [...drSelBldgs];
+        var utOrder = AGG.ut_order || ['ST','ST+HO','1BD','1BD+HO','1BD+2HO','2BD','2B+HO','3BD'];
+        bldgs.sort().forEach(function(b) {
+          var bStat = AGG.bldg_stats && AGG.bldg_stats[b];
+          if (!bStat || !bStat.units) return;
+          utOrder.forEach(function(ut) {
+            var us = bStat.units[ut];
+            if (!us || !us.gr || us.gr.n == null || us.gr.n === 0) return;
+            drRows.push({
+              building: b,
+              unitType: ut,
+              n: us.gr.n,
+              avgRent: us.gr.avg,
+              medRent: us.gr.med,
+              minRent: us.gr.min,
+              maxRent: us.gr.max,
+              avgPsf: us.psf ? us.psf.avg : null,
+              medPsf: us.psf ? us.psf.med : null,
+              avgSf: us.sf ? us.sf.avg : null,
+              medSf: us.sf ? us.sf.med : null
+            });
           });
-          if (!res.ok) throw new Error('Server error ' + res.status);
-          const data = await res.json();
-          drRows = data.rows || [];
-          drLoading = false;
-          render();
-          renderDrResults();
-        } catch (e) {
-          drError = e.message || 'Failed to load data.';
-          drLoading = false;
-          render();
-        }
+        });
+        render();
+        renderDrResults();
       };
 
       // If we already have results, render them
