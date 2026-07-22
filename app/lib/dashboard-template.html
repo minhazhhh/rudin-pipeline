@@ -938,14 +938,7 @@ table.cmp-table td.r{text-align:right}
 @media(min-width:861px){#sb-toggle{display:none!important}#sb-scrim{display:none!important}}
 
 /* ── Quick Underwrite Panel ── */
-#uw-btn{
-  background:rgba(255,255,255,.12);color:#fff;border:none;cursor:pointer;
-  font-size:13px;font-weight:500;letter-spacing:.2px;
-  padding:0 16px;height:100%;white-space:nowrap;
-  border-left:1px solid rgba(255,255,255,.15);
-  transition:background 200ms;font-family:inherit;
-}
-#uw-btn:hover{background:rgba(255,255,255,.22)}
+#uw-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 #uw-scrim{display:none;position:fixed;inset:0;z-index:1401;background:rgba(0,0,0,.35)}
 #uw-scrim.on{display:block}
 #uw-drawer{
@@ -1094,7 +1087,11 @@ table.cmp-table td.r{text-align:right}
 <div class="nav">
   <button class="nav-tab on" id="navtab-map" onclick="navToMap(this)">Pipeline Map</button>
   <button class="nav-tab" id="navtab-comps" onclick="navToComps(this)">Rent Comparables</button>
-  <button id="uw-btn" title="Quick Underwrite">&#129518; Underwrite</button>
+  <div class="nav-spacer"></div>
+  <button id="uw-btn" class="nav-action" title="Quick Underwrite">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="2"/><line x1="4" y1="5" x2="12" y2="5"/><line x1="4" y1="8" x2="7" y2="8"/><line x1="4" y1="11" x2="7" y2="11"/><line x1="10" y1="8" x2="12" y2="8"/><line x1="10" y1="11" x2="12" y2="11"/></svg>
+    Underwrite
+  </button>
 </div>
 
 <div id="map-cursor-dot"></div>
