@@ -3023,7 +3023,11 @@ function buildCDReport() {
     // Pre-compute to avoid nested backtick-in-backtick-in-backtick in template strings
     const drErrorHtml = drError ? '<span style="margin-left:12px;font-size:11px;color:#c0392b">' + drError + '</span>' : '';
     const drLoadingHtml = drLoading ? '<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>' : '';
-    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select buildings and click Run. Buildings with quarterly data will show date-filtered results; others show all-time averages.</span>' : '';
+    const noQtrData = trendBldgs.length === 0;
+    const drQtrBanner = noQtrData
+      ? '<div style="margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,.04);border-left:3px solid var(--ink-faint);border-radius:1px;font-size:11px;color:var(--ink-soft)">No quarterly data has been imported — showing all-time averages. To enable date-range filtering, import quarterly comp stats via the admin panel.</div>'
+      : '';
+    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select buildings and click Run.</span>' : '';
 
     h += `<div class="cd-card" style="margin-bottom:16px">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -3058,6 +3062,7 @@ function buildCDReport() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-single-ut"></div>
         </div>
       ` : `
+        ${drQtrBanner}
         <div style="margin-bottom:10px">
           <span class="eyebrow">Date Range</span>
           <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:6px">
@@ -3098,7 +3103,7 @@ function buildCDReport() {
     modeWrap.appendChild(chip('Compare Buildings', mode === 'buildings', 'var(--accent)', () => { mode = 'buildings'; render(); }));
     modeWrap.appendChild(chip('Trend Over Time', mode === 'trend', 'var(--accent)', () => { mode = 'trend'; render(); }));
     modeWrap.appendChild(chip('Buildings Over Time', mode === 'bldgtrend', 'var(--accent)', () => { mode = 'bldgtrend'; render(); }));
-    modeWrap.appendChild(chip('Date Range', mode === 'daterange', 'var(--accent)', () => { mode = 'daterange'; drRows = null; render(); }));
+    modeWrap.appendChild(chip('Date Range', mode === 'daterange', 'var(--accent)', () => { mode = 'daterange'; drRows = null; render(); setTimeout(() => document.getElementById('cd-dr-run')?.click(), 0); }));
 
     // Metric toggle (not shown for daterange — table shows all columns)
     const metricWrap = document.getElementById('cd-report-metric');
@@ -3385,8 +3390,9 @@ function buildCDReport() {
         renderDrResults();
       };
 
-      // If we already have results, render them
-      if (drRows !== null) renderDrResults();
+      // Auto-run on first load of date range mode
+      if (drRows === null) document.getElementById('cd-dr-run')?.click();
+      else renderDrResults();
     }
 
     drawReportChart();
