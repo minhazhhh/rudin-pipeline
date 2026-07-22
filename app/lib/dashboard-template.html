@@ -3280,11 +3280,11 @@ function buildCDReport() {
           if (!bStat || !bStat.units) return;
           utOrder.forEach(function(ut) {
             var us = bStat.units[ut];
-            if (!us || !us.gr || us.gr.n == null || us.gr.n === 0) return;
+            if (!us || !us.gr || us.gr.avg == null) return;
             drRows.push({
               building: b,
               unitType: ut,
-              n: us.gr.n,
+              n: us.gr.n || 0,
               avgRent: us.gr.avg,
               medRent: us.gr.med,
               minRent: us.gr.min,
