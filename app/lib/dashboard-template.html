@@ -2937,7 +2937,8 @@ function buildCDReport() {
   const _yearAgo = new Date(_today); _yearAgo.setFullYear(_today.getFullYear() - 1);
   let drFrom = _yearAgo.toISOString().slice(0, 10);
   let drTo   = _today.toISOString().slice(0, 10);
-  const drSelBldgs = new Set(allBldgs.slice(0, 4));
+  // Default to first 4 buildings that have actual stats data
+  const drSelBldgs = new Set(allBldgs.filter(b => AGG.bldg_stats[b] && Object.keys(AGG.bldg_stats[b].units||{}).length > 0).slice(0, 4));
   let drRows = null;
   let drLoading = false;
   let drError = null;
@@ -3254,16 +3255,25 @@ function buildCDReport() {
         render();
       };
 
-      // Building chips — all buildings, no data gate
+      // Building chips — greyed out if no stats available
       const drBWrap = document.getElementById('cd-dr-bldgs');
       allBldgs.forEach(b => {
-        const pt = AGG.bldg_stats[b]?.pt || 'Market';
-        const c = PT_COLORS[pt] || '#6b7b75';
-        drBWrap.appendChild(chip(b, drSelBldgs.has(b), c, () => {
-          drSelBldgs.has(b) ? drSelBldgs.delete(b) : drSelBldgs.add(b);
-          drRows = null;
-          render();
-        }));
+        const hasStats = !!(AGG.bldg_stats[b] && Object.keys(AGG.bldg_stats[b].units||{}).length);
+        if (!hasStats) {
+          const btn = document.createElement('button');
+          btn.textContent = b;
+          btn.title = 'No comp stats available for this building';
+          btn.style.cssText = 'padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.35';
+          drBWrap.appendChild(btn);
+        } else {
+          const pt = AGG.bldg_stats[b]?.pt || 'Market';
+          const c = PT_COLORS[pt] || '#6b7b75';
+          drBWrap.appendChild(chip(b, drSelBldgs.has(b), c, () => {
+            drSelBldgs.has(b) ? drSelBldgs.delete(b) : drSelBldgs.add(b);
+            drRows = null;
+            render();
+          }));
+        }
       });
       const drBActions = document.getElementById('cd-dr-bldgs-actions');
       drBActions.appendChild(linkBtn('Select All', () => { allBldgs.forEach(b => drSelBldgs.add(b)); drRows = null; render(); }));
@@ -3402,7 +3412,7 @@ function buildCDReport() {
     const el = document.getElementById('cd-dr-results');
     if (!el) return;
     if (!drRows || !drRows.length) {
-      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No data found for this date range and building selection.</span>';
+      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No comp stats found for the selected buildings. Try selecting different buildings.</span>';
       return;
     }
     // Group rows by building
