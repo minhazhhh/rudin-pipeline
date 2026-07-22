@@ -3023,7 +3023,7 @@ function buildCDReport() {
     // Pre-compute to avoid nested backtick-in-backtick-in-backtick in template strings
     const drErrorHtml = drError ? '<span style="margin-left:12px;font-size:11px;color:#c0392b">' + drError + '</span>' : '';
     const drLoadingHtml = drLoading ? '<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>' : '';
-    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select buildings and click Run to see all-time comp stats.</span>' : '';
+    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select buildings and click Run. Buildings with quarterly data will show date-filtered results; others show all-time averages.</span>' : '';
 
     h += `<div class="cd-card" style="margin-bottom:16px">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -3276,25 +3276,27 @@ function buildCDReport() {
         var bldgs = [...drSelBldgs];
         var utOrder = AGG.ut_order || ['ST','ST+HO','1BD','1BD+HO','1BD+2HO','2BD','2B+HO','3BD'];
 
-        // Convert date strings to quarter labels ("Q3 2024") for filtering
         function dateToQuarter(ds) {
-          var d = new Date(ds);
+          var d = new Date(ds + 'T12:00:00');
           return 'Q' + (Math.floor(d.getMonth() / 3) + 1) + ' ' + d.getFullYear();
         }
-        function quarterOrder(ql) {
+        function qOrd(ql) {
           var m = ql.match(/Q(\d)\s+(\d{4})/);
           return m ? parseInt(m[2]) * 4 + parseInt(m[1]) : 0;
         }
-        var qFrom = quarterOrder(dateToQuarter(drFrom));
-        var qTo   = quarterOrder(dateToQuarter(drTo));
+        var qFrom = qOrd(dateToQuarter(drFrom));
+        var qTo   = qOrd(dateToQuarter(drTo));
 
         bldgs.sort().forEach(function(b) {
           var bTrend = AGG.bldg_trend && AGG.bldg_trend[b];
-          // Collect per-unit-type values across matching quarters
           var accumulator = {}; // ut -> { rents:[], psfs:[], n }
+          var matchedQs = [];
+
           if (bTrend) {
             Object.keys(bTrend).forEach(function(q) {
-              if (quarterOrder(q) < qFrom || quarterOrder(q) > qTo) return;
+              var ord = qOrd(q);
+              if (ord < qFrom || ord > qTo) return;
+              matchedQs.push(q);
               var qData = bTrend[q];
               Object.keys(qData).forEach(function(ut) {
                 if (!utOrder.includes(ut)) return;
@@ -3308,12 +3310,33 @@ function buildCDReport() {
             });
           }
 
-          // If no quarter data in range, fall back to all-time bldg_stats
-          var hasTrendData = Object.keys(accumulator).length > 0;
+          var hasQData = bTrend && Object.keys(bTrend).length > 0; // building has ANY quarter data
+          var inRangeData = Object.keys(accumulator).length > 0;   // has data in the selected range
+
+          // Sort matched quarters for display label
+          matchedQs.sort(function(a, b) { return qOrd(a) - qOrd(b); });
+          var sourceLabel, sourceType;
+          if (inRangeData) {
+            sourceType = 'quarterly';
+            sourceLabel = matchedQs.length === 1
+              ? matchedQs[0]
+              : matchedQs[0] + ' – ' + matchedQs[matchedQs.length - 1] + ' (' + matchedQs.length + ' qtrs)';
+          } else if (hasQData) {
+            // Has quarter data, but none falls in the selected range
+            sourceType = 'norange';
+            sourceLabel = 'No quarterly data for this date range';
+          } else {
+            // No quarter data at all — fall back to all-time stats
+            sourceType = 'alltime';
+            sourceLabel = 'All-time avg (no quarter-level data available)';
+          }
+
           utOrder.forEach(function(ut) {
             var avgRent = null, medRent = null, minRent = null, maxRent = null;
             var avgPsf = null, n = 0;
-            if (hasTrendData && accumulator[ut] && accumulator[ut].rents.length) {
+
+            if (inRangeData) {
+              if (!accumulator[ut] || !accumulator[ut].rents.length) return;
               var rents = accumulator[ut].rents.slice().sort(function(a,b){return a-b;});
               var sum = rents.reduce(function(a,b){return a+b;},0);
               avgRent = Math.round(sum / rents.length);
@@ -3327,7 +3350,7 @@ function buildCDReport() {
                 var psum = accumulator[ut].psfs.reduce(function(a,b){return a+b;},0);
                 avgPsf = Math.round(psum / accumulator[ut].psfs.length * 100) / 100;
               }
-            } else if (!hasTrendData) {
+            } else if (sourceType === 'alltime') {
               var us = AGG.bldg_stats && AGG.bldg_stats[b] && AGG.bldg_stats[b].units && AGG.bldg_stats[b].units[ut];
               if (!us || !us.gr || us.gr.avg == null) return;
               avgRent = us.gr.avg; medRent = us.gr.med;
@@ -3335,7 +3358,7 @@ function buildCDReport() {
               n = us.gr.n || 0;
               avgPsf = us.psf ? us.psf.avg : null;
             } else {
-              return; // has trend data for building but not this unit type
+              return; // norange — skip individual unit rows, building header handles message
             }
             if (avgRent == null) return;
             drRows.push({
@@ -3343,9 +3366,20 @@ function buildCDReport() {
               avgRent: avgRent, medRent: medRent,
               minRent: minRent, maxRent: maxRent,
               avgPsf: avgPsf, medPsf: null,
-              avgSf: null, medSf: null
+              avgSf: null, medSf: null,
+              sourceType: sourceType, sourceLabel: sourceLabel
             });
           });
+
+          // If building has quarter data but none in range, push a sentinel row
+          if (sourceType === 'norange') {
+            drRows.push({
+              building: b, unitType: null, n: 0,
+              avgRent: null, medRent: null, minRent: null, maxRent: null,
+              avgPsf: null, medPsf: null, avgSf: null, medSf: null,
+              sourceType: 'norange', sourceLabel: sourceLabel
+            });
+          }
         });
         render();
         renderDrResults();
@@ -3362,7 +3396,7 @@ function buildCDReport() {
     const el = document.getElementById('cd-dr-results');
     if (!el) return;
     if (!drRows || !drRows.length) {
-      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No lease comps found for this date range and building selection.</span>';
+      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No data found for this date range and building selection.</span>';
       return;
     }
     // Group rows by building
@@ -3379,23 +3413,37 @@ function buildCDReport() {
     const tdStyleL = 'padding:4px 10px;text-align:left;font-size:11px;color:var(--ink);border-bottom:1px solid rgba(0,0,0,.04)';
     let html = '';
     Object.keys(byBldg).sort().forEach(bldg => {
-      html += `<div style="margin-bottom:18px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">${bldg}</div>`;
-      html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`;
-      html += `<thead><tr><th style="${thStyleL}">${colLabels.unitType}</th>${['avgRent','medRent','minRent','maxRent','avgPsf','medPsf','n'].map(c=>`<th style="${thStyle}">${colLabels[c]}</th>`).join('')}</tr></thead>`;
-      html += `<tbody>`;
-      byBldg[bldg].forEach(r => {
-        html += `<tr>
-          <td style="${tdStyleL}">${r.unitType||'—'}</td>
-          <td style="${tdStyle}">${r.avgRent!=null?fmtR(r.avgRent):'—'}</td>
-          <td style="${tdStyle}">${r.medRent!=null?fmtR(r.medRent):'—'}</td>
-          <td style="${tdStyle}">${r.minRent!=null?fmtR(r.minRent):'—'}</td>
-          <td style="${tdStyle}">${r.maxRent!=null?fmtR(r.maxRent):'—'}</td>
-          <td style="${tdStyle}">${r.avgPsf!=null?fmtP(r.avgPsf):'—'}</td>
-          <td style="${tdStyle}">${r.medPsf!=null?fmtP(r.medPsf):'—'}</td>
-          <td style="${tdStyle}">${r.n||0}</td>
-        </tr>`;
-      });
-      html += `</tbody></table></div></div>`;
+      const rows = byBldg[bldg];
+      const srcType = rows[0].sourceType;
+      const srcLabel = rows[0].sourceLabel;
+      const srcColor = srcType === 'quarterly' ? 'var(--accent)' : srcType === 'norange' ? '#e05c00' : 'var(--ink-faint)';
+      const srcIcon = srcType === 'quarterly' ? '●' : srcType === 'norange' ? '○' : '◌';
+      html += `<div style="margin-bottom:18px">`;
+      html += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">`;
+      html += `<span style="font-size:12px;font-weight:700;color:var(--ink)">${bldg}</span>`;
+      html += `<span style="font-size:10px;color:${srcColor};white-space:nowrap">${srcIcon} ${srcLabel}</span>`;
+      html += `</div>`;
+      if (srcType === 'norange') {
+        html += `<div style="font-size:11px;color:var(--ink-faint);padding:8px 0">No quarterly records found in the selected date range for this building.</div>`;
+      } else {
+        html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`;
+        html += `<thead><tr><th style="${thStyleL}">${colLabels.unitType}</th>${['avgRent','medRent','minRent','maxRent','avgPsf','medPsf','n'].map(c=>`<th style="${thStyle}">${colLabels[c]}</th>`).join('')}</tr></thead>`;
+        html += `<tbody>`;
+        rows.forEach(r => {
+          html += `<tr>
+            <td style="${tdStyleL}">${r.unitType||'—'}</td>
+            <td style="${tdStyle}">${r.avgRent!=null?fmtR(r.avgRent):'—'}</td>
+            <td style="${tdStyle}">${r.medRent!=null?fmtR(r.medRent):'—'}</td>
+            <td style="${tdStyle}">${r.minRent!=null?fmtR(r.minRent):'—'}</td>
+            <td style="${tdStyle}">${r.maxRent!=null?fmtR(r.maxRent):'—'}</td>
+            <td style="${tdStyle}">${r.avgPsf!=null?fmtP(r.avgPsf):'—'}</td>
+            <td style="${tdStyle}">${r.medPsf!=null?fmtP(r.medPsf):'—'}</td>
+            <td style="${tdStyle}">${r.n||0}</td>
+          </tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+      html += `</div>`;
     });
     el.innerHTML = html;
   }
