@@ -3275,24 +3275,75 @@ function buildCDReport() {
         drRows = [];
         var bldgs = [...drSelBldgs];
         var utOrder = AGG.ut_order || ['ST','ST+HO','1BD','1BD+HO','1BD+2HO','2BD','2B+HO','3BD'];
+
+        // Convert date strings to quarter labels ("Q3 2024") for filtering
+        function dateToQuarter(ds) {
+          var d = new Date(ds);
+          return 'Q' + (Math.floor(d.getMonth() / 3) + 1) + ' ' + d.getFullYear();
+        }
+        function quarterOrder(ql) {
+          var m = ql.match(/Q(\d)\s+(\d{4})/);
+          return m ? parseInt(m[2]) * 4 + parseInt(m[1]) : 0;
+        }
+        var qFrom = quarterOrder(dateToQuarter(drFrom));
+        var qTo   = quarterOrder(dateToQuarter(drTo));
+
         bldgs.sort().forEach(function(b) {
-          var bStat = AGG.bldg_stats && AGG.bldg_stats[b];
-          if (!bStat || !bStat.units) return;
+          var bTrend = AGG.bldg_trend && AGG.bldg_trend[b];
+          // Collect per-unit-type values across matching quarters
+          var accumulator = {}; // ut -> { rents:[], psfs:[], n }
+          if (bTrend) {
+            Object.keys(bTrend).forEach(function(q) {
+              if (quarterOrder(q) < qFrom || quarterOrder(q) > qTo) return;
+              var qData = bTrend[q];
+              Object.keys(qData).forEach(function(ut) {
+                if (!utOrder.includes(ut)) return;
+                var cell = qData[ut];
+                if (cell.gr == null) return;
+                if (!accumulator[ut]) accumulator[ut] = { rents: [], psfs: [], n: 0 };
+                accumulator[ut].rents.push(cell.gr);
+                accumulator[ut].n += cell.n || 0;
+                if (cell.psf != null) accumulator[ut].psfs.push(cell.psf);
+              });
+            });
+          }
+
+          // If no quarter data in range, fall back to all-time bldg_stats
+          var hasTrendData = Object.keys(accumulator).length > 0;
           utOrder.forEach(function(ut) {
-            var us = bStat.units[ut];
-            if (!us || !us.gr || us.gr.avg == null) return;
+            var avgRent = null, medRent = null, minRent = null, maxRent = null;
+            var avgPsf = null, n = 0;
+            if (hasTrendData && accumulator[ut] && accumulator[ut].rents.length) {
+              var rents = accumulator[ut].rents.slice().sort(function(a,b){return a-b;});
+              var sum = rents.reduce(function(a,b){return a+b;},0);
+              avgRent = Math.round(sum / rents.length);
+              medRent = rents.length % 2 === 0
+                ? Math.round((rents[rents.length/2-1] + rents[rents.length/2]) / 2)
+                : rents[Math.floor(rents.length/2)];
+              minRent = rents[0];
+              maxRent = rents[rents.length-1];
+              n = accumulator[ut].n;
+              if (accumulator[ut].psfs.length) {
+                var psum = accumulator[ut].psfs.reduce(function(a,b){return a+b;},0);
+                avgPsf = Math.round(psum / accumulator[ut].psfs.length * 100) / 100;
+              }
+            } else if (!hasTrendData) {
+              var us = AGG.bldg_stats && AGG.bldg_stats[b] && AGG.bldg_stats[b].units && AGG.bldg_stats[b].units[ut];
+              if (!us || !us.gr || us.gr.avg == null) return;
+              avgRent = us.gr.avg; medRent = us.gr.med;
+              minRent = us.gr.min; maxRent = us.gr.max;
+              n = us.gr.n || 0;
+              avgPsf = us.psf ? us.psf.avg : null;
+            } else {
+              return; // has trend data for building but not this unit type
+            }
+            if (avgRent == null) return;
             drRows.push({
-              building: b,
-              unitType: ut,
-              n: us.gr.n || 0,
-              avgRent: us.gr.avg,
-              medRent: us.gr.med,
-              minRent: us.gr.min,
-              maxRent: us.gr.max,
-              avgPsf: us.psf ? us.psf.avg : null,
-              medPsf: us.psf ? us.psf.med : null,
-              avgSf: us.sf ? us.sf.avg : null,
-              medSf: us.sf ? us.sf.med : null
+              building: b, unitType: ut, n: n,
+              avgRent: avgRent, medRent: medRent,
+              minRent: minRent, maxRent: maxRent,
+              avgPsf: avgPsf, medPsf: null,
+              avgSf: null, medSf: null
             });
           });
         });
