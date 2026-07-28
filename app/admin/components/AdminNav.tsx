@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/admin/type-stats", label: "Type × Unit Stats" },
   { href: "/admin/trend", label: "Rent Trend" },
   { href: "/admin/sync", label: "Import & Sync" },
+  { href: "/admin/data-health", label: "Data Health" },
 ];
 
 export default function AdminNav() {
