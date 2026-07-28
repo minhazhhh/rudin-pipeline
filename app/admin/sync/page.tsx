@@ -29,6 +29,7 @@ type ImportStatus = {
 type Step =
   | "drop"
   | "normalizing"
+  | "confirm"
   | "importing"
   | "done"
   | "error"
@@ -64,6 +65,19 @@ const MANUAL_RESOURCES: Resource[] = [
   "projects",
   "comp-building-units",
 ];
+
+// Where each resource surfaces in the main dashboard
+const RESOURCE_LOCATION: Record<string, { tab: string; where: string }> = {
+  "projects":                    { tab: "Pipeline tab",    where: "Map markers + project cards (left panel)" },
+  "comp-buildings":              { tab: "Rent Comps tab",  where: "Building list in all comp views (Compare, Trend, Date Range)" },
+  "comp-building-stats":         { tab: "Rent Comps tab",  where: "Compare Buildings chart + Date Range all-time averages" },
+  "comp-building-quarter-stats": { tab: "Rent Comps tab",  where: "Buildings Over Time chart + Date Range quarterly filtering" },
+  "overall-stats":               { tab: "Rent Comps tab",  where: "Market Stats panel — overall market averages" },
+  "type-stats":                  { tab: "Rent Comps tab",  where: "Market Stats panel — averages broken out by property type" },
+  "trend":                       { tab: "Rent Comps tab",  where: "Trend Over Time chart (market-wide quarterly rent trend)" },
+  "lease-comps":                 { tab: "Rent Comps tab",  where: "Date Range — per-lease filtering (enables exact date ranges)" },
+  "comp-building-units":         { tab: "Rent Comps tab",  where: "Building unit-mix detail (unit count breakdown per building)" },
+};
 
 const SYNC_RESOURCES: { key: string; label: string; urlField: string }[] = [
   { key: "projects",                    label: "Pipeline Projects",                urlField: "projectsSheetUrl" },
@@ -519,7 +533,7 @@ export default function SyncPage() {
     try {
       const result = await normalizeClientSide(sheets, file.name);
       setAiResult(result);
-      await runImports(result.resources);
+      setStep("confirm"); // show preview + confirm before importing
     } catch (e) {
       setNormalizeError(e instanceof Error ? e.message : String(e));
       setStep("error");
@@ -652,7 +666,7 @@ export default function SyncPage() {
     .map((f) => f.key)
     .filter((k) => !new Set(Object.values(mappings).filter(Boolean) as string[]).has(k));
 
-  const isAiStep = ["drop", "normalizing", "importing", "done", "error"].includes(step);
+  const isAiStep = ["drop", "normalizing", "confirm", "importing", "done", "error"].includes(step);
   const doneCount = Object.values(importStatuses).filter((s) => s.state === "done").length;
   const errCount  = Object.values(importStatuses).filter((s) => s.state === "error").length;
   const totalImports = Object.keys(importStatuses).length;
@@ -733,6 +747,86 @@ export default function SyncPage() {
         </div>
       )}
 
+      {/* ── Confirm step ─────────────────────────────────────────────────────── */}
+      {step === "confirm" && aiResult && (
+        <div style={{ marginBottom: "3rem" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: "1.5rem", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: "0.25rem" }}>Ready to import</div>
+              <div style={{ fontSize: "0.84rem", color: "#64748b" }}>{aiResult.summary}</div>
+            </div>
+            <button onClick={() => downloadXlsx(aiResult.xlsxBase64, aiResult.fileName)}
+              style={{ padding: "8px 16px", background: "#0f172a", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600, fontSize: "0.84rem", whiteSpace: "nowrap" }}>
+              ⬇ Download normalized XLSX
+            </button>
+          </div>
+
+          {IMPORT_ORDER.filter((r) => (aiResult.resources[r]?.length ?? 0) > 0).map((r) => {
+            const rows = aiResult.resources[r];
+            const loc = RESOURCE_LOCATION[r];
+            const previewHeaders = rows[0] ? Object.keys(rows[0]) : [];
+            return (
+              <div key={r} style={{ marginBottom: "1.25rem", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                {/* Resource header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.92rem" }}>{RESOURCE_LABELS[r]}</div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
+                      {rows.length.toLocaleString()} rows
+                      {loc && (
+                        <span style={{ marginLeft: 10 }}>
+                          <span style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem", marginRight: 5 }}>{loc.tab}</span>
+                          {loc.where}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {/* Data preview */}
+                <div style={{ overflowX: "auto", fontSize: "0.78rem" }}>
+                  <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+                    <thead>
+                      <tr style={{ background: "#f1f5f9" }}>
+                        {previewHeaders.map((h) => (
+                          <th key={h} style={{ padding: "5px 10px", textAlign: "left", fontWeight: 600, color: "#475569", whiteSpace: "nowrap", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.slice(0, 5).map((row, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 1 ? "#fafafa" : "#fff" }}>
+                          {previewHeaders.map((h) => (
+                            <td key={h} style={{ padding: "4px 10px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #f1f5f9", color: "#334155" }}>
+                              {row[h] ?? ""}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {rows.length > 5 && (
+                  <div style={{ padding: "5px 14px", fontSize: "0.75rem", color: "#94a3b8", background: "#fafafa", borderTop: "1px solid #f1f5f9" }}>
+                    + {(rows.length - 5).toLocaleString()} more rows not shown
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div style={{ display: "flex", gap: 8, marginTop: "0.5rem" }}>
+            <button onClick={() => runImports(aiResult.resources)}
+              style={{ padding: "9px 22px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: "0.92rem" }}>
+              ✓ Confirm &amp; Import
+            </button>
+            <button onClick={resetDrop}
+              style={{ padding: "9px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+              ← Start over
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Importing / Done ─────────────────────────────────────────────────── */}
       {(step === "importing" || step === "done") && aiResult && (
         <div style={{ marginBottom: "3rem" }}>
@@ -768,8 +862,18 @@ export default function SyncPage() {
                   <div style={{ width: 18, textAlign: "center", flexShrink: 0 }}>
                     <StatusIcon state={s.state} />
                   </div>
-                  <div style={{ flex: 1, fontSize: "0.88rem", fontWeight: 500 }}>{RESOURCE_LABELS[r]}</div>
-                  <div style={{ fontSize: "0.82rem", color: s.state === "error" ? "#dc2626" : "#64748b" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "0.88rem", fontWeight: 500, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {RESOURCE_LABELS[r]}
+                      {RESOURCE_LOCATION[r] && (
+                        <span style={{ fontSize: "0.72rem", background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 7px", fontWeight: 600 }}>{RESOURCE_LOCATION[r].tab}</span>
+                      )}
+                    </div>
+                    {RESOURCE_LOCATION[r] && (
+                      <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 2 }}>{RESOURCE_LOCATION[r].where}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "0.82rem", color: s.state === "error" ? "#dc2626" : "#64748b", flexShrink: 0 }}>
                     {s.state === "pending" && "Waiting…"}
                     {s.state === "running" && "Importing…"}
                     {s.state === "done" && `${s.count?.toLocaleString() ?? "?"} rows`}
