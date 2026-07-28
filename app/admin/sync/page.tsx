@@ -105,19 +105,6 @@ const MANUAL_RESOURCES: Resource[] = [
   "comp-building-units",
 ];
 
-// Where each resource surfaces in the main dashboard
-const RESOURCE_LOCATION: Record<string, { tab: string; where: string }> = {
-  "projects":                    { tab: "Pipeline tab",    where: "Map markers + project cards (left panel)" },
-  "comp-buildings":              { tab: "Rent Comps tab",  where: "Building list in all comp views (Compare, Trend, Date Range)" },
-  "comp-building-stats":         { tab: "Rent Comps tab",  where: "Compare Buildings chart + Date Range all-time averages" },
-  "comp-building-quarter-stats": { tab: "Rent Comps tab",  where: "Buildings Over Time chart + Date Range quarterly filtering" },
-  "overall-stats":               { tab: "Rent Comps tab",  where: "Market Stats panel — overall market averages" },
-  "type-stats":                  { tab: "Rent Comps tab",  where: "Market Stats panel — averages broken out by property type" },
-  "trend":                       { tab: "Rent Comps tab",  where: "Trend Over Time chart (market-wide quarterly rent trend)" },
-  "lease-comps":                 { tab: "Rent Comps tab",  where: "Date Range — per-lease filtering (enables exact date ranges)" },
-  "comp-building-units":         { tab: "Rent Comps tab",  where: "Building unit-mix detail (unit count breakdown per building)" },
-};
-
 const SYNC_RESOURCES: { key: string; label: string; urlField: string }[] = [
   { key: "projects",                    label: "Pipeline Projects",                urlField: "projectsSheetUrl" },
   { key: "comp-buildings",              label: "Comp Buildings",                   urlField: "compBuildingsSheetUrl" },
@@ -388,8 +375,6 @@ function StatusIcon({ state }: { state: ImportStatus["state"] }) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
-type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
-
 export default function SyncPage() {
   // Sheet sync config
   const [config, setConfig] = useState<Record<string, string | null>>({});
@@ -436,7 +421,6 @@ export default function SyncPage() {
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [undoing, setUndoing] = useState(false);
-  const [lastImportedResources, setLastImportedResources] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<{ buf: ArrayBuffer; name: string } | null>(null);
@@ -510,7 +494,7 @@ export default function SyncPage() {
     setDiffErrors((prev) => { const next = new Set(prev); next.delete(r); return next; });
     setDiffResults((prev) => { const next = { ...prev }; delete next[r]; return next; });
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    const timer = setTimeout(() => ctrl.abort(), 20000);
     fetch("/api/comps-import/diff", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -632,7 +616,7 @@ export default function SyncPage() {
 
       for (const r of diffResources) {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 20_000);
+        const timer = setTimeout(() => ctrl.abort(), 20000);
 
         fetch("/api/comps-import/diff", {
           method: "POST",
