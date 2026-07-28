@@ -247,7 +247,7 @@ async function importTrend(rows: ImportRow[], mode: ImportMode): Promise<number>
   // Deduplicate by quarter+unitType
   const byKey = new Map<string, { quarter: string; quarterOrder: number; unitType: string; avgRent: number; avgPsf: number | null }>();
   for (const r of rows) {
-    const quarter = csvStr(r.quarter);
+    const quarter = normalizeQuarter(csvStr(r.quarter));
     // Auto-derive quarterOrder from quarter label if not explicitly provided
     const quarterOrder = csvNum(r.quarterOrder) ?? deriveQuarterOrder(quarter);
     const d = { quarter, quarterOrder, unitType: csvStr(r.unitType), avgRent: csvNum(r.avgRent) ?? 0, avgPsf: csvNum(r.avgPsf) };
@@ -401,7 +401,7 @@ async function importLeaseComps(rows: ImportRow[], mode: ImportMode): Promise<nu
         if (!isNaN(parsed.getTime())) leaseDate = parsed;
       }
       // Derive quarter from leaseDate if not explicitly provided
-      let quarter = r.quarter?.trim() || null;
+      let quarter = r.quarter?.trim() ? normalizeQuarter(r.quarter.trim()) : null;
       if (!quarter && leaseDate) quarter = quarterFromDate(leaseDate);
       const beds = csvNum(r.bedrooms) ?? csvNum(r.beds);
       const baths = csvNum(r.bathrooms) ?? csvNum(r.baths);
@@ -488,6 +488,28 @@ async function importCompBuildingUnits(rows: ImportRow[], mode: ImportMode): Pro
 function quarterFromDate(d: Date): string {
   const q = Math.floor(d.getMonth() / 3) + 1;
   return `Q${q} ${d.getFullYear()}`;
+}
+
+// Convert anything that looks like a date string ("03/23/26", "2026-03-23", etc.) to "Q# YYYY".
+// Already-correct "Q1 2026" values pass through unchanged.
+export function normalizeQuarter(q: string): string {
+  if (!q) return q;
+  const s = q.trim();
+  if (/^Q\d\s+\d{4}$/i.test(s)) return s; // already correct
+  // MM/DD/YY or MM/DD/YYYY
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (mdy) {
+    const month = parseInt(mdy[1]);
+    let year = parseInt(mdy[3]);
+    if (year < 100) year += 2000;
+    if (month >= 1 && month <= 12) return `Q${Math.floor((month - 1) / 3) + 1} ${year}`;
+  }
+  // YYYY-MM-DD
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    return `Q${Math.floor((parseInt(iso[2]) - 1) / 3) + 1} ${iso[1]}`;
+  }
+  return s; // unrecognised — pass through unchanged
 }
 
 function quarterOrder(q: string): number {
