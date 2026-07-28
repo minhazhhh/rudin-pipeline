@@ -506,7 +506,7 @@ export default function SyncPage() {
         const res = await fetch("/api/comps-import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resource: r, rows: resources[r], mode: "upsert" }),
+          body: JSON.stringify({ resource: r, rows: resources[r], mode: "upsert", fileName: aiResult?.fileName }),
         });
         const body = await res.json();
         if (res.ok) {
@@ -586,7 +586,9 @@ export default function SyncPage() {
                 console.warn(`[diff] ${r} returned ${res.status}:`, text);
                 return { resource: r, error: true };
               }
-              return { resource: r, data: await res.json() };
+              const data = await res.json();
+              console.log(`[diff] ${r}:`, data);
+              return { resource: r, data };
             })
             .catch((err) => {
               console.warn(`[diff] ${r} fetch failed:`, err);
@@ -690,7 +692,7 @@ export default function SyncPage() {
       const res = await fetch("/api/comps-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource, rows: buildMappedRows(), mode }),
+        body: JSON.stringify({ resource, rows: buildMappedRows(), mode, fileName }),
       });
       const body = await res.json();
       if (res.ok) {
