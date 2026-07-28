@@ -86,6 +86,10 @@ async function getExistingKeys(resource: string): Promise<Set<string>> {
 // Body: { resource: string, rows: InRow[] }
 // Returns: { newCount, updateCount, sampleUpdates: InRow[], noKeyCount }
 export async function POST(req: NextRequest) {
+  const { requireAdmin } = await import("@/app/lib/api-auth");
+  const unauthorized = requireAdmin(req);
+  if (unauthorized) return unauthorized;
+
   const { resource, rows } = await req.json() as { resource: string; rows: InRow[] };
   if (!resource || !Array.isArray(rows)) {
     return NextResponse.json({ error: "resource and rows[] required" }, { status: 400 });

@@ -97,6 +97,7 @@ async function fetchCurrentForSnapshot(resource: Resource): Promise<Record<strin
     case "trend": return prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } });
     case "projects": return prisma.project.findMany();
     case "lease-comps": return prisma.leaseComp.findMany();
+    case "comp-building-units": return prisma.compBuildingUnit.findMany();
     default: return [];
   }
 }

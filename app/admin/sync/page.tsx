@@ -545,7 +545,6 @@ export default function SyncPage() {
         if (res.ok) {
           succeeded.push(r);
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "done", count: body.rowsImported } }));
-          succeeded.push(r);
         } else {
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "error", message: body.error ?? "Failed" } }));
         }
