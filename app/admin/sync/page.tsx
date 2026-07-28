@@ -806,13 +806,13 @@ export default function SyncPage() {
       {/* ── Confirm step ─────────────────────────────────────────────────────── */}
       {step === "confirm" && aiResult && (
         <div style={{ marginBottom: "3rem" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: "1.5rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: "1.25rem", flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: "0.25rem" }}>Ready to import</div>
-              <div style={{ fontSize: "0.84rem", color: "#64748b" }}>{aiResult.summary}</div>
+              <div style={{ fontWeight: 600, fontSize: "15px", marginBottom: "0.2rem", color: "var(--ink)" }}>Review &amp; confirm import</div>
+              <div style={{ fontSize: "12px", color: "var(--ink-faint)" }}>{aiResult.summary}</div>
             </div>
             <button onClick={() => downloadXlsx(aiResult.xlsxBase64, aiResult.fileName)}
-              style={{ padding: "8px 16px", background: "#0f172a", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600, fontSize: "0.84rem", whiteSpace: "nowrap" }}>
+              style={{ padding: "6px 14px", background: "var(--near-black)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "12px", whiteSpace: "nowrap", fontFamily: "inherit" }}>
               ⬇ Download normalized XLSX
             </button>
           </div>
@@ -824,123 +824,131 @@ export default function SyncPage() {
             const included = confirmSelected.has(r);
             const diff = diffResults[r];
             const imode = importModes[r] ?? "all";
+            const toggleId = `confirm-toggle-${r}`;
             return (
-              <div key={r} style={{
-                marginBottom: "1.25rem", borderRadius: 10, overflow: "hidden",
-                border: `2px solid ${included ? "#86efac" : "#e2e8f0"}`,
-                opacity: included ? 1 : 0.5,
-                transition: "border-color 0.15s, opacity 0.15s",
-              }}>
-                {/* Resource header — click to toggle */}
-                <div
-                  onClick={() => setConfirmSelected((prev) => {
-                    const next = new Set(prev);
-                    next.has(r) ? next.delete(r) : next.add(r);
-                    return next;
-                  })}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: included ? "#f0fdf4" : "#f8fafc", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap", cursor: "pointer", userSelect: "none" }}>
-                  {/* Toggle indicator */}
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                    background: included ? "#16a34a" : "#e2e8f0",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "0.8rem", color: "#fff", fontWeight: 700, transition: "background 0.15s",
-                  }}>
-                    {included ? "✓" : "✕"}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.92rem", color: included ? "#15803d" : "#64748b" }}>{RESOURCE_LABELS[r]}</div>
-                    <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      {rows.length.toLocaleString()} rows
-                      {/* Duplicate detection badges */}
-                      {diffLoading && !diff && (
-                        <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>checking for duplicates…</span>
-                      )}
-                      {diff && (
-                        <>
-                          {diff.newCount > 0 && (
-                            <span style={{ background: "#dcfce7", color: "#15803d", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem" }}>
-                              {diff.newCount.toLocaleString()} new
-                            </span>
-                          )}
-                          {diff.updateCount > 0 && (
-                            <span style={{ background: "#fef9c3", color: "#a16207", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem" }}>
-                              {diff.updateCount.toLocaleString()} will update existing
-                            </span>
-                          )}
-                          {diff.newCount === 0 && diff.updateCount === 0 && (
-                            <span style={{ background: "#f1f5f9", color: "#64748b", borderRadius: 4, padding: "1px 7px", fontSize: "0.72rem" }}>
-                              all rows already in DB
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {loc && (
-                        <span>
-                          <span style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem", marginRight: 4 }}>{loc.tab}</span>
-                          {loc.where}
-                        </span>
-                      )}
+              <div key={r} style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: "1rem" }}>
+                {/* Checkbox — outside the card */}
+                <label htmlFor={toggleId} style={{ paddingTop: 13, cursor: "pointer", flexShrink: 0 }}>
+                  <input
+                    id={toggleId}
+                    type="checkbox"
+                    checked={included}
+                    onChange={() => setConfirmSelected((prev) => {
+                      const next = new Set(prev);
+                      next.has(r) ? next.delete(r) : next.add(r);
+                      return next;
+                    })}
+                    style={{ width: 15, height: 15, accentColor: "var(--accent)", cursor: "pointer" }}
+                  />
+                </label>
+
+                {/* Card */}
+                <div style={{
+                  flex: 1, minWidth: 0, overflow: "hidden",
+                  border: `1px solid ${included ? "var(--accent)" : "var(--line)"}`,
+                  borderLeft: `3px solid ${included ? "var(--accent)" : "var(--line)"}`,
+                  opacity: included ? 1 : 0.45,
+                  transition: "border-color 0.15s, opacity 0.15s",
+                  background: "var(--paper-raised)",
+                }}>
+                  {/* Card header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: included ? "var(--accent-soft)" : "var(--paper)", borderBottom: "1px solid var(--line-soft)", flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--ink)" }}>{RESOURCE_LABELS[r]}</div>
+                      <div style={{ fontSize: "11px", color: "var(--ink-faint)", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        {rows.length.toLocaleString()} rows
+                        {diffLoading && !diff && (
+                          <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>checking duplicates…</span>
+                        )}
+                        {diff && (
+                          <>
+                            {diff.newCount > 0 && (
+                              <span style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-line)", padding: "0 6px", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                {diff.newCount.toLocaleString()} new
+                              </span>
+                            )}
+                            {diff.updateCount > 0 && (
+                              <span style={{ background: "#fdf6e3", color: "#7a5a1a", border: "1px solid #e8d59a", padding: "0 6px", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                {diff.updateCount.toLocaleString()} updates
+                              </span>
+                            )}
+                            {diff.newCount === 0 && diff.updateCount === 0 && (
+                              <span style={{ background: "var(--line-soft)", color: "var(--ink-faint)", padding: "0 6px", fontSize: "10px" }}>
+                                all already in DB
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {loc && (
+                          <>
+                            <span style={{ color: "var(--line)" }}>·</span>
+                            <span style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "0 6px", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{loc.tab}</span>
+                            <span style={{ color: "var(--ink-faint)" }}>{loc.where}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
+                    <span style={{ fontSize: "11px", color: included ? "var(--accent)" : "var(--ink-faint)", fontWeight: 600, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {included ? "Include" : "Skip"}
+                    </span>
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: included ? "#15803d" : "#94a3b8", fontWeight: 600, flexShrink: 0 }}>
-                    {included ? "Will import" : "Excluded"}
-                  </div>
-                </div>
-                {/* Duplicate handling toggle — only show when there are updates */}
-                {included && diff && diff.updateCount > 0 && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ padding: "8px 14px", background: "#fffbeb", borderBottom: "1px solid #fde68a", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.78rem", color: "#92400e", fontWeight: 600 }}>⚠ {diff.updateCount} duplicate{diff.updateCount !== 1 ? "s" : ""} detected — how to handle?</span>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        onClick={() => setImportModes((m) => ({ ...m, [r]: "all" }))}
-                        style={{ padding: "3px 10px", fontSize: "0.78rem", border: "1px solid", borderRadius: 4, cursor: "pointer", fontWeight: 600,
-                          background: imode === "all" ? "#f59e0b" : "#fff",
-                          color: imode === "all" ? "#fff" : "#92400e",
-                          borderColor: imode === "all" ? "#f59e0b" : "#fde68a" }}>
-                        Update existing
-                      </button>
-                      <button
-                        onClick={() => setImportModes((m) => ({ ...m, [r]: "new-only" }))}
-                        style={{ padding: "3px 10px", fontSize: "0.78rem", border: "1px solid", borderRadius: 4, cursor: "pointer", fontWeight: 600,
-                          background: imode === "new-only" ? "#16a34a" : "#fff",
-                          color: imode === "new-only" ? "#fff" : "#166534",
-                          borderColor: imode === "new-only" ? "#16a34a" : "#86efac" }}>
-                        Skip duplicates ({diff.newCount} new only)
-                      </button>
+
+                  {/* Duplicate handling — only when updates exist and card is included */}
+                  {included && diff && diff.updateCount > 0 && (
+                    <div style={{ padding: "7px 14px", background: "#fdf6e3", borderBottom: "1px solid #e8d59a", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "11px", color: "#7a5a1a", fontWeight: 600 }}>
+                        {diff.updateCount} row{diff.updateCount !== 1 ? "s" : ""} already exist — how to handle:
+                      </span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button
+                          onClick={() => setImportModes((m) => ({ ...m, [r]: "all" }))}
+                          style={{ padding: "3px 10px", fontSize: "11px", border: "1px solid", cursor: "pointer", fontWeight: 600, fontFamily: "inherit",
+                            background: imode === "all" ? "var(--gold)" : "var(--paper-raised)",
+                            color: imode === "all" ? "#fff" : "#7a5a1a",
+                            borderColor: imode === "all" ? "var(--gold)" : "#e8d59a" }}>
+                          Update existing
+                        </button>
+                        <button
+                          onClick={() => setImportModes((m) => ({ ...m, [r]: "new-only" }))}
+                          style={{ padding: "3px 10px", fontSize: "11px", border: "1px solid", cursor: "pointer", fontWeight: 600, fontFamily: "inherit",
+                            background: imode === "new-only" ? "var(--accent)" : "var(--paper-raised)",
+                            color: imode === "new-only" ? "#fff" : "var(--ink-soft)",
+                            borderColor: imode === "new-only" ? "var(--accent)" : "var(--line)" }}>
+                          New only ({diff.newCount})
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {/* Data preview */}
-                <div style={{ overflowX: "auto", fontSize: "0.78rem" }}>
-                  <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
-                    <thead>
-                      <tr style={{ background: "#f1f5f9" }}>
-                        {previewHeaders.map((h) => (
-                          <th key={h} style={{ padding: "5px 10px", textAlign: "left", fontWeight: 600, color: "#475569", whiteSpace: "nowrap", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.slice(0, 5).map((row, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 1 ? "#fafafa" : "#fff" }}>
+                  )}
+
+                  {/* Data preview */}
+                  <div style={{ overflowX: "auto", fontSize: "12px" }}>
+                    <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+                      <thead>
+                        <tr style={{ background: "var(--line-soft)" }}>
                           {previewHeaders.map((h) => (
-                            <td key={h} style={{ padding: "4px 10px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #f1f5f9", color: "#334155" }}>
-                              {row[h] ?? ""}
-                            </td>
+                            <th key={h} style={{ padding: "5px 10px", textAlign: "left", fontWeight: 600, fontSize: "10.5px", color: "var(--ink-faint)", letterSpacing: "0.03em", whiteSpace: "nowrap", borderRight: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>{h}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {rows.length > 5 && (
-                  <div style={{ padding: "5px 14px", fontSize: "0.75rem", color: "#94a3b8", background: "#fafafa", borderTop: "1px solid #f1f5f9" }}>
-                    + {(rows.length - 5).toLocaleString()} more rows not shown
+                      </thead>
+                      <tbody>
+                        {rows.slice(0, 5).map((row, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)", background: i % 2 === 1 ? "var(--paper)" : "var(--paper-raised)" }}>
+                            {previewHeaders.map((h) => (
+                              <td key={h} style={{ padding: "4px 10px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid var(--line-soft)", color: "var(--ink-soft)", fontSize: "12px" }}>
+                                {row[h] ?? ""}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                  {rows.length > 5 && (
+                    <div style={{ padding: "4px 10px", fontSize: "11px", color: "var(--ink-faint)", background: "var(--paper)", borderTop: "1px solid var(--line-soft)" }}>
+                      + {(rows.length - 5).toLocaleString()} more rows
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -965,15 +973,15 @@ export default function SyncPage() {
                 runImports(filtered);
               }}
               disabled={confirmSelected.size === 0}
-              style={{ padding: "9px 22px", background: confirmSelected.size === 0 ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.92rem" }}>
-              ✓ Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
+              style={{ padding: "7px 18px", background: confirmSelected.size === 0 ? "var(--ink-faint)" : "var(--accent)", color: "#fff", border: "none", cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit" }}>
+              Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
             </button>
             <button onClick={resetDrop}
-              style={{ padding: "9px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+              style={{ padding: "7px 14px", background: "none", border: "1px solid var(--line)", cursor: "pointer", fontSize: "13px", color: "var(--ink-soft)", fontFamily: "inherit" }}>
               ← Start over
             </button>
             {confirmSelected.size === 0 && (
-              <span style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Select at least one resource to import.</span>
+              <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>Select at least one resource to import.</span>
             )}
           </div>
         </div>
