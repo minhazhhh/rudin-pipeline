@@ -472,11 +472,13 @@ async function importCompBuildingUnits(rows: ImportRow[], mode: ImportMode): Pro
       status: r.status?.trim() || null,
       notes: r.notes?.trim() || null,
     }));
+  const affectedIds = [...idByName.values()];
   if (mode === "replace") {
-    const ids = [...idByName.values()];
-    await prisma.$transaction([prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: ids } } }), ...data.map((d) => prisma.compBuildingUnit.create({ data: d }))]);
+    await prisma.$transaction([prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: affectedIds } } }), ...data.map((d) => prisma.compBuildingUnit.create({ data: d }))]);
   } else {
-    for (const d of data) await prisma.compBuildingUnit.create({ data: d });
+    // Upsert: delete existing units for affected buildings first to prevent duplicates, then re-create
+    await prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: affectedIds } } });
+    if (data.length) await prisma.compBuildingUnit.createMany({ data });
   }
   return data.length;
 }
