@@ -409,6 +409,7 @@ export default function SyncPage() {
 
   // Duplicate detection
   const [diffResults, setDiffResults] = useState<Record<string, DiffResult>>({});
+  const [diffErrors, setDiffErrors] = useState<Set<string>>(new Set());
   const [diffLoading, setDiffLoading] = useState(false);
   const [importModes, setImportModes] = useState<Record<string, "all" | "new-only">>({});
 
@@ -565,6 +566,7 @@ export default function SyncPage() {
       setAiResult(result);
       setConfirmSelected(new Set(IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0)));
       setDiffResults({});
+      setDiffErrors(new Set());
       setImportModes({});
       setStep("confirm"); // show preview + confirm before importing
 
@@ -578,16 +580,29 @@ export default function SyncPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ resource: r, rows: result.resources[r] }),
           })
-            .then((res) => res.ok ? res.json() : null)
-            .then((data) => data ? { resource: r, data } : null)
-            .catch(() => null)
+            .then(async (res) => {
+              if (!res.ok) {
+                const text = await res.text().catch(() => res.status.toString());
+                console.warn(`[diff] ${r} returned ${res.status}:`, text);
+                return { resource: r, error: true };
+              }
+              return { resource: r, data: await res.json() };
+            })
+            .catch((err) => {
+              console.warn(`[diff] ${r} fetch failed:`, err);
+              return { resource: r, error: true };
+            })
         )
       ).then((results) => {
         const map: Record<string, DiffResult> = {};
+        const errors = new Set<string>();
         for (const item of results) {
-          if (item) map[item.resource] = item.data;
+          if (!item) continue;
+          if ("error" in item) errors.add(item.resource);
+          else map[item.resource] = item.data;
         }
         setDiffResults(map);
+        setDiffErrors(errors);
         setDiffLoading(false);
       });
     } catch (e) {
@@ -823,6 +838,7 @@ export default function SyncPage() {
             const previewHeaders = rows[0] ? Object.keys(rows[0]) : [];
             const included = confirmSelected.has(r);
             const diff = diffResults[r];
+            const diffErr = diffErrors.has(r);
             const imode = importModes[r] ?? "all";
             const toggleId = `confirm-toggle-${r}`;
             return (
@@ -857,8 +873,11 @@ export default function SyncPage() {
                       <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--ink)" }}>{RESOURCE_LABELS[r]}</div>
                       <div style={{ fontSize: "11px", color: "var(--ink-faint)", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         {rows.length.toLocaleString()} rows
-                        {diffLoading && !diff && (
+                        {diffLoading && !diff && !diffErr && (
                           <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>checking duplicates…</span>
+                        )}
+                        {diffErr && (
+                          <span style={{ background: "#fff3f3", color: "var(--red)", border: "1px solid #f0c0c0", padding: "0 6px", fontSize: "10px" }} title="Open browser console for details">⚠ dup check failed</span>
                         )}
                         {diff && (
                           <>
@@ -874,7 +893,7 @@ export default function SyncPage() {
                             )}
                             {diff.newCount === 0 && diff.updateCount === 0 && (
                               <span style={{ background: "var(--line-soft)", color: "var(--ink-faint)", padding: "0 6px", fontSize: "10px" }}>
-                                all already in DB
+                                {diff.noKeyCount > 0 ? `${diff.noKeyCount.toLocaleString()} rows (no unique key to check)` : "all already in DB"}
                               </span>
                             )}
                           </>
@@ -889,7 +908,7 @@ export default function SyncPage() {
                       </div>
                     </div>
                     <span style={{ fontSize: "11px", color: included ? "var(--accent)" : "var(--ink-faint)", fontWeight: 600, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      {included ? "Include" : "Skip"}
+                      {included ? "Will import" : "Skipped"}
                     </span>
                   </div>
 
