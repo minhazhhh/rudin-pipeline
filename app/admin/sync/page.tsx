@@ -382,6 +382,9 @@ export default function SyncPage() {
   const [submitting, setSubmitting] = useState(false);
   const [manualResult, setManualResult] = useState<{ ok: boolean; message: string } | null>(null);
 
+  // Confirm step — which resources are selected for import
+  const [confirmSelected, setConfirmSelected] = useState<Set<string>>(new Set());
+
   // Version history / undo
   const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -533,6 +536,7 @@ export default function SyncPage() {
     try {
       const result = await normalizeClientSide(sheets, file.name);
       setAiResult(result);
+      setConfirmSelected(new Set(IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0)));
       setStep("confirm"); // show preview + confirm before importing
     } catch (e) {
       setNormalizeError(e instanceof Error ? e.message : String(e));
@@ -765,12 +769,33 @@ export default function SyncPage() {
             const rows = aiResult.resources[r];
             const loc = RESOURCE_LOCATION[r];
             const previewHeaders = rows[0] ? Object.keys(rows[0]) : [];
+            const included = confirmSelected.has(r);
             return (
-              <div key={r} style={{ marginBottom: "1.25rem", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-                {/* Resource header */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+              <div key={r} style={{
+                marginBottom: "1.25rem", borderRadius: 10, overflow: "hidden",
+                border: `2px solid ${included ? "#86efac" : "#e2e8f0"}`,
+                opacity: included ? 1 : 0.5,
+                transition: "border-color 0.15s, opacity 0.15s",
+              }}>
+                {/* Resource header — click to toggle */}
+                <div
+                  onClick={() => setConfirmSelected((prev) => {
+                    const next = new Set(prev);
+                    next.has(r) ? next.delete(r) : next.add(r);
+                    return next;
+                  })}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: included ? "#f0fdf4" : "#f8fafc", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap", cursor: "pointer", userSelect: "none" }}>
+                  {/* Toggle indicator */}
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                    background: included ? "#16a34a" : "#e2e8f0",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.8rem", color: "#fff", fontWeight: 700, transition: "background 0.15s",
+                  }}>
+                    {included ? "✓" : "✕"}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.92rem" }}>{RESOURCE_LABELS[r]}</div>
+                    <div style={{ fontWeight: 700, fontSize: "0.92rem", color: included ? "#15803d" : "#64748b" }}>{RESOURCE_LABELS[r]}</div>
                     <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
                       {rows.length.toLocaleString()} rows
                       {loc && (
@@ -780,6 +805,9 @@ export default function SyncPage() {
                         </span>
                       )}
                     </div>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: included ? "#15803d" : "#94a3b8", fontWeight: 600, flexShrink: 0 }}>
+                    {included ? "Will import" : "Excluded"}
                   </div>
                 </div>
                 {/* Data preview */}
@@ -814,15 +842,25 @@ export default function SyncPage() {
             );
           })}
 
-          <div style={{ display: "flex", gap: 8, marginTop: "0.5rem" }}>
-            <button onClick={() => runImports(aiResult.resources)}
-              style={{ padding: "9px 22px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: "0.92rem" }}>
-              ✓ Confirm &amp; Import
+          <div style={{ display: "flex", gap: 8, marginTop: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={() => {
+                const filtered = Object.fromEntries(
+                  Object.entries(aiResult.resources).filter(([r]) => confirmSelected.has(r))
+                );
+                runImports(filtered as typeof aiResult.resources);
+              }}
+              disabled={confirmSelected.size === 0}
+              style={{ padding: "9px 22px", background: confirmSelected.size === 0 ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.92rem" }}>
+              ✓ Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
             </button>
             <button onClick={resetDrop}
               style={{ padding: "9px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
               ← Start over
             </button>
+            {confirmSelected.size === 0 && (
+              <span style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Select at least one resource to import.</span>
+            )}
           </div>
         </div>
       )}
