@@ -510,7 +510,7 @@ export default function SyncPage() {
     setDiffErrors((prev) => { const next = new Set(prev); next.delete(r); return next; });
     setDiffResults((prev) => { const next = { ...prev }; delete next[r]; return next; });
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    const timer = setTimeout(() => ctrl.abort(), 20000);
     fetch("/api/comps-import/diff", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -632,7 +632,7 @@ export default function SyncPage() {
 
       for (const r of diffResources) {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 20_000);
+        const timer = setTimeout(() => ctrl.abort(), 20000);
 
         fetch("/api/comps-import/diff", {
           method: "POST",
