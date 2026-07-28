@@ -105,6 +105,19 @@ const MANUAL_RESOURCES: Resource[] = [
   "comp-building-units",
 ];
 
+// Where each resource surfaces in the main dashboard
+const RESOURCE_LOCATION: Record<string, { tab: string; where: string }> = {
+  "projects":                    { tab: "Pipeline tab",    where: "Map markers + project cards (left panel)" },
+  "comp-buildings":              { tab: "Rent Comps tab",  where: "Building list in all comp views (Compare, Trend, Date Range)" },
+  "comp-building-stats":         { tab: "Rent Comps tab",  where: "Compare Buildings chart + Date Range all-time averages" },
+  "comp-building-quarter-stats": { tab: "Rent Comps tab",  where: "Buildings Over Time chart + Date Range quarterly filtering" },
+  "overall-stats":               { tab: "Rent Comps tab",  where: "Market Stats panel — overall market averages" },
+  "type-stats":                  { tab: "Rent Comps tab",  where: "Market Stats panel — averages broken out by property type" },
+  "trend":                       { tab: "Rent Comps tab",  where: "Trend Over Time chart (market-wide quarterly rent trend)" },
+  "lease-comps":                 { tab: "Rent Comps tab",  where: "Date Range — per-lease filtering (enables exact date ranges)" },
+  "comp-building-units":         { tab: "Rent Comps tab",  where: "Building unit-mix detail (unit count breakdown per building)" },
+};
+
 const SYNC_RESOURCES: { key: string; label: string; urlField: string }[] = [
   { key: "projects",                    label: "Pipeline Projects",                urlField: "projectsSheetUrl" },
   { key: "comp-buildings",              label: "Comp Buildings",                   urlField: "compBuildingsSheetUrl" },
@@ -375,6 +388,8 @@ function StatusIcon({ state }: { state: ImportStatus["state"] }) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
+type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
+
 export default function SyncPage() {
   // Sheet sync config
   const [config, setConfig] = useState<Record<string, string | null>>({});
@@ -391,6 +406,8 @@ export default function SyncPage() {
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [importStatuses, setImportStatuses] = useState<Record<string, ImportStatus>>({});
   const [normalizeError, setNormalizeError] = useState<string | null>(null);
+  // Track which resources were just imported so we can show undo
+  const [lastImportedResources, setLastImportedResources] = useState<string[]>([]);
 
   // Manual fallback
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
@@ -544,6 +561,7 @@ export default function SyncPage() {
         if (res.ok) {
           succeeded.push(r);
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "done", count: body.rowsImported } }));
+          succeeded.push(r);
         } else {
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "error", message: body.error ?? "Failed" } }));
         }
@@ -1081,8 +1099,18 @@ export default function SyncPage() {
                   <div style={{ width: 18, textAlign: "center", flexShrink: 0 }}>
                     <StatusIcon state={s.state} />
                   </div>
-                  <div style={{ flex: 1, fontSize: "0.88rem", fontWeight: 500 }}>{RESOURCE_LABELS[r]}</div>
-                  <div style={{ fontSize: "0.82rem", color: s.state === "error" ? "#dc2626" : "#64748b" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "0.88rem", fontWeight: 500, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {RESOURCE_LABELS[r]}
+                      {RESOURCE_LOCATION[r] && (
+                        <span style={{ fontSize: "0.72rem", background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 7px", fontWeight: 600 }}>{RESOURCE_LOCATION[r].tab}</span>
+                      )}
+                    </div>
+                    {RESOURCE_LOCATION[r] && (
+                      <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 2 }}>{RESOURCE_LOCATION[r].where}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "0.82rem", color: s.state === "error" ? "#dc2626" : "#64748b", flexShrink: 0 }}>
                     {s.state === "pending" && "Waiting…"}
                     {s.state === "running" && "Importing…"}
                     {s.state === "done" && `${s.count?.toLocaleString() ?? "?"} rows`}
@@ -1205,7 +1233,7 @@ export default function SyncPage() {
                   <tr style={{ background: "#f1f5f9" }}>
                     <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>File column</th>
                     <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Maps to</th>
-                    <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Sample</th>
+                    <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600 }}>Sample value</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1213,7 +1241,7 @@ export default function SyncPage() {
                     const mapped = mappings[h];
                     const wasAi = aiMappedFields.has(h);
                     return (
-                      <tr key={h} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                      <tr key={h} style={{ borderBottom: "1px solid #e2e8f0", background: mapped ? "rgba(240,253,244,.5)" : undefined }}>
                         <td style={{ padding: "6px 12px", fontFamily: "monospace", color: mapped ? "#15803d" : "#94a3b8" }}>
                           {h}
                           {wasAi && mapped && (

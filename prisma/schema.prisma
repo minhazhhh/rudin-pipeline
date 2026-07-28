@@ -105,6 +105,35 @@ model CompBuildingStat {
   @@unique([buildingId, unitType])
 }
 
+// Individual unit lease records — not publicly displayed, used for backend analytics
+model CompBuildingUnit {
+  id         String       @id @default(cuid())
+  buildingId String
+  building   CompBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  unitName   String? // e.g. "2A", "PHB"
+  unitNumber String? // unit number if separate from name
+  unitType   String? // ST | 1BD | 2BD | etc.
+  floor      Int?
+  sf         Float?
+  bedrooms   Int?
+  bathrooms  Float?
+
+  askingRent  Float?
+  netRent     Float?
+  grossRent   Float?
+  psf         Float?
+  concessions String?
+
+  leaseDate     String? // stored as string to handle various date formats
+  leaseStartDate String?
+  leaseEndDate   String?
+  leaseTerm     Int? // months
+
+  status    String? // leased | available | vacant | model
+  notes     String?
+}
+
 // AGG.ut_stats — aggregate across ALL comp buildings, by unit type
 model OverallUnitStat {
   id       String @id @default(cuid())
@@ -180,6 +209,18 @@ model LeaseComp {
   createdAt    DateTime  @default(now())
 }
 
+// ─── Version history snapshots ───
+
+model Snapshot {
+  id        String   @id @default(cuid())
+  resource  String   // e.g. "comp-building-stats", "trend"
+  label     String   // human-readable description
+  data      Json     // full array of rows at snapshot time
+  createdAt DateTime @default(now())
+
+  @@index([resource, createdAt])
+}
+
 // ─── App config ───
 
 model SyncConfig {
@@ -194,43 +235,3 @@ model SyncConfig {
   lastSyncedAt                  DateTime?
 }
 
-// ─── Version snapshots ───
-
-model Snapshot {
-  id        String   @id @default(cuid())
-  resource  String
-  label     String
-  data      Json
-  createdAt DateTime @default(now())
-
-  @@index([resource, createdAt])
-}
-
-// ─── Comp building unit inventory ───
-
-model CompBuildingUnit {
-  id             String      @id @default(cuid())
-  buildingId     String
-  building       CompBuilding @relation(fields: [buildingId], references: [id])
-  unitName       String?
-  unitNumber     String?
-  unitType       String?
-  floor          Int?
-  sf             Float?
-  bedrooms       Int?
-  bathrooms      Float?
-  askingRent     Float?
-  netRent        Float?
-  grossRent      Float?
-  psf            Float?
-  concessions    String?
-  leaseDate      String?
-  leaseStartDate String?
-  leaseEndDate   String?
-  leaseTerm      Int?
-  status         String?
-  notes          String?
-  createdAt      DateTime @default(now())
-
-  @@index([buildingId])
-}

@@ -879,6 +879,204 @@ table.cmp-table td.r{text-align:right}
 #peek::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
 
 #map *:focus,#map *:focus-visible,.leaflet-interactive:focus,.leaflet-interactive:focus-visible,path:focus,circle:focus{outline:none!important;box-shadow:none!important}
+
+/* ═══════════════════════════════════════════════════════
+   2026 UI REFRESH — visual polish + responsive layout
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Topbar ── */
+.topbar{
+  height:56px;padding:0 24px;
+  background:linear-gradient(135deg,#080808 0%,#0f1a15 100%);
+  border-bottom:1px solid rgba(255,255,255,.07);
+  justify-content:space-between;
+}
+/* RUDIN wordmark inline style is fixed — boost its size via adjacent sibling targeting */
+.topbar > span:first-child { font-size: 24px !important; letter-spacing: -.015em !important; }
+
+/* ── Nav ── */
+.nav{padding:0 24px;background:var(--paper-raised);position:relative}
+.nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:var(--line)}
+.nav-tab{font-size:13px;padding:0 20px;height:56px;letter-spacing:.005em}
+.nav-tab.on::after{left:20px;right:20px;background:var(--accent);border-radius:2px 2px 0 0}
+
+/* ── Sidebar — responsive width ── */
+@media(max-width:1280px){
+  .sidebar{width:288px!important}
+}
+@media(max-width:1080px){
+  .sidebar{width:260px!important}
+  .sv{font-size:20px!important}
+  .metric-value{font-size:20px}
+}
+
+/* ── Sidebar collapse on tablet/phone ── */
+@media(max-width:860px){
+  .sidebar{
+    position:fixed!important;top:112px;left:0;bottom:0;z-index:1200!important;
+    width:288px!important;
+    transform:translateX(-100%);
+    transition:transform 320ms cubic-bezier(.4,0,.2,1)!important;
+    box-shadow:4px 0 32px rgba(0,0,0,.18)!important;
+  }
+  .sidebar.sb-open{transform:translateX(0)!important}
+  /* sidebar toggle button */
+  #sb-toggle{
+    display:flex!important;
+    position:fixed;top:68px;left:0;z-index:1199;
+    width:36px;height:36px;
+    background:var(--accent);color:#fff;border:none;cursor:pointer;
+    align-items:center;justify-content:center;font-size:16px;
+    border-radius:0 4px 4px 0;box-shadow:2px 0 12px rgba(0,0,0,.18);
+    transition:background 200ms;font-family:inherit;
+  }
+  #sb-toggle:hover{background:#0a3e2f}
+  /* Scrim */
+  #sb-scrim{display:none;position:fixed;inset:0;z-index:1198;background:rgba(0,0,0,.35)}
+  #sb-scrim.on{display:block}
+}
+@media(min-width:861px){#sb-toggle{display:none!important}#sb-scrim{display:none!important}}
+
+/* ── Quick Underwrite Panel ── */
+#uw-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+#uw-scrim{display:none;position:fixed;inset:0;z-index:1401;background:rgba(0,0,0,.35)}
+#uw-scrim.on{display:block}
+#uw-drawer{
+  position:fixed;top:0;right:0;bottom:0;z-index:1402;
+  width:min(440px,100vw);background:#fff;
+  box-shadow:-4px 0 24px rgba(0,0,0,.18);
+  transform:translateX(100%);transition:transform 300ms cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#uw-drawer.open{transform:translateX(0)}
+#uw-head{
+  background:var(--accent);color:#fff;padding:16px 20px;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+#uw-head h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.3px}
+#uw-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 4px;line-height:1}
+#uw-body{padding:16px 20px;overflow-y:auto;flex:1}
+.uw-section{margin-bottom:18px}
+.uw-label{font-size:11px;font-weight:600;letter-spacing:.6px;color:#666;text-transform:uppercase;margin-bottom:6px}
+.uw-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.uw-row label{font-size:12px;color:#444;min-width:64px}
+.uw-row input[type=number],.uw-row select{
+  flex:1;border:1px solid #d0d7d4;border-radius:4px;padding:6px 8px;
+  font-size:13px;font-family:inherit;background:#fafafa;
+}
+.uw-row input[type=range]{flex:1;accent-color:var(--accent)}
+.uw-row .uw-val{font-size:12px;color:#333;min-width:36px;text-align:right;font-variant-numeric:tabular-nums}
+.uw-slider-sum{font-size:11px;color:#888;text-align:right;margin-top:-6px;margin-bottom:10px}
+.uw-slider-sum.err{color:#c0392b;font-weight:600}
+#uw-calc-btn{
+  width:100%;padding:10px;background:var(--accent);color:#fff;
+  border:none;border-radius:5px;font-size:14px;font-weight:600;
+  cursor:pointer;letter-spacing:.3px;transition:background 200ms;
+}
+#uw-calc-btn:hover{background:#0a3e2f}
+#uw-calc-btn:disabled{background:#aaa;cursor:not-allowed}
+#uw-results{margin-top:18px;display:none}
+.uw-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.uw-metric{background:#f5f8f7;border-radius:6px;padding:10px 12px}
+.uw-metric .uw-m-label{font-size:10px;font-weight:600;letter-spacing:.5px;color:#777;text-transform:uppercase;margin-bottom:4px}
+.uw-metric .uw-m-val{font-size:18px;font-weight:700;color:var(--accent)}
+.uw-metric .uw-m-sub{font-size:11px;color:#888;margin-top:2px}
+.uw-comp-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.uw-comp-table th{text-align:left;padding:5px 8px;background:#eef2f0;color:#555;font-weight:600;font-size:10px;letter-spacing:.4px;text-transform:uppercase}
+.uw-comp-table td{padding:5px 8px;border-bottom:1px solid #eee;color:#333}
+.uw-comp-table tr:last-child td{border-bottom:none}
+.uw-supply{background:#fff8e6;border:1px solid #f0d080;border-radius:6px;padding:10px 12px;font-size:12px;color:#7a5a00;margin-bottom:10px}
+.uw-supply strong{font-size:15px;color:#5a4000}
+#uw-copy-btn{
+  width:100%;padding:8px;background:#f0f4f2;color:#333;
+  border:1px solid #d0d7d4;border-radius:5px;font-size:13px;
+  cursor:pointer;transition:background 200ms;
+}
+#uw-copy-btn:hover{background:#e0e8e4}
+#uw-err{color:#c0392b;font-size:12px;margin-top:8px;display:none}
+
+/* ── Overlay panels — clamp to viewport ── */
+#peek{
+  width:min(420px,100vw)!important;
+  right:calc(-1 * min(440px,100vw))!important;
+}
+#peek.open{right:0!important}
+#cp{
+  width:min(680px,96vw)!important;
+  right:calc(-1 * min(700px,100vw))!important;
+}
+#cp.on{right:0!important}
+@media(max-width:480px){
+  #peek-img{height:220px!important}
+  #peek-body{padding:18px 16px!important}
+  .peek-name{font-size:17px!important}
+}
+
+/* ── Comp-dash header — wraps gracefully ── */
+.cd-header{gap:10px}
+@media(max-width:1000px){
+  .cd-tab{padding:6px 12px;font-size:10.5px}
+}
+@media(max-width:800px){
+  .cd-header{height:auto;min-height:56px;padding:10px 16px;flex-wrap:wrap}
+  .cd-tabs{overflow-x:auto;scrollbar-width:none;flex-shrink:1;gap:4px;padding-bottom:2px}
+  .cd-tabs::-webkit-scrollbar{display:none}
+  .cd-tab{white-space:nowrap;flex-shrink:0;padding:5px 11px;font-size:10px}
+}
+
+/* ── Comp-dash content — responsive padding ── */
+@media(max-width:900px){
+  .page-shell{padding:22px 18px 48px}
+  .section-block{margin-bottom:28px}
+}
+@media(max-width:600px){
+  .page-shell{padding:14px 12px 32px}
+  .cd-card{padding:16px}
+  .cd-ph{margin-bottom:12px;padding-bottom:10px}
+  .grid-2{gap:16px}
+  .cd-g2,.cd-g3{gap:12px}
+}
+
+/* ── Compare bar responsive ── */
+@media(max-width:768px){
+  .compare-bar{padding:10px 16px;flex-wrap:wrap;gap:10px}
+  .compare-pills{flex-wrap:wrap}
+}
+
+/* ── Card refinements ── */
+.cd-card{
+  border-radius:3px;
+  box-shadow:0 1px 3px rgba(21,32,28,.04),0 2px 8px rgba(21,32,28,.03);
+}
+.cd-grid{border-radius:3px;overflow:hidden}
+.surface{border-radius:3px}
+
+/* ── Map legend position shift on small screens ── */
+@media(max-width:860px){
+  #legend{bottom:80px!important;right:12px!important}
+  .map-legend{bottom:80px;right:12px}
+  .compare-fab{bottom:80px}
+}
+
+/* ── Metric value legibility ── */
+.h-display{font-size:clamp(22px,2.5vw,32px)}
+.metric-card-value{font-size:clamp(18px,1.8vw,24px)}
+
+/* ── Table overflow ── */
+.table-wrap,.cd-card div[style*="overflow-x:auto"]{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── Nav actions hide label on small screens ── */
+@media(max-width:640px){
+  .nav-action span:not(.icon){display:none}
+  .nav-action{padding:0 11px;gap:0}
+}
+
+/* ── Topbar: hide secondary elements under 480px ── */
+@media(max-width:480px){
+  .topbar{padding:0 14px;height:52px}
+  .topbar > span:first-child{font-size:20px!important}
+  .topbar-meta,.topbar-badge,.brand-sep,.brand-sub{display:none}
+}
 </style>
 </head><body>
 <div class="app">
@@ -889,6 +1087,11 @@ table.cmp-table td.r{text-align:right}
 <div class="nav">
   <button class="nav-tab on" id="navtab-map" onclick="navToMap(this)">Pipeline Map</button>
   <button class="nav-tab" id="navtab-comps" onclick="navToComps(this)">Rent Comparables</button>
+  <div class="nav-spacer"></div>
+  <button id="uw-btn" class="nav-action" title="Quick Underwrite">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="2"/><line x1="4" y1="5" x2="12" y2="5"/><line x1="4" y1="8" x2="7" y2="8"/><line x1="4" y1="11" x2="7" y2="11"/><line x1="10" y1="8" x2="12" y2="8"/><line x1="10" y1="11" x2="12" y2="11"/></svg>
+    Underwrite
+  </button>
 </div>
 
 <div id="map-cursor-dot"></div>
@@ -1048,6 +1251,133 @@ table.cmp-table td.r{text-align:right}
   </div>
   <div id="cmp-body" style="padding:18px;flex:1"></div>
 </div>
+<button id="sb-toggle" aria-label="Toggle filters">&#9776;</button>
+<div id="sb-scrim"></div>
+
+<!-- Quick Underwrite Panel -->
+<div id="uw-scrim"></div>
+<div id="uw-drawer" role="dialog" aria-label="Quick Underwrite">
+  <div id="uw-head">
+    <h3>&#129518; Quick Underwrite</h3>
+    <button id="uw-close" aria-label="Close">&#10005;</button>
+  </div>
+  <div id="uw-body">
+    <div class="uw-section">
+      <div class="uw-label">Market / Submarket</div>
+      <div class="uw-row">
+        <label for="uw-sub">Submarket</label>
+        <select id="uw-sub">
+          <option value="manhattan">Manhattan (All)</option>
+          <option value="midtown">Midtown</option>
+          <option value="downtown">Downtown / FiDi</option>
+          <option value="brooklyn">Brooklyn</option>
+          <option value="queens">Queens</option>
+          <option value="bronx">Bronx</option>
+        </select>
+      </div>
+      <div class="uw-row">
+        <label for="uw-pt">Property type</label>
+        <select id="uw-pt">
+          <option value="">All types</option>
+          <option value="Conversion">Conversion</option>
+          <option value="Primary">Primary</option>
+          <option value="Market">Market Rate</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="uw-section">
+      <div class="uw-label">Building Details</div>
+      <div class="uw-row">
+        <label for="uw-units">Unit count</label>
+        <input type="number" id="uw-units" value="150" min="1" max="5000" step="1"/>
+      </div>
+      <div class="uw-row">
+        <label for="uw-avgsf">Avg unit SF</label>
+        <input type="number" id="uw-avgsf" value="750" min="100" max="5000" step="10"/>
+      </div>
+      <div class="uw-row">
+        <label for="uw-yr">Delivery year</label>
+        <input type="number" id="uw-yr" value="2026" min="2024" max="2035" step="1"/>
+      </div>
+      <div class="uw-row">
+        <label for="uw-conc">Concession (mo)</label>
+        <input type="number" id="uw-conc" value="1" min="0" max="24" step="0.5"/>
+      </div>
+    </div>
+
+    <div class="uw-section">
+      <div class="uw-label">Unit Mix <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(% of total, must sum to 100)</span></div>
+      <div class="uw-row">
+        <label>Studio</label>
+        <input type="range" id="uw-sl-st" min="0" max="100" value="25" step="5" oninput="uwSlider('ST',this.value)"/>
+        <span class="uw-val" id="uw-v-ST">25%</span>
+      </div>
+      <div class="uw-row">
+        <label>1 BR</label>
+        <input type="range" id="uw-sl-1b" min="0" max="100" value="45" step="5" oninput="uwSlider('1BD',this.value)"/>
+        <span class="uw-val" id="uw-v-1BD">45%</span>
+      </div>
+      <div class="uw-row">
+        <label>2 BR</label>
+        <input type="range" id="uw-sl-2b" min="0" max="100" value="20" step="5" oninput="uwSlider('2BD',this.value)"/>
+        <span class="uw-val" id="uw-v-2BD">20%</span>
+      </div>
+      <div class="uw-row">
+        <label>3 BR</label>
+        <input type="range" id="uw-sl-3b" min="0" max="100" value="10" step="5" oninput="uwSlider('3BD',this.value)"/>
+        <span class="uw-val" id="uw-v-3BD">10%</span>
+      </div>
+      <div class="uw-slider-sum" id="uw-sum-lbl">Total: 100%</div>
+    </div>
+
+    <button id="uw-calc-btn" onclick="uwCalculate()">Calculate</button>
+    <div id="uw-err"></div>
+
+    <div id="uw-results">
+      <div class="uw-label" style="margin-top:4px;margin-bottom:10px">Results</div>
+
+      <div class="uw-result-grid">
+        <div class="uw-metric">
+          <div class="uw-m-label">Gross Potential Rent</div>
+          <div class="uw-m-val" id="uw-gpr-mo">—</div>
+          <div class="uw-m-sub" id="uw-gpr-yr">— / year</div>
+        </div>
+        <div class="uw-metric">
+          <div class="uw-m-label">Net Effective Rent</div>
+          <div class="uw-m-val" id="uw-ner-mo">—</div>
+          <div class="uw-m-sub" id="uw-ner-yr">— / year</div>
+        </div>
+        <div class="uw-metric">
+          <div class="uw-m-label">Blended $/SF/mo</div>
+          <div class="uw-m-val" id="uw-psf">—</div>
+          <div class="uw-m-sub" id="uw-comps-n">— comp transactions</div>
+        </div>
+        <div class="uw-metric">
+          <div class="uw-m-label">Blended Rent/Unit</div>
+          <div class="uw-m-val" id="uw-ppu">—</div>
+          <div class="uw-m-sub">weighted avg</div>
+        </div>
+      </div>
+
+      <div class="uw-supply" id="uw-supply-box">
+        <div class="uw-m-label" style="margin-bottom:4px">Competing Supply</div>
+        <strong id="uw-supply-n">—</strong> <span id="uw-supply-txt">units delivering ±18 months</span>
+      </div>
+
+      <div class="uw-label" style="margin-bottom:6px">Comp Range by Unit Type</div>
+      <div style="overflow-x:auto">
+        <table class="uw-comp-table" id="uw-range-tbl">
+          <thead><tr><th>Type</th><th>Units</th><th>Median</th><th>P25</th><th>P75</th><th>Comps</th></tr></thead>
+          <tbody id="uw-range-body"></tbody>
+        </table>
+      </div>
+
+      <button id="uw-copy-btn" onclick="uwCopy()" style="margin-top:14px">&#128203; Copy Summary</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- end .main -->
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -2607,7 +2937,8 @@ function buildCDReport() {
   const _yearAgo = new Date(_today); _yearAgo.setFullYear(_today.getFullYear() - 1);
   let drFrom = _yearAgo.toISOString().slice(0, 10);
   let drTo   = _today.toISOString().slice(0, 10);
-  const drSelBldgs = new Set(allBldgs.slice(0, 4));
+  // Default to first 4 buildings that have actual stats data
+  const drSelBldgs = new Set(allBldgs.filter(b => AGG.bldg_stats[b] && Object.keys(AGG.bldg_stats[b].units||{}).length > 0).slice(0, 4));
   let drRows = null;
   let drLoading = false;
   let drError = null;
@@ -2688,7 +3019,16 @@ function buildCDReport() {
     const chartTitle = mode === 'buildings' ? (metric === 'gr' ? 'Avg Rent by Building' : '$/SF by Building')
       : mode === 'trend' ? (metric === 'gr' ? 'Avg Rent by Quarter' : '$/SF by Quarter (market-wide)')
       : mode === 'daterange' ? 'Results by Building & Unit Type'
-      : `${metric === 'gr' ? 'Avg Rent' : '$/SF'} by Quarter — ${singleUT}`;
+      : (metric === 'gr' ? 'Avg Rent' : '$/SF') + ' by Quarter — ' + singleUT;
+
+    // Pre-compute to avoid nested backtick-in-backtick-in-backtick in template strings
+    const drErrorHtml = drError ? '<span style="margin-left:12px;font-size:11px;color:#c0392b">' + drError + '</span>' : '';
+    const drLoadingHtml = drLoading ? '<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>' : '';
+    const noQtrData = trendBldgs.length === 0;
+    const drQtrBanner = noQtrData
+      ? '<div style="margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,.04);border-left:3px solid var(--ink-faint);border-radius:1px;font-size:11px;color:var(--ink-soft)">No quarterly data has been imported — showing all-time averages. To enable date-range filtering, import quarterly comp stats via the admin panel.</div>'
+      : '';
+    const drResultsPlaceholder = drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select buildings and click Run.</span>' : '';
 
     h += `<div class="cd-card" style="margin-bottom:16px">
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -2723,6 +3063,7 @@ function buildCDReport() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="cd-report-single-ut"></div>
         </div>
       ` : `
+        ${drQtrBanner}
         <div style="margin-bottom:10px">
           <span class="eyebrow">Date Range</span>
           <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:6px">
@@ -2742,15 +3083,14 @@ function buildCDReport() {
         </div>
         <div style="margin-top:10px">
           <button id="cd-dr-run" style="padding:6px 18px;background:var(--accent);color:#fff;border:none;border-radius:1px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;letter-spacing:.03em">Run</button>
-          ${drError ? `<span style="margin-left:12px;font-size:11px;color:#c0392b">${drError}</span>` : ''}
-          ${drLoading ? `<span style="margin-left:12px;font-size:11px;color:var(--ink-soft)">Loading…</span>` : ''}
+          ${drErrorHtml}${drLoadingHtml}
         </div>
       `}
     </div>
 
     <div class="cd-card">
       <div class="cd-ph">${chartTitle}</div>
-      ${mode === 'daterange' ? `<div id="cd-dr-results" style="margin-top:8px">${drRows === null ? '<span style="font-size:11px;color:var(--ink-faint)">Select a date range and buildings, then click Run.</span>' : ''}</div>` : `
+      ${mode === 'daterange' ? '<div id="cd-dr-results" style="margin-top:8px">' + drResultsPlaceholder + '</div>' : `
       <div style="position:relative;height:220px">
         <canvas id="cd-report-chart"></canvas>
       </div>
@@ -2764,7 +3104,7 @@ function buildCDReport() {
     modeWrap.appendChild(chip('Compare Buildings', mode === 'buildings', 'var(--accent)', () => { mode = 'buildings'; render(); }));
     modeWrap.appendChild(chip('Trend Over Time', mode === 'trend', 'var(--accent)', () => { mode = 'trend'; render(); }));
     modeWrap.appendChild(chip('Buildings Over Time', mode === 'bldgtrend', 'var(--accent)', () => { mode = 'bldgtrend'; render(); }));
-    modeWrap.appendChild(chip('Date Range', mode === 'daterange', 'var(--accent)', () => { mode = 'daterange'; drRows = null; render(); }));
+    modeWrap.appendChild(chip('Date Range', mode === 'daterange', 'var(--accent)', () => { mode = 'daterange'; drRows = null; render(); setTimeout(() => document.getElementById('cd-dr-run')?.click(), 0); }));
 
     // Metric toggle (not shown for daterange — table shows all columns)
     const metricWrap = document.getElementById('cd-report-metric');
@@ -2821,7 +3161,7 @@ function buildCDReport() {
       const utActions = document.getElementById('cd-report-uts-actions');
       utActions.appendChild(linkBtn('Select All', () => { allUTs.forEach(t => selUTs.add(t)); render(); }));
       utActions.appendChild(linkBtn('Clear', () => { selUTs.clear(); render(); }));
-    } else {
+    } else if (mode === 'bldgtrend') {
       const bWrap = document.getElementById('cd-report-bldgs-time');
       const bldgPickerStyle = `padding:3px 7px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:10px;color:var(--ink);background:#fff;outline:none;cursor:pointer;min-width:110px`;
       allBldgs.forEach((b, i) => {
@@ -2915,53 +3255,154 @@ function buildCDReport() {
         render();
       };
 
-      // Building chips — all buildings, no data gate
+      // Building chips — greyed out if no stats available
       const drBWrap = document.getElementById('cd-dr-bldgs');
       allBldgs.forEach(b => {
-        const pt = AGG.bldg_stats[b]?.pt || 'Market';
-        const c = PT_COLORS[pt] || '#6b7b75';
-        drBWrap.appendChild(chip(b, drSelBldgs.has(b), c, () => {
-          drSelBldgs.has(b) ? drSelBldgs.delete(b) : drSelBldgs.add(b);
-          drRows = null;
-          render();
-        }));
+        const hasStats = !!(AGG.bldg_stats[b] && Object.keys(AGG.bldg_stats[b].units||{}).length);
+        if (!hasStats) {
+          const btn = document.createElement('button');
+          btn.textContent = b;
+          btn.title = 'No comp stats available for this building';
+          btn.style.cssText = 'padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:not-allowed;border:1px solid var(--line);background:transparent;color:var(--ink-faint);font-family:inherit;white-space:nowrap;opacity:0.35';
+          drBWrap.appendChild(btn);
+        } else {
+          const pt = AGG.bldg_stats[b]?.pt || 'Market';
+          const c = PT_COLORS[pt] || '#6b7b75';
+          drBWrap.appendChild(chip(b, drSelBldgs.has(b), c, () => {
+            drSelBldgs.has(b) ? drSelBldgs.delete(b) : drSelBldgs.add(b);
+            drRows = null;
+            render();
+          }));
+        }
       });
       const drBActions = document.getElementById('cd-dr-bldgs-actions');
       drBActions.appendChild(linkBtn('Select All', () => { allBldgs.forEach(b => drSelBldgs.add(b)); drRows = null; render(); }));
       drBActions.appendChild(linkBtn('Clear', () => { drSelBldgs.clear(); drRows = null; render(); }));
 
       // Run button
-      document.getElementById('cd-dr-run').onclick = async function() {
-        if (!drSelBldgs.size || !drFrom || !drTo) {
-          drError = 'Select at least one building and a date range.';
+      document.getElementById('cd-dr-run').onclick = function() {
+        if (!drSelBldgs.size) {
+          drError = 'Select at least one building.';
           render();
           return;
         }
         drError = null;
-        drLoading = true;
-        drRows = null;
-        render();
-        try {
-          const res = await fetch('/api/comp-stats-range', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ buildings: [...drSelBldgs], startDate: drFrom, endDate: drTo })
-          });
-          if (!res.ok) throw new Error('Server error ' + res.status);
-          const data = await res.json();
-          drRows = data.rows || [];
-          drLoading = false;
-          render();
-          renderDrResults();
-        } catch (e) {
-          drError = e.message || 'Failed to load data.';
-          drLoading = false;
-          render();
+        drRows = [];
+        var bldgs = [...drSelBldgs];
+        var utOrder = AGG.ut_order || ['ST','ST+HO','1BD','1BD+HO','1BD+2HO','2BD','2B+HO','3BD'];
+
+        function dateToQuarter(ds) {
+          var d = new Date(ds + 'T12:00:00');
+          return 'Q' + (Math.floor(d.getMonth() / 3) + 1) + ' ' + d.getFullYear();
         }
+        function qOrd(ql) {
+          var m = ql.match(/Q(\d)\s+(\d{4})/);
+          return m ? parseInt(m[2]) * 4 + parseInt(m[1]) : 0;
+        }
+        var qFrom = qOrd(dateToQuarter(drFrom));
+        var qTo   = qOrd(dateToQuarter(drTo));
+
+        bldgs.sort().forEach(function(b) {
+          var bTrend = AGG.bldg_trend && AGG.bldg_trend[b];
+          var accumulator = {}; // ut -> { rents:[], psfs:[], n }
+          var matchedQs = [];
+
+          if (bTrend) {
+            Object.keys(bTrend).forEach(function(q) {
+              var ord = qOrd(q);
+              if (ord < qFrom || ord > qTo) return;
+              matchedQs.push(q);
+              var qData = bTrend[q];
+              Object.keys(qData).forEach(function(ut) {
+                if (!utOrder.includes(ut)) return;
+                var cell = qData[ut];
+                if (cell.gr == null) return;
+                if (!accumulator[ut]) accumulator[ut] = { rents: [], psfs: [], n: 0 };
+                accumulator[ut].rents.push(cell.gr);
+                accumulator[ut].n += cell.n || 0;
+                if (cell.psf != null) accumulator[ut].psfs.push(cell.psf);
+              });
+            });
+          }
+
+          var hasQData = bTrend && Object.keys(bTrend).length > 0; // building has ANY quarter data
+          var inRangeData = Object.keys(accumulator).length > 0;   // has data in the selected range
+
+          // Sort matched quarters for display label
+          matchedQs.sort(function(a, b) { return qOrd(a) - qOrd(b); });
+          var sourceLabel, sourceType;
+          if (inRangeData) {
+            sourceType = 'quarterly';
+            sourceLabel = matchedQs.length === 1
+              ? matchedQs[0]
+              : matchedQs[0] + ' – ' + matchedQs[matchedQs.length - 1] + ' (' + matchedQs.length + ' qtrs)';
+          } else if (hasQData) {
+            // Has quarter data, but none falls in the selected range
+            sourceType = 'norange';
+            sourceLabel = 'No quarterly data for this date range';
+          } else {
+            // No quarter data at all — fall back to all-time stats
+            sourceType = 'alltime';
+            sourceLabel = 'All-time avg (no quarter-level data available)';
+          }
+
+          utOrder.forEach(function(ut) {
+            var avgRent = null, medRent = null, minRent = null, maxRent = null;
+            var avgPsf = null, n = 0;
+
+            if (inRangeData) {
+              if (!accumulator[ut] || !accumulator[ut].rents.length) return;
+              var rents = accumulator[ut].rents.slice().sort(function(a,b){return a-b;});
+              var sum = rents.reduce(function(a,b){return a+b;},0);
+              avgRent = Math.round(sum / rents.length);
+              medRent = rents.length % 2 === 0
+                ? Math.round((rents[rents.length/2-1] + rents[rents.length/2]) / 2)
+                : rents[Math.floor(rents.length/2)];
+              minRent = rents[0];
+              maxRent = rents[rents.length-1];
+              n = accumulator[ut].n;
+              if (accumulator[ut].psfs.length) {
+                var psum = accumulator[ut].psfs.reduce(function(a,b){return a+b;},0);
+                avgPsf = Math.round(psum / accumulator[ut].psfs.length * 100) / 100;
+              }
+            } else if (sourceType === 'alltime') {
+              var us = AGG.bldg_stats && AGG.bldg_stats[b] && AGG.bldg_stats[b].units && AGG.bldg_stats[b].units[ut];
+              if (!us || !us.gr || us.gr.avg == null) return;
+              avgRent = us.gr.avg; medRent = us.gr.med;
+              minRent = us.gr.min; maxRent = us.gr.max;
+              n = us.gr.n || 0;
+              avgPsf = us.psf ? us.psf.avg : null;
+            } else {
+              return; // norange — skip individual unit rows, building header handles message
+            }
+            if (avgRent == null) return;
+            drRows.push({
+              building: b, unitType: ut, n: n,
+              avgRent: avgRent, medRent: medRent,
+              minRent: minRent, maxRent: maxRent,
+              avgPsf: avgPsf, medPsf: null,
+              avgSf: null, medSf: null,
+              sourceType: sourceType, sourceLabel: sourceLabel
+            });
+          });
+
+          // If building has quarter data but none in range, push a sentinel row
+          if (sourceType === 'norange') {
+            drRows.push({
+              building: b, unitType: null, n: 0,
+              avgRent: null, medRent: null, minRent: null, maxRent: null,
+              avgPsf: null, medPsf: null, avgSf: null, medSf: null,
+              sourceType: 'norange', sourceLabel: sourceLabel
+            });
+          }
+        });
+        render();
+        renderDrResults();
       };
 
-      // If we already have results, render them
-      if (drRows !== null) renderDrResults();
+      // Auto-run on first load of date range mode
+      if (drRows === null) document.getElementById('cd-dr-run')?.click();
+      else renderDrResults();
     }
 
     drawReportChart();
@@ -2971,7 +3412,7 @@ function buildCDReport() {
     const el = document.getElementById('cd-dr-results');
     if (!el) return;
     if (!drRows || !drRows.length) {
-      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No lease comps found for this date range and building selection.</span>';
+      el.innerHTML = '<span style="font-size:11px;color:var(--ink-faint)">No comp stats found for the selected buildings. Try selecting different buildings.</span>';
       return;
     }
     // Group rows by building
@@ -2988,23 +3429,37 @@ function buildCDReport() {
     const tdStyleL = 'padding:4px 10px;text-align:left;font-size:11px;color:var(--ink);border-bottom:1px solid rgba(0,0,0,.04)';
     let html = '';
     Object.keys(byBldg).sort().forEach(bldg => {
-      html += `<div style="margin-bottom:18px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">${bldg}</div>`;
-      html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`;
-      html += `<thead><tr><th style="${thStyleL}">${colLabels.unitType}</th>${['avgRent','medRent','minRent','maxRent','avgPsf','medPsf','n'].map(c=>`<th style="${thStyle}">${colLabels[c]}</th>`).join('')}</tr></thead>`;
-      html += `<tbody>`;
-      byBldg[bldg].forEach(r => {
-        html += `<tr>
-          <td style="${tdStyleL}">${r.unitType||'—'}</td>
-          <td style="${tdStyle}">${r.avgRent!=null?fmtR(r.avgRent):'—'}</td>
-          <td style="${tdStyle}">${r.medRent!=null?fmtR(r.medRent):'—'}</td>
-          <td style="${tdStyle}">${r.minRent!=null?fmtR(r.minRent):'—'}</td>
-          <td style="${tdStyle}">${r.maxRent!=null?fmtR(r.maxRent):'—'}</td>
-          <td style="${tdStyle}">${r.avgPsf!=null?fmtP(r.avgPsf):'—'}</td>
-          <td style="${tdStyle}">${r.medPsf!=null?fmtP(r.medPsf):'—'}</td>
-          <td style="${tdStyle}">${r.n||0}</td>
-        </tr>`;
-      });
-      html += `</tbody></table></div></div>`;
+      const rows = byBldg[bldg];
+      const srcType = rows[0].sourceType;
+      const srcLabel = rows[0].sourceLabel;
+      const srcColor = srcType === 'quarterly' ? 'var(--accent)' : srcType === 'norange' ? '#e05c00' : 'var(--ink-faint)';
+      const srcIcon = srcType === 'quarterly' ? '●' : srcType === 'norange' ? '○' : '◌';
+      html += `<div style="margin-bottom:18px">`;
+      html += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">`;
+      html += `<span style="font-size:12px;font-weight:700;color:var(--ink)">${bldg}</span>`;
+      html += `<span style="font-size:10px;color:${srcColor};white-space:nowrap">${srcIcon} ${srcLabel}</span>`;
+      html += `</div>`;
+      if (srcType === 'norange') {
+        html += `<div style="font-size:11px;color:var(--ink-faint);padding:8px 0">No quarterly records found in the selected date range for this building.</div>`;
+      } else {
+        html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`;
+        html += `<thead><tr><th style="${thStyleL}">${colLabels.unitType}</th>${['avgRent','medRent','minRent','maxRent','avgPsf','medPsf','n'].map(c=>`<th style="${thStyle}">${colLabels[c]}</th>`).join('')}</tr></thead>`;
+        html += `<tbody>`;
+        rows.forEach(r => {
+          html += `<tr>
+            <td style="${tdStyleL}">${r.unitType||'—'}</td>
+            <td style="${tdStyle}">${r.avgRent!=null?fmtR(r.avgRent):'—'}</td>
+            <td style="${tdStyle}">${r.medRent!=null?fmtR(r.medRent):'—'}</td>
+            <td style="${tdStyle}">${r.minRent!=null?fmtR(r.minRent):'—'}</td>
+            <td style="${tdStyle}">${r.maxRent!=null?fmtR(r.maxRent):'—'}</td>
+            <td style="${tdStyle}">${r.avgPsf!=null?fmtP(r.avgPsf):'—'}</td>
+            <td style="${tdStyle}">${r.medPsf!=null?fmtP(r.medPsf):'—'}</td>
+            <td style="${tdStyle}">${r.n||0}</td>
+          </tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+      html += `</div>`;
     });
     el.innerHTML = html;
   }
@@ -3124,6 +3579,263 @@ function buildCDReport() {
       dot.classList.remove('over-marker');
     }
   });
+})();
+
+// Mobile sidebar toggle
+(function() {
+  var sbToggle = document.getElementById('sb-toggle');
+  var sbScrim = document.getElementById('sb-scrim');
+  var sidebar = document.querySelector('.sidebar');
+  if (!sbToggle || !sbScrim || !sidebar) return;
+  sbToggle.onclick = function() {
+    sidebar.classList.toggle('sb-open');
+    sbScrim.classList.toggle('on');
+  };
+  sbScrim.onclick = function() {
+    sidebar.classList.remove('sb-open');
+    sbScrim.classList.remove('on');
+  };
+})();
+
+// ── Quick Underwrite Panel ──
+(function() {
+  var uwBtn    = document.getElementById('uw-btn');
+  var uwScrim  = document.getElementById('uw-scrim');
+  var uwDrawer = document.getElementById('uw-drawer');
+  var uwClose  = document.getElementById('uw-close');
+  if (!uwBtn || !uwDrawer) return;
+
+  function openDrawer() {
+    uwDrawer.classList.add('open');
+    uwScrim.classList.add('on');
+  }
+  function closeDrawer() {
+    uwDrawer.classList.remove('open');
+    uwScrim.classList.remove('on');
+  }
+  uwBtn.onclick   = openDrawer;
+  uwClose.onclick = closeDrawer;
+  uwScrim.onclick = closeDrawer;
+
+  // ── Unit mix sliders ──
+  var uwMix = { ST: 25, '1BD': 45, '2BD': 20, '3BD': 10 };
+  var uwSliderMap = { ST: 'uw-sl-st', '1BD': 'uw-sl-1b', '2BD': 'uw-sl-2b', '3BD': 'uw-sl-3b' };
+
+  window.uwSlider = function(ut, val) {
+    uwMix[ut] = parseInt(val, 10);
+    document.getElementById('uw-v-' + ut).textContent = val + '%';
+    var total = uwMix.ST + uwMix['1BD'] + uwMix['2BD'] + uwMix['3BD'];
+    var lbl = document.getElementById('uw-sum-lbl');
+    lbl.textContent = 'Total: ' + total + '%';
+    lbl.classList.toggle('err', total !== 100);
+  };
+
+  // ── Submarket → property type mapping (approximate) ──
+  var subToPt = {
+    manhattan: [], midtown: [], downtown: [],
+    brooklyn: [], queens: [], bronx: []
+  };
+  // We filter by borough from DATA for competing supply
+  var subToBorough = {
+    manhattan: 'Manhattan', midtown: 'Manhattan', downtown: 'Manhattan',
+    brooklyn: 'Brooklyn', queens: 'Queens', bronx: 'Bronx'
+  };
+
+  var uwLastResult = null;
+
+  window.uwCalculate = async function() {
+    var total = uwMix.ST + uwMix['1BD'] + uwMix['2BD'] + uwMix['3BD'];
+    var errEl = document.getElementById('uw-err');
+    errEl.style.display = 'none';
+    if (total !== 100) {
+      errEl.textContent = 'Unit mix must sum to 100% (currently ' + total + '%).';
+      errEl.style.display = 'block';
+      return;
+    }
+    var btn = document.getElementById('uw-calc-btn');
+    btn.disabled = true;
+    btn.textContent = 'Calculating…';
+
+    try {
+      var ptSel = document.getElementById('uw-pt').value;
+      var body = {};
+      if (ptSel) body.propertyTypes = [ptSel];
+      body.unitTypes = ['ST', '1BD', '2BD', '3BD'];
+
+      var resp = await fetch('/api/underwrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) throw new Error('API error ' + resp.status);
+      var data = await resp.json();
+      var stats = data.stats || {};
+      var totalLeases = data.totalBuildings || 0;
+
+      var unitCount  = parseInt(document.getElementById('uw-units').value, 10) || 150;
+      var avgSf      = parseFloat(document.getElementById('uw-avgsf').value) || 750;
+      var concMo     = parseFloat(document.getElementById('uw-conc').value)   || 1;
+      var deliveryYr = parseInt(document.getElementById('uw-yr').value, 10)   || 2026;
+
+      // Blended rent = weighted average of median gross rents by unit mix
+      var types = ['ST', '1BD', '2BD', '3BD'];
+      var blendedRent = 0;
+      var blendedPsf  = 0;
+      var compN = 0;
+      for (var i = 0; i < types.length; i++) {
+        var ut = types[i];
+        var pct = uwMix[ut] / 100;
+        var s = stats[ut];
+        if (s && s.n > 0) {
+          blendedRent += pct * s.med;
+          blendedPsf  += pct * (s.medPsf || 0);
+          compN += s.n;
+        }
+      }
+
+      var concFactor = (12 - concMo) / 12;
+      var nerPerUnit = blendedRent * concFactor;
+      var gprMonthly = blendedRent * unitCount;
+      var gprAnnual  = gprMonthly * 12;
+      var nerMonthly = nerPerUnit * unitCount;
+      var nerAnnual  = nerMonthly * 12;
+
+      function fmtDollar(n) {
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+        if (n >= 1e3) return '$' + Math.round(n).toLocaleString();
+        return '$' + n.toFixed(0);
+      }
+      function fmtMo(n) { return '$' + Math.round(n).toLocaleString() + '/mo'; }
+
+      document.getElementById('uw-gpr-mo').textContent = fmtMo(gprMonthly);
+      document.getElementById('uw-gpr-yr').textContent = fmtDollar(gprAnnual) + ' / year';
+      document.getElementById('uw-ner-mo').textContent = fmtMo(nerMonthly);
+      document.getElementById('uw-ner-yr').textContent = fmtDollar(nerAnnual) + ' / year';
+      document.getElementById('uw-psf').textContent = blendedPsf > 0 ? '$' + blendedPsf.toFixed(2) : '—';
+      document.getElementById('uw-comps-n').textContent = compN + ' comp lease records';
+      document.getElementById('uw-ppu').textContent = fmtMo(blendedRent);
+
+      // Competing supply from DATA pipeline
+      var subSel  = document.getElementById('uw-sub').value;
+      var borough = subToBorough[subSel] || '';
+      var supplyUnits = 0;
+      var now = new Date();
+      var nowYrMo = now.getFullYear() * 12 + now.getMonth();
+      var targetYrMo = deliveryYr * 12; // treat Jan of delivery year
+      if (window.DATA && Array.isArray(window.DATA)) {
+        for (var j = 0; j < DATA.length; j++) {
+          var p = DATA[j];
+          if (borough && p.sub !== borough) continue;
+          // parse delivery year from p.d label like "2026" or "2026 Q2"
+          var m = (p.d || '').match(/\d{4}/);
+          if (!m) continue;
+          var pYrMo = parseInt(m[0], 10) * 12;
+          if (Math.abs(pYrMo - targetYrMo) <= 18) {
+            supplyUnits += (p.u || 0);
+          }
+        }
+      }
+      document.getElementById('uw-supply-n').textContent = supplyUnits.toLocaleString();
+      document.getElementById('uw-supply-txt').textContent =
+        'units delivering within 18 months of ' + deliveryYr +
+        (borough ? ' in ' + borough : '');
+
+      // Comp range table
+      var tbody = document.getElementById('uw-range-body');
+      var rows = '';
+      for (var k = 0; k < types.length; k++) {
+        var utt = types[k];
+        var ss  = stats[utt];
+        if (!ss || ss.n === 0) {
+          rows += '<tr><td>' + utt + '</td><td>' + (uwMix[utt] || 0) + '%</td>' +
+                  '<td colspan="3" style="color:#aaa">No data</td><td>0</td></tr>';
+        } else {
+          rows += '<tr><td>' + utt + '</td><td>' + (uwMix[utt] || 0) + '%</td>' +
+                  '<td>$' + Math.round(ss.med).toLocaleString() + '</td>' +
+                  '<td>$' + Math.round(ss.p25).toLocaleString() + '</td>' +
+                  '<td>$' + Math.round(ss.p75).toLocaleString() + '</td>' +
+                  '<td>' + ss.n + '</td></tr>';
+        }
+      }
+      tbody.innerHTML = rows;
+
+      // Store for clipboard
+      uwLastResult = {
+        subSel: subSel, ptSel: ptSel || 'All', unitCount: unitCount,
+        avgSf: avgSf, deliveryYr: deliveryYr, concMo: concMo,
+        mix: Object.assign({}, uwMix),
+        gprMonthly: gprMonthly, gprAnnual: gprAnnual,
+        nerMonthly: nerMonthly, nerAnnual: nerAnnual,
+        blendedRent: blendedRent, blendedPsf: blendedPsf,
+        compN: compN, supplyUnits: supplyUnits,
+        stats: stats
+      };
+
+      document.getElementById('uw-results').style.display = 'block';
+    } catch(e) {
+      var errEl2 = document.getElementById('uw-err');
+      errEl2.textContent = 'Error: ' + e.message;
+      errEl2.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Calculate';
+    }
+  };
+
+  window.uwCopy = function() {
+    var r = uwLastResult;
+    if (!r) return;
+    var subLabel = document.getElementById('uw-sub').options[document.getElementById('uw-sub').selectedIndex].text;
+    var lines = [
+      'QUICK UNDERWRITE SUMMARY',
+      '========================',
+      'Submarket: ' + subLabel + ' | Property type: ' + r.ptSel,
+      'Units: ' + r.unitCount + ' | Avg SF: ' + r.avgSf + ' | Delivery: ' + r.deliveryYr,
+      'Concession: ' + r.concMo + ' month(s)',
+      '',
+      'Unit Mix',
+      '  Studio: ' + r.mix.ST + '%  |  1 BR: ' + r.mix['1BD'] + '%  |  2 BR: ' + r.mix['2BD'] + '%  |  3 BR: ' + r.mix['3BD'] + '%',
+      '',
+      'FINANCIALS (based on ' + r.compN + ' comp transactions)',
+      '  Blended Rent/Unit:  $' + Math.round(r.blendedRent).toLocaleString() + '/mo',
+      '  Gross Potential Rent: $' + Math.round(r.gprMonthly).toLocaleString() + '/mo  |  $' + Math.round(r.gprAnnual).toLocaleString() + '/yr',
+      '  Net Effective Rent:   $' + Math.round(r.nerMonthly).toLocaleString() + '/mo  |  $' + Math.round(r.nerAnnual).toLocaleString() + '/yr',
+      '  Blended $/SF/mo: ' + (r.blendedPsf > 0 ? '$' + r.blendedPsf.toFixed(2) : 'n/a'),
+      '',
+      'Competing Supply: ' + r.supplyUnits.toLocaleString() + ' units ±18 months of ' + r.deliveryYr,
+      '',
+      'COMP RANGES',
+      '  Type  | Mix | Median | P25   | P75'
+    ];
+    var types = ['ST', '1BD', '2BD', '3BD'];
+    for (var i = 0; i < types.length; i++) {
+      var ut = types[i];
+      var s = r.stats[ut];
+      if (s && s.n > 0) {
+        lines.push('  ' + ut.padEnd(5) + ' | ' + String(r.mix[ut] + '%').padEnd(3) +
+          ' | $' + String(Math.round(s.med)).padStart(5) +
+          ' | $' + String(Math.round(s.p25)).padStart(5) +
+          ' | $' + String(Math.round(s.p75)).padStart(5));
+      } else {
+        lines.push('  ' + ut.padEnd(5) + ' | ' + String(r.mix[ut] + '%').padEnd(3) + ' | no data');
+      }
+    }
+    var text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        var btn = document.getElementById('uw-copy-btn');
+        btn.textContent = '✓ Copied!';
+        setTimeout(function() { btn.textContent = '📋 Copy Summary'; }, 2000);
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  };
 })();
 </script>
 </body></html>

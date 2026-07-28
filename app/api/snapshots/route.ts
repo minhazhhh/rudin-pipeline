@@ -3,14 +3,15 @@ import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/api-auth";
 
 // GET /api/snapshots?resource=X — list snapshots (no data blob, newest first)
+// GET /api/snapshots?limit=N — list all snapshots across all resources
 export async function GET(req: NextRequest) {
   const resource = req.nextUrl.searchParams.get("resource");
-  if (!resource) return NextResponse.json({ error: "resource required" }, { status: 400 });
+  const limit = parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10) || 50;
 
   const snaps = await prisma.snapshot.findMany({
-    where: { resource },
+    where: resource ? { resource } : undefined,
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: Math.min(limit, 200),
     select: { id: true, resource: true, label: true, createdAt: true },
   });
   return NextResponse.json(snaps);
