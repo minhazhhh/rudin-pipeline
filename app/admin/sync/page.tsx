@@ -11,6 +11,28 @@ function colLetter(idx: number): string {
   return result;
 }
 
+// ─── Client-side row key (mirrors server diff/route.ts rowKey) ─────────────────
+function clientRowKey(resource: string, row: Record<string, string>): string | null {
+  switch (resource) {
+    case "projects":      return row.name?.trim() || null;
+    case "comp-buildings": return row.name?.trim() || null;
+    case "comp-building-stats":
+      return row.buildingName?.trim() && row.unitType?.trim()
+        ? `${row.buildingName.trim()}|||${row.unitType.trim()}` : null;
+    case "comp-building-quarter-stats":
+      return row.buildingName?.trim() && row.quarter?.trim() && row.unitType?.trim()
+        ? `${row.buildingName.trim()}|||${row.quarter.trim()}|||${row.unitType.trim()}` : null;
+    case "overall-stats":  return row.unitType?.trim() || null;
+    case "type-stats":
+      return row.propertyType?.trim() && row.unitType?.trim()
+        ? `${row.propertyType.trim()}|||${row.unitType.trim()}` : null;
+    case "trend":
+      return row.quarter?.trim() && row.unitType?.trim()
+        ? `${row.quarter.trim()}|||${row.unitType.trim()}` : null;
+    default: return null;
+  }
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type AiResult = {
@@ -29,6 +51,7 @@ type ImportStatus = {
 type Step =
   | "drop"
   | "normalizing"
+  | "confirm"
   | "importing"
   | "done"
   | "error"
@@ -38,7 +61,24 @@ type Step =
 
 type ImportMode = "replace" | "upsert";
 
+type DiffResult = { newCount: number; updateCount: number; noKeyCount: number; updateKeys: string[] };
+
+type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
+
 // ─── Constants ─────────────────────────────────────────────────────────────────
+
+// Where each resource surfaces in the main dashboard
+const RESOURCE_LOCATION: Record<string, { tab: string; where: string }> = {
+  "projects":                    { tab: "Pipeline tab",    where: "Map markers + project cards (left panel)" },
+  "comp-buildings":              { tab: "Rent Comps tab",  where: "Building list in all comp views (Compare, Trend, Date Range)" },
+  "comp-building-stats":         { tab: "Rent Comps tab",  where: "Compare Buildings chart + Date Range all-time averages" },
+  "comp-building-quarter-stats": { tab: "Rent Comps tab",  where: "Buildings Over Time chart + Date Range quarterly filtering" },
+  "overall-stats":               { tab: "Rent Comps tab",  where: "Market Stats panel — overall market averages" },
+  "type-stats":                  { tab: "Rent Comps tab",  where: "Market Stats panel — averages broken out by property type" },
+  "trend":                       { tab: "Rent Comps tab",  where: "Trend Over Time chart (market-wide quarterly rent trend)" },
+  "lease-comps":                 { tab: "Rent Comps tab",  where: "Date Range — per-lease filtering (enables exact date ranges)" },
+  "comp-building-units":         { tab: "Rent Comps tab",  where: "Building unit-mix detail (unit count breakdown per building)" },
+};
 
 // Import order: comp-buildings must come before stats that reference it
 const IMPORT_ORDER: Resource[] = [
@@ -364,6 +404,22 @@ export default function SyncPage() {
   const [submitting, setSubmitting] = useState(false);
   const [manualResult, setManualResult] = useState<{ ok: boolean; message: string } | null>(null);
 
+  // Confirm step — which resources are selected for import
+  const [confirmSelected, setConfirmSelected] = useState<Set<string>>(new Set());
+
+  // Duplicate detection
+  const [diffResults, setDiffResults] = useState<Record<string, DiffResult>>({});
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [importModes, setImportModes] = useState<Record<string, "all" | "new-only">>({});
+
+  // Version history / undo
+  const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [undoing, setUndoing] = useState(false);
+  const [lastImportedResources, setLastImportedResources] = useState<string[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<{ buf: ArrayBuffer; name: string } | null>(null);
 
@@ -377,6 +433,59 @@ export default function SyncPage() {
       });
   }, []);
 
+  function loadSnapshots() {
+    fetch("/api/snapshots?limit=50")
+      .then((r) => r.json())
+      .then((data) => setSnapshots(Array.isArray(data) ? data : []));
+  }
+
+  useEffect(() => { loadSnapshots(); }, []);
+
+  async function restoreSnapshot(id: string) {
+    if (!confirm("Restore to this version? Current data will be overwritten (a new snapshot is saved first so you can undo).")) return;
+    setRestoring(id);
+    setRestoreMsg(null);
+    try {
+      const res = await fetch(`/api/snapshots/${id}`, { method: "POST" });
+      const body = await res.json();
+      if (res.ok) {
+        setRestoreMsg({ ok: true, text: `Restored. ${body.rowsImported ?? ""} rows loaded. Refresh the data pages to see changes.` });
+        loadSnapshots();
+      } else {
+        setRestoreMsg({ ok: false, text: body.error ?? "Restore failed." });
+      }
+    } catch (e) {
+      setRestoreMsg({ ok: false, text: e instanceof Error ? e.message : "Network error" });
+    } finally {
+      setRestoring(null);
+    }
+  }
+
+  async function deleteSnapshot(id: string) {
+    if (!confirm("Delete this snapshot?")) return;
+    await fetch(`/api/snapshots/${id}`, { method: "DELETE" });
+    loadSnapshots();
+  }
+
+  async function undoLastImport() {
+    const target = snapshots.find((s) => lastImportedResources.includes(s.resource));
+    if (!target) return;
+    setUndoing(true);
+    try {
+      const res = await fetch(`/api/snapshots/${target.id}`, { method: "POST" });
+      const body = await res.json();
+      if (res.ok) {
+        setRestoreMsg({ ok: true, text: `Undone. Restored ${target.resource} to state before last import.` });
+        setLastImportedResources([]);
+        loadSnapshots();
+      } else {
+        setRestoreMsg({ ok: false, text: body.error ?? "Undo failed." });
+      }
+    } finally {
+      setUndoing(false);
+    }
+  }
+
   // ── AI import flow ─────────────────────────────────────────────────────────
 
   async function runImports(resources: Record<string, Record<string, string>[]>) {
@@ -388,6 +497,8 @@ export default function SyncPage() {
     setImportStatuses(init);
     setStep("importing");
 
+    const succeeded: Resource[] = [];
+
     async function doImport(r: Resource) {
       setImportStatuses((prev) => ({ ...prev, [r]: { state: "running" } }));
       try {
@@ -398,6 +509,7 @@ export default function SyncPage() {
         });
         const body = await res.json();
         if (res.ok) {
+          succeeded.push(r);
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "done", count: body.rowsImported } }));
         } else {
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "error", message: body.error ?? "Failed" } }));
@@ -422,6 +534,7 @@ export default function SyncPage() {
     }
 
     setStep("done");
+    if (succeeded.length) { setLastImportedResources(succeeded); loadSnapshots(); }
   }
 
   async function handleFile(file: File) {
@@ -450,7 +563,33 @@ export default function SyncPage() {
     try {
       const result = await normalizeClientSide(sheets, file.name);
       setAiResult(result);
-      await runImports(result.resources);
+      setConfirmSelected(new Set(IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0)));
+      setDiffResults({});
+      setImportModes({});
+      setStep("confirm"); // show preview + confirm before importing
+
+      // Fetch duplicate detection counts in background
+      setDiffLoading(true);
+      const resources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
+      Promise.all(
+        resources.map((r) =>
+          fetch("/api/comps-import/diff", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resource: r, rows: result.resources[r] }),
+          })
+            .then((res) => res.ok ? res.json() : null)
+            .then((data) => data ? { resource: r, data } : null)
+            .catch(() => null)
+        )
+      ).then((results) => {
+        const map: Record<string, DiffResult> = {};
+        for (const item of results) {
+          if (item) map[item.resource] = item.data;
+        }
+        setDiffResults(map);
+        setDiffLoading(false);
+      });
     } catch (e) {
       setNormalizeError(e instanceof Error ? e.message : String(e));
       setStep("error");
@@ -539,11 +678,13 @@ export default function SyncPage() {
         body: JSON.stringify({ resource, rows: buildMappedRows(), mode }),
       });
       const body = await res.json();
-      setManualResult(
-        res.ok
-          ? { ok: true, message: `${mode === "replace" ? "Replaced all data with" : "Merged"} ${body.rowsImported} rows into ${RESOURCE_LABELS[resource]}.` }
-          : { ok: false, message: body.error ?? "Unknown error" },
-      );
+      if (res.ok) {
+        setManualResult({ ok: true, message: `${mode === "replace" ? "Replaced all data with" : "Merged"} ${body.rowsImported} rows into ${RESOURCE_LABELS[resource]}.` });
+        setLastImportedResources([resource]);
+        loadSnapshots();
+      } else {
+        setManualResult({ ok: false, message: body.error ?? "Unknown error" });
+      }
     } catch (e) {
       setManualResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -581,7 +722,7 @@ export default function SyncPage() {
     .map((f) => f.key)
     .filter((k) => !new Set(Object.values(mappings).filter(Boolean) as string[]).has(k));
 
-  const isAiStep = ["drop", "normalizing", "importing", "done", "error"].includes(step);
+  const isAiStep = ["drop", "normalizing", "confirm", "importing", "done", "error"].includes(step);
   const doneCount = Object.values(importStatuses).filter((s) => s.state === "done").length;
   const errCount  = Object.values(importStatuses).filter((s) => s.state === "error").length;
   const totalImports = Object.keys(importStatuses).length;
@@ -662,6 +803,182 @@ export default function SyncPage() {
         </div>
       )}
 
+      {/* ── Confirm step ─────────────────────────────────────────────────────── */}
+      {step === "confirm" && aiResult && (
+        <div style={{ marginBottom: "3rem" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: "1.5rem", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: "0.25rem" }}>Ready to import</div>
+              <div style={{ fontSize: "0.84rem", color: "#64748b" }}>{aiResult.summary}</div>
+            </div>
+            <button onClick={() => downloadXlsx(aiResult.xlsxBase64, aiResult.fileName)}
+              style={{ padding: "8px 16px", background: "#0f172a", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600, fontSize: "0.84rem", whiteSpace: "nowrap" }}>
+              ⬇ Download normalized XLSX
+            </button>
+          </div>
+
+          {IMPORT_ORDER.filter((r) => (aiResult.resources[r]?.length ?? 0) > 0).map((r) => {
+            const rows = aiResult.resources[r];
+            const loc = RESOURCE_LOCATION[r];
+            const previewHeaders = rows[0] ? Object.keys(rows[0]) : [];
+            const included = confirmSelected.has(r);
+            const diff = diffResults[r];
+            const imode = importModes[r] ?? "all";
+            return (
+              <div key={r} style={{
+                marginBottom: "1.25rem", borderRadius: 10, overflow: "hidden",
+                border: `2px solid ${included ? "#86efac" : "#e2e8f0"}`,
+                opacity: included ? 1 : 0.5,
+                transition: "border-color 0.15s, opacity 0.15s",
+              }}>
+                {/* Resource header — click to toggle */}
+                <div
+                  onClick={() => setConfirmSelected((prev) => {
+                    const next = new Set(prev);
+                    next.has(r) ? next.delete(r) : next.add(r);
+                    return next;
+                  })}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: included ? "#f0fdf4" : "#f8fafc", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap", cursor: "pointer", userSelect: "none" }}>
+                  {/* Toggle indicator */}
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                    background: included ? "#16a34a" : "#e2e8f0",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.8rem", color: "#fff", fontWeight: 700, transition: "background 0.15s",
+                  }}>
+                    {included ? "✓" : "✕"}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.92rem", color: included ? "#15803d" : "#64748b" }}>{RESOURCE_LABELS[r]}</div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {rows.length.toLocaleString()} rows
+                      {/* Duplicate detection badges */}
+                      {diffLoading && !diff && (
+                        <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>checking for duplicates…</span>
+                      )}
+                      {diff && (
+                        <>
+                          {diff.newCount > 0 && (
+                            <span style={{ background: "#dcfce7", color: "#15803d", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem" }}>
+                              {diff.newCount.toLocaleString()} new
+                            </span>
+                          )}
+                          {diff.updateCount > 0 && (
+                            <span style={{ background: "#fef9c3", color: "#a16207", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem" }}>
+                              {diff.updateCount.toLocaleString()} will update existing
+                            </span>
+                          )}
+                          {diff.newCount === 0 && diff.updateCount === 0 && (
+                            <span style={{ background: "#f1f5f9", color: "#64748b", borderRadius: 4, padding: "1px 7px", fontSize: "0.72rem" }}>
+                              all rows already in DB
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {loc && (
+                        <span>
+                          <span style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem", marginRight: 4 }}>{loc.tab}</span>
+                          {loc.where}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: included ? "#15803d" : "#94a3b8", fontWeight: 600, flexShrink: 0 }}>
+                    {included ? "Will import" : "Excluded"}
+                  </div>
+                </div>
+                {/* Duplicate handling toggle — only show when there are updates */}
+                {included && diff && diff.updateCount > 0 && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ padding: "8px 14px", background: "#fffbeb", borderBottom: "1px solid #fde68a", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#92400e", fontWeight: 600 }}>⚠ {diff.updateCount} duplicate{diff.updateCount !== 1 ? "s" : ""} detected — how to handle?</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => setImportModes((m) => ({ ...m, [r]: "all" }))}
+                        style={{ padding: "3px 10px", fontSize: "0.78rem", border: "1px solid", borderRadius: 4, cursor: "pointer", fontWeight: 600,
+                          background: imode === "all" ? "#f59e0b" : "#fff",
+                          color: imode === "all" ? "#fff" : "#92400e",
+                          borderColor: imode === "all" ? "#f59e0b" : "#fde68a" }}>
+                        Update existing
+                      </button>
+                      <button
+                        onClick={() => setImportModes((m) => ({ ...m, [r]: "new-only" }))}
+                        style={{ padding: "3px 10px", fontSize: "0.78rem", border: "1px solid", borderRadius: 4, cursor: "pointer", fontWeight: 600,
+                          background: imode === "new-only" ? "#16a34a" : "#fff",
+                          color: imode === "new-only" ? "#fff" : "#166534",
+                          borderColor: imode === "new-only" ? "#16a34a" : "#86efac" }}>
+                        Skip duplicates ({diff.newCount} new only)
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {/* Data preview */}
+                <div style={{ overflowX: "auto", fontSize: "0.78rem" }}>
+                  <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+                    <thead>
+                      <tr style={{ background: "#f1f5f9" }}>
+                        {previewHeaders.map((h) => (
+                          <th key={h} style={{ padding: "5px 10px", textAlign: "left", fontWeight: 600, color: "#475569", whiteSpace: "nowrap", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.slice(0, 5).map((row, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 1 ? "#fafafa" : "#fff" }}>
+                          {previewHeaders.map((h) => (
+                            <td key={h} style={{ padding: "4px 10px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #f1f5f9", color: "#334155" }}>
+                              {row[h] ?? ""}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {rows.length > 5 && (
+                  <div style={{ padding: "5px 14px", fontSize: "0.75rem", color: "#94a3b8", background: "#fafafa", borderTop: "1px solid #f1f5f9" }}>
+                    + {(rows.length - 5).toLocaleString()} more rows not shown
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div style={{ display: "flex", gap: 8, marginTop: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={() => {
+                const filtered: Record<string, Record<string, string>[]> = {};
+                for (const [r, rows] of Object.entries(aiResult.resources)) {
+                  if (!confirmSelected.has(r)) continue;
+                  const mode = importModes[r] ?? "all";
+                  if (mode === "new-only" && diffResults[r]?.updateKeys?.length) {
+                    const skipSet = new Set(diffResults[r].updateKeys);
+                    filtered[r] = rows.filter((row) => {
+                      const k = clientRowKey(r, row);
+                      return k === null || !skipSet.has(k);
+                    });
+                  } else {
+                    filtered[r] = rows;
+                  }
+                }
+                runImports(filtered);
+              }}
+              disabled={confirmSelected.size === 0}
+              style={{ padding: "9px 22px", background: confirmSelected.size === 0 ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.92rem" }}>
+              ✓ Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
+            </button>
+            <button onClick={resetDrop}
+              style={{ padding: "9px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+              ← Start over
+            </button>
+            {confirmSelected.size === 0 && (
+              <span style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Select at least one resource to import.</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Importing / Done ─────────────────────────────────────────────────── */}
       {(step === "importing" || step === "done") && aiResult && (
         <div style={{ marginBottom: "3rem" }}>
@@ -710,11 +1027,17 @@ export default function SyncPage() {
           </div>
 
           {step === "done" && (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <button onClick={resetDrop}
                 style={{ padding: "7px 16px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: "0.88rem" }}>
                 Import another file
               </button>
+              {lastImportedResources.length > 0 && snapshots.some((s) => lastImportedResources.includes(s.resource)) && (
+                <button onClick={undoLastImport} disabled={undoing}
+                  style={{ padding: "7px 14px", background: undoing ? "#94a3b8" : "#fff", color: undoing ? "#fff" : "#dc2626", border: "1px solid #fca5a5", borderRadius: 6, cursor: undoing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "0.88rem" }}>
+                  {undoing ? "Undoing…" : "↩ Undo last import"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -753,6 +1076,63 @@ export default function SyncPage() {
                   <strong>✦ Claude:</strong> {aiReasoning}
                 </div>
               )}
+
+              {/* ── Sheet preview ──────────────────────────────────────────── */}
+              <div style={{ marginBottom: "1.25rem" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+                  Sheet preview — first {Math.min(rawRows.length, 6)} of {rawRows.length.toLocaleString()} rows
+                </div>
+                <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: "0.78rem" }}>
+                  <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc" }}>
+                        {headers.map((h) => {
+                          const mapped = mappings[h];
+                          const wasAi = aiMappedFields.has(h);
+                          const field = RESOURCE_FIELDS[resource].find((f) => f.key === mapped);
+                          return (
+                            <th key={h} style={{
+                              padding: "5px 10px", textAlign: "left", whiteSpace: "nowrap", fontWeight: 600,
+                              borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #e2e8f0",
+                              background: mapped ? "#f0fdf4" : "#f8fafc",
+                              color: mapped ? "#15803d" : "#94a3b8", minWidth: 90,
+                            }}>
+                              <div style={{ fontSize: "0.7rem", color: mapped ? "#86efac" : "#e2e8f0", marginBottom: 1 }}>
+                                {mapped ? `→ ${field?.label ?? mapped}${wasAi ? " (AI)" : ""}` : "(skip)"}
+                              </div>
+                              {h}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rawRows.slice(0, 6).map((row, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 1 ? "#fafafa" : "#fff" }}>
+                          {headers.map((h) => {
+                            const mapped = mappings[h];
+                            return (
+                              <td key={h} style={{
+                                padding: "4px 10px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                borderRight: "1px solid #f1f5f9",
+                                color: mapped ? "#1e293b" : "#94a3b8",
+                                background: mapped ? undefined : "rgba(0,0,0,.015)",
+                              }}>
+                                {row[h] ?? ""}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ fontSize: "0.73rem", color: "#94a3b8", marginTop: "0.4rem" }}>
+                  Mapped columns are <span style={{ color: "#15803d", fontWeight: 600 }}>highlighted green</span>. Skipped columns are greyed out.
+                </div>
+              </div>
+
+              {/* ── Mapping table ──────────────────────────────────────────── */}
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", marginBottom: "1rem" }}>
                 <thead>
                   <tr style={{ background: "#f1f5f9" }}>
@@ -876,10 +1256,18 @@ export default function SyncPage() {
             {manualResult.ok ? "Import complete" : "Import failed"}
           </div>
           <div style={{ fontSize: "0.88rem" }}>{manualResult.message}</div>
-          <button onClick={resetDrop}
-            style={{ marginTop: "0.75rem", padding: "6px 14px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
-            Import another file
-          </button>
+          <div style={{ marginTop: "0.75rem", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={resetDrop}
+              style={{ padding: "6px 14px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+              Import another file
+            </button>
+            {manualResult.ok && lastImportedResources.length > 0 && snapshots.some((s) => lastImportedResources.includes(s.resource)) && (
+              <button onClick={undoLastImport} disabled={undoing}
+                style={{ padding: "6px 12px", background: undoing ? "#94a3b8" : "#fff", color: undoing ? "#fff" : "#dc2626", border: "1px solid #fca5a5", borderRadius: 6, cursor: undoing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "0.88rem" }}>
+                {undoing ? "Undoing…" : "↩ Undo"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -893,6 +1281,65 @@ export default function SyncPage() {
           </button>
         </div>
       )}
+
+      {/* ── Undo / restore feedback ──────────────────────────────────────────── */}
+      {restoreMsg && (
+        <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: "1.5rem",
+          background: restoreMsg.ok ? "#f0fdf4" : "#fef2f2",
+          border: `1px solid ${restoreMsg.ok ? "#86efac" : "#fca5a5"}`,
+          color: restoreMsg.ok ? "#15803d" : "#dc2626", fontSize: "0.88rem" }}>
+          {restoreMsg.text}
+          <button onClick={() => setRestoreMsg(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 700 }}>×</button>
+        </div>
+      )}
+
+      {/* ── Version history ───────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: "2rem" }}>
+        <button onClick={() => setHistoryOpen((o) => !o)} type="button"
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.88rem", color: "#475569", fontWeight: 600 }}>
+          <span style={{ fontSize: "0.75rem", display: "inline-block", transform: historyOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+          Version history {snapshots.length > 0 && <span style={{ fontWeight: 400, color: "#94a3b8" }}>({snapshots.length} snapshots)</span>}
+        </button>
+        {historyOpen && (
+          <div style={{ marginTop: "0.75rem" }}>
+            {snapshots.length === 0 ? (
+              <p style={{ fontSize: "0.84rem", color: "#94a3b8" }}>No snapshots yet — one is saved automatically before each import.</p>
+            ) : (
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.83rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Saved</th>
+                      <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Resource</th>
+                      <th style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Label</th>
+                      <th style={{ padding: "7px 12px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snapshots.map((s, i) => (
+                      <tr key={s.id} style={{ borderBottom: i < snapshots.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                        <td style={{ padding: "6px 12px", color: "#64748b", whiteSpace: "nowrap" }}>{new Date(s.createdAt).toLocaleString()}</td>
+                        <td style={{ padding: "6px 12px" }}><span style={{ fontSize: "0.78rem", background: "#f1f5f9", borderRadius: 4, padding: "2px 7px", color: "#475569", fontFamily: "monospace" }}>{s.resource}</span></td>
+                        <td style={{ padding: "6px 12px", color: "#475569" }}>{s.label}</td>
+                        <td style={{ padding: "6px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button onClick={() => restoreSnapshot(s.id)} disabled={restoring === s.id} type="button"
+                            style={{ padding: "3px 10px", fontSize: "0.8rem", background: restoring === s.id ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: restoring === s.id ? "not-allowed" : "pointer", marginRight: 6 }}>
+                            {restoring === s.id ? "Restoring…" : "Restore"}
+                          </button>
+                          <button onClick={() => deleteSnapshot(s.id)} type="button"
+                            style={{ padding: "3px 8px", fontSize: "0.8rem", background: "none", border: "1px solid #e2e8f0", borderRadius: 4, cursor: "pointer", color: "#94a3b8" }}>
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ── Divider ──────────────────────────────────────────────────────────── */}
       <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "0 0 2rem" }} />
