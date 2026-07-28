@@ -487,6 +487,38 @@ export default function SyncPage() {
     }
   }
 
+  // ── Duplicate detection ────────────────────────────────────────────────────
+
+  function retryDiff(r: string, rows: Record<string, string>[]) {
+    setDiffErrors((prev) => { const next = new Set(prev); next.delete(r); return next; });
+    setDiffResults((prev) => { const next = { ...prev }; delete next[r]; return next; });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    fetch("/api/comps-import/diff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resource: r, rows }),
+      signal: ctrl.signal,
+    })
+      .then(async (res) => {
+        clearTimeout(timer);
+        if (!res.ok) {
+          const text = await res.text().catch(() => String(res.status));
+          console.warn(`[diff retry] ${r} => HTTP ${res.status}:`, text);
+          setDiffErrors((prev) => new Set([...prev, r]));
+        } else {
+          const data = await res.json();
+          console.log(`[diff retry] ${r} =>`, data);
+          setDiffResults((prev) => ({ ...prev, [r]: data }));
+        }
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        console.warn(`[diff retry] ${r} => failed:`, String(err));
+        setDiffErrors((prev) => new Set([...prev, r]));
+      });
+  }
+
   // ── AI import flow ─────────────────────────────────────────────────────────
 
   async function runImports(resources: Record<string, Record<string, string>[]>) {
@@ -570,43 +602,46 @@ export default function SyncPage() {
       setImportModes({});
       setStep("confirm"); // show preview + confirm before importing
 
-      // Fetch duplicate detection counts in background
+      // Fetch duplicate detection counts — one request per resource, update UI as each arrives
+      const diffResources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
+      console.log("[diff v3] starting for resources:", diffResources);
+      if (diffResources.length === 0) return;
+
       setDiffLoading(true);
-      const resources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
-      Promise.all(
-        resources.map((r) =>
-          fetch("/api/comps-import/diff", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ resource: r, rows: result.resources[r] }),
-          })
-            .then(async (res) => {
-              if (!res.ok) {
-                const text = await res.text().catch(() => res.status.toString());
-                console.warn(`[diff] ${r} returned ${res.status}:`, text);
-                return { resource: r, error: true };
-              }
+      let pending = diffResources.length;
+
+      const finishOne = () => { pending--; if (pending === 0) setDiffLoading(false); };
+
+      for (const r of diffResources) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20_000);
+
+        fetch("/api/comps-import/diff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: r, rows: result.resources[r] }),
+          signal: ctrl.signal,
+        })
+          .then(async (res) => {
+            clearTimeout(timer);
+            if (!res.ok) {
+              const text = await res.text().catch(() => String(res.status));
+              console.warn(`[diff v3] ${r} => HTTP ${res.status}:`, text);
+              setDiffErrors((prev) => new Set([...prev, r]));
+            } else {
               const data = await res.json();
-              console.log(`[diff] ${r}:`, data);
-              return { resource: r, data };
-            })
-            .catch((err) => {
-              console.warn(`[diff] ${r} fetch failed:`, err);
-              return { resource: r, error: true };
-            })
-        )
-      ).then((results) => {
-        const map: Record<string, DiffResult> = {};
-        const errors = new Set<string>();
-        for (const item of results) {
-          if (!item) continue;
-          if ("error" in item) errors.add(item.resource);
-          else map[item.resource] = item.data;
-        }
-        setDiffResults(map);
-        setDiffErrors(errors);
-        setDiffLoading(false);
-      });
+              console.log(`[diff v3] ${r} =>`, data);
+              setDiffResults((prev) => ({ ...prev, [r]: data }));
+            }
+          })
+          .catch((err) => {
+            clearTimeout(timer);
+            const msg = err?.name === "AbortError" ? "timed out after 20s" : String(err);
+            console.warn(`[diff v3] ${r} => failed:`, msg);
+            setDiffErrors((prev) => new Set([...prev, r]));
+          })
+          .finally(finishOne);
+      }
     } catch (e) {
       setNormalizeError(e instanceof Error ? e.message : String(e));
       setStep("error");
@@ -879,7 +914,10 @@ export default function SyncPage() {
                           <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>checking duplicates…</span>
                         )}
                         {diffErr && (
-                          <span style={{ background: "#fff3f3", color: "var(--red)", border: "1px solid #f0c0c0", padding: "0 6px", fontSize: "10px" }} title="Open browser console for details">⚠ dup check failed</span>
+                          <>
+                            <span style={{ background: "#fff3f3", color: "var(--red)", border: "1px solid #f0c0c0", padding: "0 6px", fontSize: "10px" }}>⚠ dup check failed</span>
+                            <button onClick={() => retryDiff(r, aiResult.resources[r])} style={{ fontSize: "10px", padding: "0 5px", border: "1px solid var(--line)", background: "var(--paper)", cursor: "pointer", fontFamily: "inherit", color: "var(--ink-soft)" }}>retry</button>
+                          </>
                         )}
                         {diff && (
                           <>
