@@ -11,14 +11,14 @@ export async function POST(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
 
-  let body: { resource: string; rows: ImportRow[]; mode: ImportMode };
+  let body: { resource: string; rows: ImportRow[]; mode: ImportMode; fileName?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { resource: resourceParam, rows, mode } = body;
+  const { resource: resourceParam, rows, mode, fileName } = body;
 
   if (!RESOURCES.includes(resourceParam as Resource)) {
     return NextResponse.json({ error: `Unknown resource "${resourceParam}"` }, { status: 400 });
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Snapshot current state before any destructive write so it can be restored
-    await snapshotBefore(resource, rows.length, mode);
+    await snapshotBefore(resource, rows.length, mode, fileName);
     const { count, derived } = await importResource(resource, rows, mode);
     await prisma.syncConfig.update({ where: { id: 1 }, data: { lastSyncedAt: new Date() } });
     return NextResponse.json({ ok: true, resource, rowsImported: count, derived, mode });
@@ -68,12 +68,13 @@ async function importLeaseCompsWithDerived(rows: ImportRow[], mode: ImportMode):
   };
 }
 
-async function snapshotBefore(resource: Resource, incomingCount: number, mode: ImportMode) {
+async function snapshotBefore(resource: Resource, incomingCount: number, mode: ImportMode, fileName?: string) {
   try {
     const current = await fetchCurrentForSnapshot(resource);
     if (current.length === 0) return; // nothing to snapshot
     const verb = mode === "replace" ? "Replace" : "Merge";
-    const label = `Before ${verb.toLowerCase()} — ${current.length} rows → ${incomingCount} incoming`;
+    const filePart = fileName ? ` from "${fileName}"` : "";
+    const label = `Before ${verb.toLowerCase()}${filePart} — ${current.length} rows → ${incomingCount} incoming`;
     await prisma.snapshot.create({ data: { resource, label, data: current as object[] } });
     // Keep at most 20 snapshots per resource
     const all = await prisma.snapshot.findMany({ where: { resource }, orderBy: { createdAt: "desc" }, select: { id: true } });
@@ -472,11 +473,13 @@ async function importCompBuildingUnits(rows: ImportRow[], mode: ImportMode): Pro
       status: r.status?.trim() || null,
       notes: r.notes?.trim() || null,
     }));
+  const affectedIds = [...idByName.values()];
   if (mode === "replace") {
-    const ids = [...idByName.values()];
-    await prisma.$transaction([prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: ids } } }), ...data.map((d) => prisma.compBuildingUnit.create({ data: d }))]);
+    await prisma.$transaction([prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: affectedIds } } }), ...data.map((d) => prisma.compBuildingUnit.create({ data: d }))]);
   } else {
-    for (const d of data) await prisma.compBuildingUnit.create({ data: d });
+    // Upsert: delete existing units for affected buildings first to prevent duplicates, then re-create
+    await prisma.compBuildingUnit.deleteMany({ where: { buildingId: { in: affectedIds } } });
+    if (data.length) await prisma.compBuildingUnit.createMany({ data });
   }
   return data.length;
 }

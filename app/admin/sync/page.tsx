@@ -11,6 +11,28 @@ function colLetter(idx: number): string {
   return result;
 }
 
+// ─── Client-side row key (mirrors server diff/route.ts rowKey) ─────────────────
+function clientRowKey(resource: string, row: Record<string, string>): string | null {
+  switch (resource) {
+    case "projects":      return row.name?.trim() || null;
+    case "comp-buildings": return row.name?.trim() || null;
+    case "comp-building-stats":
+      return row.buildingName?.trim() && row.unitType?.trim()
+        ? `${row.buildingName.trim()}|||${row.unitType.trim()}` : null;
+    case "comp-building-quarter-stats":
+      return row.buildingName?.trim() && row.quarter?.trim() && row.unitType?.trim()
+        ? `${row.buildingName.trim()}|||${row.quarter.trim()}|||${row.unitType.trim()}` : null;
+    case "overall-stats":  return row.unitType?.trim() || null;
+    case "type-stats":
+      return row.propertyType?.trim() && row.unitType?.trim()
+        ? `${row.propertyType.trim()}|||${row.unitType.trim()}` : null;
+    case "trend":
+      return row.quarter?.trim() && row.unitType?.trim()
+        ? `${row.quarter.trim()}|||${row.unitType.trim()}` : null;
+    default: return null;
+  }
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type AiResult = {
@@ -39,7 +61,24 @@ type Step =
 
 type ImportMode = "replace" | "upsert";
 
+type DiffResult = { newCount: number; updateCount: number; noKeyCount: number; updateKeys: string[] };
+
+type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
+
 // ─── Constants ─────────────────────────────────────────────────────────────────
+
+// Where each resource surfaces in the main dashboard
+const RESOURCE_LOCATION: Record<string, { tab: string; where: string }> = {
+  "projects":                    { tab: "Pipeline tab",    where: "Map markers + project cards (left panel)" },
+  "comp-buildings":              { tab: "Rent Comps tab",  where: "Building list in all comp views (Compare, Trend, Date Range)" },
+  "comp-building-stats":         { tab: "Rent Comps tab",  where: "Compare Buildings chart + Date Range all-time averages" },
+  "comp-building-quarter-stats": { tab: "Rent Comps tab",  where: "Buildings Over Time chart + Date Range quarterly filtering" },
+  "overall-stats":               { tab: "Rent Comps tab",  where: "Market Stats panel — overall market averages" },
+  "type-stats":                  { tab: "Rent Comps tab",  where: "Market Stats panel — averages broken out by property type" },
+  "trend":                       { tab: "Rent Comps tab",  where: "Trend Over Time chart (market-wide quarterly rent trend)" },
+  "lease-comps":                 { tab: "Rent Comps tab",  where: "Date Range — per-lease filtering (enables exact date ranges)" },
+  "comp-building-units":         { tab: "Rent Comps tab",  where: "Building unit-mix detail (unit count breakdown per building)" },
+};
 
 // Import order: comp-buildings must come before stats that reference it
 const IMPORT_ORDER: Resource[] = [
@@ -385,12 +424,19 @@ export default function SyncPage() {
   // Confirm step — which resources are selected for import
   const [confirmSelected, setConfirmSelected] = useState<Set<string>>(new Set());
 
+  // Duplicate detection
+  const [diffResults, setDiffResults] = useState<Record<string, DiffResult>>({});
+  const [diffErrors, setDiffErrors] = useState<Set<string>>(new Set());
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [importModes, setImportModes] = useState<Record<string, "all" | "new-only">>({});
+
   // Version history / undo
   const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [undoing, setUndoing] = useState(false);
+  const [lastImportedResources, setLastImportedResources] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<{ buf: ArrayBuffer; name: string } | null>(null);
@@ -440,7 +486,6 @@ export default function SyncPage() {
   }
 
   async function undoLastImport() {
-    // Find the most recent snapshot for any of the last-imported resources
     const target = snapshots.find((s) => lastImportedResources.includes(s.resource));
     if (!target) return;
     setUndoing(true);
@@ -457,6 +502,38 @@ export default function SyncPage() {
     } finally {
       setUndoing(false);
     }
+  }
+
+  // ── Duplicate detection ────────────────────────────────────────────────────
+
+  function retryDiff(r: string, rows: Record<string, string>[]) {
+    setDiffErrors((prev) => { const next = new Set(prev); next.delete(r); return next; });
+    setDiffResults((prev) => { const next = { ...prev }; delete next[r]; return next; });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    fetch("/api/comps-import/diff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resource: r, rows }),
+      signal: ctrl.signal,
+    })
+      .then(async (res) => {
+        clearTimeout(timer);
+        if (!res.ok) {
+          const text = await res.text().catch(() => String(res.status));
+          console.warn(`[diff retry] ${r} => HTTP ${res.status}:`, text);
+          setDiffErrors((prev) => new Set([...prev, r]));
+        } else {
+          const data = await res.json();
+          console.log(`[diff retry] ${r} =>`, data);
+          setDiffResults((prev) => ({ ...prev, [r]: data }));
+        }
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        console.warn(`[diff retry] ${r} => failed:`, String(err));
+        setDiffErrors((prev) => new Set([...prev, r]));
+      });
   }
 
   // ── AI import flow ─────────────────────────────────────────────────────────
@@ -478,10 +555,11 @@ export default function SyncPage() {
         const res = await fetch("/api/comps-import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resource: r, rows: resources[r], mode: "upsert" }),
+          body: JSON.stringify({ resource: r, rows: resources[r], mode: "upsert", fileName: aiResult?.fileName }),
         });
         const body = await res.json();
         if (res.ok) {
+          succeeded.push(r);
           setImportStatuses((prev) => ({ ...prev, [r]: { state: "done", count: body.rowsImported } }));
           succeeded.push(r);
         } else {
@@ -537,7 +615,51 @@ export default function SyncPage() {
       const result = await normalizeClientSide(sheets, file.name);
       setAiResult(result);
       setConfirmSelected(new Set(IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0)));
+      setDiffResults({});
+      setDiffErrors(new Set());
+      setImportModes({});
       setStep("confirm"); // show preview + confirm before importing
+
+      // Fetch duplicate detection counts — one request per resource, update UI as each arrives
+      const diffResources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
+      console.log("[diff v3] starting for resources:", diffResources);
+      if (diffResources.length === 0) return;
+
+      setDiffLoading(true);
+      let pending = diffResources.length;
+
+      const finishOne = () => { pending--; if (pending === 0) setDiffLoading(false); };
+
+      for (const r of diffResources) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20_000);
+
+        fetch("/api/comps-import/diff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: r, rows: result.resources[r] }),
+          signal: ctrl.signal,
+        })
+          .then(async (res) => {
+            clearTimeout(timer);
+            if (!res.ok) {
+              const text = await res.text().catch(() => String(res.status));
+              console.warn(`[diff v3] ${r} => HTTP ${res.status}:`, text);
+              setDiffErrors((prev) => new Set([...prev, r]));
+            } else {
+              const data = await res.json();
+              console.log(`[diff v3] ${r} =>`, data);
+              setDiffResults((prev) => ({ ...prev, [r]: data }));
+            }
+          })
+          .catch((err) => {
+            clearTimeout(timer);
+            const msg = err?.name === "AbortError" ? "timed out after 20s" : String(err);
+            console.warn(`[diff v3] ${r} => failed:`, msg);
+            setDiffErrors((prev) => new Set([...prev, r]));
+          })
+          .finally(finishOne);
+      }
     } catch (e) {
       setNormalizeError(e instanceof Error ? e.message : String(e));
       setStep("error");
@@ -623,7 +745,7 @@ export default function SyncPage() {
       const res = await fetch("/api/comps-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource, rows: buildMappedRows(), mode }),
+        body: JSON.stringify({ resource, rows: buildMappedRows(), mode, fileName }),
       });
       const body = await res.json();
       if (res.ok) {
@@ -754,13 +876,13 @@ export default function SyncPage() {
       {/* ── Confirm step ─────────────────────────────────────────────────────── */}
       {step === "confirm" && aiResult && (
         <div style={{ marginBottom: "3rem" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: "1.5rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: "1.25rem", flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: "0.25rem" }}>Ready to import</div>
-              <div style={{ fontSize: "0.84rem", color: "#64748b" }}>{aiResult.summary}</div>
+              <div style={{ fontWeight: 600, fontSize: "15px", marginBottom: "0.2rem", color: "var(--ink)" }}>Review &amp; confirm import</div>
+              <div style={{ fontSize: "12px", color: "var(--ink-faint)" }}>{aiResult.summary}</div>
             </div>
             <button onClick={() => downloadXlsx(aiResult.xlsxBase64, aiResult.fileName)}
-              style={{ padding: "8px 16px", background: "#0f172a", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600, fontSize: "0.84rem", whiteSpace: "nowrap" }}>
+              style={{ padding: "6px 14px", background: "var(--near-black)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "12px", whiteSpace: "nowrap", fontFamily: "inherit" }}>
               ⬇ Download normalized XLSX
             </button>
           </div>
@@ -770,74 +892,140 @@ export default function SyncPage() {
             const loc = RESOURCE_LOCATION[r];
             const previewHeaders = rows[0] ? Object.keys(rows[0]) : [];
             const included = confirmSelected.has(r);
+            const diff = diffResults[r];
+            const diffErr = diffErrors.has(r);
+            const imode = importModes[r] ?? "all";
+            const toggleId = `confirm-toggle-${r}`;
             return (
-              <div key={r} style={{
-                marginBottom: "1.25rem", borderRadius: 10, overflow: "hidden",
-                border: `2px solid ${included ? "#86efac" : "#e2e8f0"}`,
-                opacity: included ? 1 : 0.5,
-                transition: "border-color 0.15s, opacity 0.15s",
-              }}>
-                {/* Resource header — click to toggle */}
-                <div
-                  onClick={() => setConfirmSelected((prev) => {
-                    const next = new Set(prev);
-                    next.has(r) ? next.delete(r) : next.add(r);
-                    return next;
-                  })}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: included ? "#f0fdf4" : "#f8fafc", borderBottom: "1px solid #e2e8f0", flexWrap: "wrap", cursor: "pointer", userSelect: "none" }}>
-                  {/* Toggle indicator */}
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                    background: included ? "#16a34a" : "#e2e8f0",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "0.8rem", color: "#fff", fontWeight: 700, transition: "background 0.15s",
-                  }}>
-                    {included ? "✓" : "✕"}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.92rem", color: included ? "#15803d" : "#64748b" }}>{RESOURCE_LABELS[r]}</div>
-                    <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
-                      {rows.length.toLocaleString()} rows
-                      {loc && (
-                        <span style={{ marginLeft: 10 }}>
-                          <span style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 7px", fontWeight: 600, fontSize: "0.72rem", marginRight: 5 }}>{loc.tab}</span>
-                          {loc.where}
-                        </span>
-                      )}
+              <div key={r} style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: "1rem" }}>
+                {/* Checkbox — outside the card */}
+                <label htmlFor={toggleId} style={{ paddingTop: 13, cursor: "pointer", flexShrink: 0 }}>
+                  <input
+                    id={toggleId}
+                    type="checkbox"
+                    checked={included}
+                    onChange={() => setConfirmSelected((prev) => {
+                      const next = new Set(prev);
+                      next.has(r) ? next.delete(r) : next.add(r);
+                      return next;
+                    })}
+                    style={{ width: 15, height: 15, accentColor: "var(--accent)", cursor: "pointer" }}
+                  />
+                </label>
+
+                {/* Card */}
+                <div style={{
+                  flex: 1, minWidth: 0, overflow: "hidden",
+                  border: `1px solid ${included ? "var(--accent)" : "var(--line)"}`,
+                  borderLeft: `3px solid ${included ? "var(--accent)" : "var(--line)"}`,
+                  opacity: included ? 1 : 0.45,
+                  transition: "border-color 0.15s, opacity 0.15s",
+                  background: "var(--paper-raised)",
+                }}>
+                  {/* Card header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: included ? "var(--accent-soft)" : "var(--paper)", borderBottom: "1px solid var(--line-soft)", flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--ink)" }}>{RESOURCE_LABELS[r]}</div>
+                      <div style={{ fontSize: "11px", color: "var(--ink-faint)", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        {rows.length.toLocaleString()} rows
+                        {diffLoading && !diff && !diffErr && (
+                          <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>checking duplicates…</span>
+                        )}
+                        {diffErr && (
+                          <>
+                            <span style={{ background: "#fff3f3", color: "var(--red)", border: "1px solid #f0c0c0", padding: "0 6px", fontSize: "10px" }}>⚠ dup check failed</span>
+                            <button onClick={() => retryDiff(r, aiResult.resources[r])} style={{ fontSize: "10px", padding: "0 5px", border: "1px solid var(--line)", background: "var(--paper)", cursor: "pointer", fontFamily: "inherit", color: "var(--ink-soft)" }}>retry</button>
+                          </>
+                        )}
+                        {diff && (
+                          <>
+                            {diff.newCount > 0 && (
+                              <span style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-line)", padding: "0 6px", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                {diff.newCount.toLocaleString()} new
+                              </span>
+                            )}
+                            {diff.updateCount > 0 && (
+                              <span style={{ background: "#fdf6e3", color: "#7a5a1a", border: "1px solid #e8d59a", padding: "0 6px", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                {diff.updateCount.toLocaleString()} updates
+                              </span>
+                            )}
+                            {diff.newCount === 0 && diff.updateCount === 0 && (
+                              <span style={{ background: "var(--line-soft)", color: "var(--ink-faint)", padding: "0 6px", fontSize: "10px" }}>
+                                {diff.noKeyCount > 0 ? `${diff.noKeyCount.toLocaleString()} rows (no unique key to check)` : "all already in DB"}
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {loc && (
+                          <>
+                            <span style={{ color: "var(--line)" }}>·</span>
+                            <span style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "0 6px", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{loc.tab}</span>
+                            <span style={{ color: "var(--ink-faint)" }}>{loc.where}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
+                    <span style={{ fontSize: "11px", color: included ? "var(--accent)" : "var(--ink-faint)", fontWeight: 600, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {included ? "Will import" : "Skipped"}
+                    </span>
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: included ? "#15803d" : "#94a3b8", fontWeight: 600, flexShrink: 0 }}>
-                    {included ? "Will import" : "Excluded"}
-                  </div>
-                </div>
-                {/* Data preview */}
-                <div style={{ overflowX: "auto", fontSize: "0.78rem" }}>
-                  <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
-                    <thead>
-                      <tr style={{ background: "#f1f5f9" }}>
-                        {previewHeaders.map((h) => (
-                          <th key={h} style={{ padding: "5px 10px", textAlign: "left", fontWeight: 600, color: "#475569", whiteSpace: "nowrap", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.slice(0, 5).map((row, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 1 ? "#fafafa" : "#fff" }}>
+
+                  {/* Duplicate handling — only when updates exist and card is included */}
+                  {included && diff && diff.updateCount > 0 && (
+                    <div style={{ padding: "7px 14px", background: "#fdf6e3", borderBottom: "1px solid #e8d59a", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "11px", color: "#7a5a1a", fontWeight: 600 }}>
+                        {diff.updateCount} row{diff.updateCount !== 1 ? "s" : ""} already exist — how to handle:
+                      </span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button
+                          onClick={() => setImportModes((m) => ({ ...m, [r]: "all" }))}
+                          style={{ padding: "3px 10px", fontSize: "11px", border: "1px solid", cursor: "pointer", fontWeight: 600, fontFamily: "inherit",
+                            background: imode === "all" ? "var(--gold)" : "var(--paper-raised)",
+                            color: imode === "all" ? "#fff" : "#7a5a1a",
+                            borderColor: imode === "all" ? "var(--gold)" : "#e8d59a" }}>
+                          Update existing
+                        </button>
+                        <button
+                          onClick={() => setImportModes((m) => ({ ...m, [r]: "new-only" }))}
+                          style={{ padding: "3px 10px", fontSize: "11px", border: "1px solid", cursor: "pointer", fontWeight: 600, fontFamily: "inherit",
+                            background: imode === "new-only" ? "var(--accent)" : "var(--paper-raised)",
+                            color: imode === "new-only" ? "#fff" : "var(--ink-soft)",
+                            borderColor: imode === "new-only" ? "var(--accent)" : "var(--line)" }}>
+                          New only ({diff.newCount})
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Data preview */}
+                  <div style={{ overflowX: "auto", fontSize: "12px" }}>
+                    <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+                      <thead>
+                        <tr style={{ background: "var(--line-soft)" }}>
                           {previewHeaders.map((h) => (
-                            <td key={h} style={{ padding: "4px 10px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #f1f5f9", color: "#334155" }}>
-                              {row[h] ?? ""}
-                            </td>
+                            <th key={h} style={{ padding: "5px 10px", textAlign: "left", fontWeight: 600, fontSize: "10.5px", color: "var(--ink-faint)", letterSpacing: "0.03em", whiteSpace: "nowrap", borderRight: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>{h}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {rows.length > 5 && (
-                  <div style={{ padding: "5px 14px", fontSize: "0.75rem", color: "#94a3b8", background: "#fafafa", borderTop: "1px solid #f1f5f9" }}>
-                    + {(rows.length - 5).toLocaleString()} more rows not shown
+                      </thead>
+                      <tbody>
+                        {rows.slice(0, 5).map((row, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid var(--line-soft)", background: i % 2 === 1 ? "var(--paper)" : "var(--paper-raised)" }}>
+                            {previewHeaders.map((h) => (
+                              <td key={h} style={{ padding: "4px 10px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid var(--line-soft)", color: "var(--ink-soft)", fontSize: "12px" }}>
+                                {row[h] ?? ""}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                  {rows.length > 5 && (
+                    <div style={{ padding: "4px 10px", fontSize: "11px", color: "var(--ink-faint)", background: "var(--paper)", borderTop: "1px solid var(--line-soft)" }}>
+                      + {(rows.length - 5).toLocaleString()} more rows
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -845,21 +1033,32 @@ export default function SyncPage() {
           <div style={{ display: "flex", gap: 8, marginTop: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
             <button
               onClick={() => {
-                const filtered = Object.fromEntries(
-                  Object.entries(aiResult.resources).filter(([r]) => confirmSelected.has(r))
-                );
-                runImports(filtered as typeof aiResult.resources);
+                const filtered: Record<string, Record<string, string>[]> = {};
+                for (const [r, rows] of Object.entries(aiResult.resources)) {
+                  if (!confirmSelected.has(r)) continue;
+                  const mode = importModes[r] ?? "all";
+                  if (mode === "new-only" && diffResults[r]?.updateKeys?.length) {
+                    const skipSet = new Set(diffResults[r].updateKeys);
+                    filtered[r] = rows.filter((row) => {
+                      const k = clientRowKey(r, row);
+                      return k === null || !skipSet.has(k);
+                    });
+                  } else {
+                    filtered[r] = rows;
+                  }
+                }
+                runImports(filtered);
               }}
               disabled={confirmSelected.size === 0}
-              style={{ padding: "9px 22px", background: confirmSelected.size === 0 ? "#94a3b8" : "#16a34a", color: "#fff", border: "none", borderRadius: 6, cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.92rem" }}>
-              ✓ Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
+              style={{ padding: "7px 18px", background: confirmSelected.size === 0 ? "var(--ink-faint)" : "var(--accent)", color: "#fff", border: "none", cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit" }}>
+              Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
             </button>
             <button onClick={resetDrop}
-              style={{ padding: "9px 14px", background: "none", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
+              style={{ padding: "7px 14px", background: "none", border: "1px solid var(--line)", cursor: "pointer", fontSize: "13px", color: "var(--ink-soft)", fontFamily: "inherit" }}>
               ← Start over
             </button>
             {confirmSelected.size === 0 && (
-              <span style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Select at least one resource to import.</span>
+              <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>Select at least one resource to import.</span>
             )}
           </div>
         </div>
@@ -991,8 +1190,7 @@ export default function SyncPage() {
                               padding: "5px 10px", textAlign: "left", whiteSpace: "nowrap", fontWeight: 600,
                               borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #e2e8f0",
                               background: mapped ? "#f0fdf4" : "#f8fafc",
-                              color: mapped ? "#15803d" : "#94a3b8",
-                              minWidth: 90,
+                              color: mapped ? "#15803d" : "#94a3b8", minWidth: 90,
                             }}>
                               <div style={{ fontSize: "0.7rem", color: mapped ? "#86efac" : "#e2e8f0", marginBottom: 1 }}>
                                 {mapped ? `→ ${field?.label ?? mapped}${wasAi ? " (AI)" : ""}` : "(skip)"}
@@ -1158,7 +1356,7 @@ export default function SyncPage() {
               style={{ padding: "6px 14px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.88rem" }}>
               Import another file
             </button>
-            {manualResult?.ok && lastImportedResources.length > 0 && snapshots.some((s) => lastImportedResources.includes(s.resource)) && (
+            {manualResult.ok && lastImportedResources.length > 0 && snapshots.some((s) => lastImportedResources.includes(s.resource)) && (
               <button onClick={undoLastImport} disabled={undoing}
                 style={{ padding: "6px 12px", background: undoing ? "#94a3b8" : "#fff", color: undoing ? "#fff" : "#dc2626", border: "1px solid #fca5a5", borderRadius: 6, cursor: undoing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "0.88rem" }}>
                 {undoing ? "Undoing…" : "↩ Undo"}
@@ -1197,7 +1395,6 @@ export default function SyncPage() {
           <span style={{ fontSize: "0.75rem", display: "inline-block", transform: historyOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
           Version history {snapshots.length > 0 && <span style={{ fontWeight: 400, color: "#94a3b8" }}>({snapshots.length} snapshots)</span>}
         </button>
-
         {historyOpen && (
           <div style={{ marginTop: "0.75rem" }}>
             {snapshots.length === 0 ? (
