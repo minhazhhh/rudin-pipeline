@@ -117,9 +117,43 @@ const SYNC_RESOURCES: { key: string; label: string; urlField: string }[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (!lines.length) return [];
+// Detects the multi-resource format produced by the Claude converter skill.
+// Sections look like:  ###RESOURCE:comp-buildings###\nname,propertyType,...\n...
+const RESOURCE_SECTION_RE = /^###RESOURCE:([a-z-]+)###\s*$/i;
+
+function isMultiResourceCsv(text: string): boolean {
+  return text.split(/\r?\n/).some((l) => RESOURCE_SECTION_RE.test(l.trim()));
+}
+
+function parseMultiResourceCsv(text: string): Record<string, Record<string, string>[]> {
+  const result: Record<string, Record<string, string>[]> = {};
+  const lines = text.split(/\r?\n/);
+  let currentResource: string | null = null;
+  let sectionLines: string[] = [];
+
+  function flushSection() {
+    if (!currentResource || !sectionLines.length) return;
+    const rows = parseCsvLines(sectionLines);
+    if (rows.length) result[currentResource] = rows;
+  }
+
+  for (const line of lines) {
+    const m = line.trim().match(RESOURCE_SECTION_RE);
+    if (m) {
+      flushSection();
+      currentResource = m[1].toLowerCase();
+      sectionLines = [];
+    } else if (currentResource) {
+      sectionLines.push(line);
+    }
+  }
+  flushSection();
+  return result;
+}
+
+function parseCsvLines(lines: string[]): Record<string, string>[] {
+  const nonEmpty = lines.filter((l) => l.trim());
+  if (!nonEmpty.length) return [];
   function split(line: string): string[] {
     const fields: string[] = [];
     let cur = "", inQ = false;
@@ -138,13 +172,17 @@ function parseCsv(text: string): Record<string, string>[] {
     fields.push(cur.trim());
     return fields;
   }
-  const hdrs = split(lines[0]);
-  return lines.slice(1).map((line) => {
+  const hdrs = split(nonEmpty[0]);
+  return nonEmpty.slice(1).map((line) => {
     const vals = split(line);
     const row: Record<string, string> = {};
     hdrs.forEach((h, i) => { row[h.trim()] = vals[i]?.trim() ?? ""; });
     return row;
-  });
+  }).filter((r) => Object.values(r).some((v) => v !== ""));
+}
+
+function parseCsv(text: string): Record<string, string>[] {
+  return parseCsvLines(text.split(/\r?\n/));
 }
 
 function rowScore(row: string[]): number {
@@ -584,6 +622,66 @@ export default function SyncPage() {
     const isExcel = /\.xlsx?$/i.test(file.name) || file.type.includes("spreadsheetml");
     let sheets: { name: string; headers: string[]; rows: Record<string, string>[] }[];
 
+    // ── Fast path: Claude converter skill output (multi-resource CSV) ──────────
+    if (!isExcel) {
+      const text = new TextDecoder("utf-8").decode(buf);
+      if (isMultiResourceCsv(text)) {
+        const sections = parseMultiResourceCsv(text);
+        const resources = sections as Record<string, Record<string, string>[]>;
+        const validResources: Record<string, Record<string, string>[]> = {};
+        for (const [k, v] of Object.entries(resources)) {
+          if (IMPORT_ORDER.includes(k as typeof IMPORT_ORDER[number]) && v.length > 0) {
+            validResources[k] = v;
+          }
+        }
+        if (!Object.keys(validResources).length) {
+          setNormalizeError("No recognized resource sections found in this file.");
+          setStep("error");
+          return;
+        }
+        const totalRows = Object.values(validResources).reduce((s, r) => s + r.length, 0);
+        const resourceNames = Object.keys(validResources).join(", ");
+        const result: AiResult = {
+          resources: validResources,
+          xlsxBase64: "",
+          fileName: file.name.replace(/\.csv$/i, "") + "-imported",
+          summary: `Pre-formatted import: ${Object.keys(validResources).length} resource type(s), ${totalRows} total rows (${resourceNames})`,
+        };
+        setAiResult(result);
+        setConfirmSelected(new Set(IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0)));
+        setDiffResults({});
+        setDiffErrors(new Set());
+        setImportModes({});
+        setStep("confirm");
+
+        const diffResources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
+        if (diffResources.length > 0) {
+          setDiffLoading(true);
+          let pending = diffResources.length;
+          const finishOne = () => { pending--; if (pending === 0) setDiffLoading(false); };
+          for (const r of diffResources) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 20000);
+            fetch("/api/comps-import/diff", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ resource: r, rows: result.resources[r] }),
+              signal: ctrl.signal,
+            })
+              .then(async (res) => {
+                clearTimeout(timer);
+                if (!res.ok) { setDiffErrors((prev) => new Set([...prev, r])); }
+                else { const data = await res.json(); setDiffResults((prev) => ({ ...prev, [r]: data })); }
+              })
+              .catch(() => { clearTimeout(timer); setDiffErrors((prev) => new Set([...prev, r])); })
+              .finally(finishOne);
+          }
+        }
+        return;
+      }
+    }
+    // ── End fast path ──────────────────────────────────────────────────────────
+
     if (isExcel) {
       sheets = await parseAllSheets(buf);
     } else {
@@ -833,13 +931,13 @@ export default function SyncPage() {
             Drop your spreadsheet here, or click to browse
           </div>
           <div style={{ color: "#64748b", fontSize: "0.84rem", marginBottom: "0.75rem" }}>
-            .csv · .xlsx · .xls — any layout, any number of sheets
+            .csv · .xlsx · .xls · converter skill output
           </div>
           <div style={{ display: "inline-flex", gap: 12, flexWrap: "wrap", justifyContent: "center", fontSize: "0.78rem", color: "#94a3b8" }}>
             <span>✦ AI reads all sheets</span>
             <span>✦ Maps all columns automatically</span>
             <span>✦ Imports all resources</span>
-            <span>✦ Generates normalized XLSX</span>
+            <span>✦ Converter skill CSV imports instantly</span>
           </div>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
             onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
