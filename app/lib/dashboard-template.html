@@ -3748,13 +3748,19 @@ function buildCDReport() {
     var anchorCoords = COMP_COORDS[anchor];
     var radius = parseFloat(document.getElementById('uw-radius').value);
 
-    // Radius circle
+    // Radius circle — built as a geographic polygon (avoids L.circle projection issues)
     var radiusM = radius * 1609.34;
     if (radius > 0 && radius < 999) {
-      var circle = L.circle(anchorCoords, {
-        radius: radiusM,
+      var pts = [], nPts = 72;
+      for (var i = 0; i < nPts; i++) {
+        var ang = (i / nPts) * 2 * Math.PI;
+        var dLat = (radiusM * Math.cos(ang)) / 111320;
+        var dLng = (radiusM * Math.sin(ang)) / (111320 * Math.cos(anchorCoords[0] * Math.PI / 180));
+        pts.push([anchorCoords[0] + dLat, anchorCoords[1] + dLng]);
+      }
+      var circle = L.polygon(pts, {
         color: '#0d4d3a', fillColor: '#0d4d3a',
-        fillOpacity: 0.06, weight: 3, dashArray: '8 6', opacity: 0.85, interactive: false
+        fillOpacity: 0.07, weight: 3, dashArray: '9 6', opacity: 0.9, interactive: false
       }).addTo(map);
       uwMainLayers.push(circle);
     }
