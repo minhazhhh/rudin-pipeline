@@ -3740,16 +3740,18 @@ function buildCDReport() {
     }
     mapDiv.style.display = 'block';
 
-    if (!uwMiniMap) {
-      uwMiniMap = L.map('uw-map', { zoomControl: false, attributionControl: false });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd', maxZoom: 19
-      }).addTo(uwMiniMap);
-      L.control.zoom({ position: 'bottomright' }).addTo(uwMiniMap);
-    }
-
-    uwMiniLayers.forEach(function(l) { uwMiniMap.removeLayer(l); });
-    uwMiniLayers = [];
+    // Defer Leaflet work until the container has been painted with its CSS dimensions
+    setTimeout(function() {
+      if (!uwMiniMap) {
+        uwMiniMap = L.map('uw-map', { zoomControl: false, attributionControl: false, tap: false });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          subdomains: 'abcd', maxZoom: 19
+        }).addTo(uwMiniMap);
+        L.control.zoom({ position: 'bottomright' }).addTo(uwMiniMap);
+      }
+      uwMiniMap.invalidateSize();
+      uwMiniLayers.forEach(function(l) { uwMiniMap.removeLayer(l); });
+      uwMiniLayers = [];
 
     var anchorCoords = COMP_COORDS[anchor];
     var radius = parseFloat(document.getElementById('uw-radius').value);
@@ -3805,7 +3807,7 @@ function buildCDReport() {
       uwMiniMap.fitBounds(L.latLngBounds(pts), { padding: [20, 20] });
     }
 
-    setTimeout(function() { uwMiniMap.invalidateSize(); }, 30);
+    }, 60); // end setTimeout — ensures container is visible before Leaflet measures it
   }
 
   // ── Get the active building list for the API call ──
