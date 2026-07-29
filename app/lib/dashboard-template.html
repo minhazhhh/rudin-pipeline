@@ -1263,8 +1263,34 @@ table.cmp-table td.r{text-align:right}
   </div>
   <div id="uw-body">
     <div class="uw-section">
-      <div class="uw-label">Market / Submarket</div>
+      <div class="uw-label">Anchor Building</div>
       <div class="uw-row">
+        <label for="uw-anchor">Primary comp</label>
+        <select id="uw-anchor" onchange="uwAnchorChanged()" style="max-width:200px">
+          <option value="">— all buildings —</option>
+        </select>
+      </div>
+      <div class="uw-row">
+        <label for="uw-radius">Include nearby</label>
+        <select id="uw-radius" onchange="uwAnchorChanged()">
+          <option value="0">Anchor only</option>
+          <option value="0.5">+ within 0.5 mi</option>
+          <option value="1" selected>+ within 1 mi</option>
+          <option value="2">+ within 2 mi</option>
+          <option value="999">+ all buildings</option>
+        </select>
+      </div>
+      <div id="uw-anchor-info" style="font-size:10px;color:var(--ink-soft);margin:4px 0 2px 8px;line-height:1.5;min-height:14px"></div>
+      <div class="uw-row">
+        <label for="uw-pt">Property type</label>
+        <select id="uw-pt">
+          <option value="">All types</option>
+          <option value="Conversion">Conversion</option>
+          <option value="Primary">Primary</option>
+          <option value="Market">Market Rate</option>
+        </select>
+      </div>
+      <div class="uw-row" style="display:none">
         <label for="uw-sub">Submarket</label>
         <select id="uw-sub">
           <option value="manhattan">Manhattan (All)</option>
@@ -1273,15 +1299,6 @@ table.cmp-table td.r{text-align:right}
           <option value="brooklyn">Brooklyn</option>
           <option value="queens">Queens</option>
           <option value="bronx">Bronx</option>
-        </select>
-      </div>
-      <div class="uw-row">
-        <label for="uw-pt">Property type</label>
-        <select id="uw-pt">
-          <option value="">All types</option>
-          <option value="Conversion">Conversion</option>
-          <option value="Primary">Primary</option>
-          <option value="Market">Market Rate</option>
         </select>
       </div>
     </div>
@@ -3641,16 +3658,88 @@ function buildCDReport() {
     lbl.classList.toggle('err', total !== 100);
   };
 
-  // ── Submarket → property type mapping (approximate) ──
-  var subToPt = {
-    manhattan: [], midtown: [], downtown: [],
-    brooklyn: [], queens: [], bronx: []
-  };
-  // We filter by borough from DATA for competing supply
+  // ── Submarket → borough (for competing supply) ──
   var subToBorough = {
     manhattan: 'Manhattan', midtown: 'Manhattan', downtown: 'Manhattan',
     brooklyn: 'Brooklyn', queens: 'Queens', bronx: 'Bronx'
   };
+
+  // ── Haversine distance in miles ──
+  function haversineMi(lat1, lng1, lat2, lng2) {
+    var R = 3958.8;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.asin(Math.sqrt(a));
+  }
+
+  // ── Populate anchor building dropdown ──
+  (function() {
+    var sel = document.getElementById('uw-anchor');
+    if (!sel || !AGG.bldg_stats) return;
+    Object.keys(AGG.bldg_stats).sort().forEach(function(b) {
+      var opt = document.createElement('option');
+      opt.value = b;
+      opt.textContent = b;
+      sel.appendChild(opt);
+    });
+  })();
+
+  // ── Update info text when anchor or radius changes ──
+  window.uwAnchorChanged = function() {
+    var anchor = document.getElementById('uw-anchor').value;
+    var radius = parseFloat(document.getElementById('uw-radius').value);
+    var info   = document.getElementById('uw-anchor-info');
+    if (!anchor) {
+      info.textContent = '';
+      return;
+    }
+    var anchorCoords = AGG.COMP_COORDS && AGG.COMP_COORDS[anchor];
+    if (!anchorCoords) {
+      info.textContent = anchor + ' — no location data, anchor only';
+      return;
+    }
+    if (radius === 0) {
+      info.textContent = 'Using anchor only: ' + anchor;
+      return;
+    }
+    var nearby = [];
+    Object.keys(AGG.bldg_stats).forEach(function(b) {
+      if (b === anchor) return;
+      var c = AGG.COMP_COORDS && AGG.COMP_COORDS[b];
+      if (!c) return;
+      var d = haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]);
+      if (d <= radius) nearby.push({ name: b, mi: d });
+    });
+    nearby.sort(function(a,b) { return a.mi - b.mi; });
+    var label = radius >= 999 ? 'all buildings' : 'within ' + radius + ' mi';
+    info.textContent = anchor + ' + ' + nearby.length + ' nearby (' + label + ')';
+    if (nearby.length) {
+      info.title = nearby.map(function(n) { return n.name + ' (' + n.mi.toFixed(2) + ' mi)'; }).join(', ');
+    }
+  };
+
+  // ── Get the active building list for the API call ──
+  function uwBuildingList() {
+    var anchor = document.getElementById('uw-anchor').value;
+    if (!anchor) return null; // no anchor → API uses all
+    var radius = parseFloat(document.getElementById('uw-radius').value);
+    var anchorCoords = AGG.COMP_COORDS && AGG.COMP_COORDS[anchor];
+    var list = [anchor];
+    if (radius > 0 && anchorCoords) {
+      Object.keys(AGG.bldg_stats).forEach(function(b) {
+        if (b === anchor) return;
+        var c = AGG.COMP_COORDS && AGG.COMP_COORDS[b];
+        if (!c) return;
+        if (haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]) <= radius) {
+          list.push(b);
+        }
+      });
+    }
+    return list;
+  }
 
   var uwLastResult = null;
 
@@ -3668,9 +3757,12 @@ function buildCDReport() {
     btn.textContent = 'Calculating…';
 
     try {
-      var ptSel = document.getElementById('uw-pt').value;
+      var ptSel     = document.getElementById('uw-pt').value;
+      var bldgList  = uwBuildingList();
+      var anchorSel = document.getElementById('uw-anchor').value;
       var body = {};
       if (ptSel) body.propertyTypes = [ptSel];
+      if (bldgList) body.buildings = bldgList;
       body.unitTypes = ['ST', '1BD', '2BD', '3BD'];
 
       var resp = await fetch('/api/underwrite', {
@@ -3723,7 +3815,11 @@ function buildCDReport() {
       document.getElementById('uw-ner-mo').textContent = fmtMo(nerMonthly);
       document.getElementById('uw-ner-yr').textContent = fmtDollar(nerAnnual) + ' / year';
       document.getElementById('uw-psf').textContent = blendedPsf > 0 ? '$' + blendedPsf.toFixed(2) : '—';
-      document.getElementById('uw-comps-n').textContent = compN + ' comp lease records';
+      var anchorInfoEl = document.getElementById('uw-anchor-info');
+      var bldgDesc = bldgList
+        ? (anchorSel + (bldgList.length > 1 ? ' + ' + (bldgList.length - 1) + ' nearby' : ' only'))
+        : 'all buildings';
+      document.getElementById('uw-comps-n').textContent = compN + ' comp lease records (' + bldgDesc + ')';
       document.getElementById('uw-ppu').textContent = fmtMo(blendedRent);
 
       // Competing supply from DATA pipeline
@@ -3779,7 +3875,10 @@ function buildCDReport() {
         nerMonthly: nerMonthly, nerAnnual: nerAnnual,
         blendedRent: blendedRent, blendedPsf: blendedPsf,
         compN: compN, supplyUnits: supplyUnits,
-        stats: stats
+        stats: stats,
+        anchorBldg: anchorSel || null,
+        bldgList: bldgList || null,
+        bldgDesc: bldgDesc
       };
 
       document.getElementById('uw-results').style.display = 'block';
@@ -3800,7 +3899,9 @@ function buildCDReport() {
     var lines = [
       'QUICK UNDERWRITE SUMMARY',
       '========================',
-      'Submarket: ' + subLabel + ' | Property type: ' + r.ptSel,
+      (r.anchorBldg ? 'Anchor building: ' + r.anchorBldg : 'Comp set: all buildings') +
+        (r.bldgList && r.bldgList.length > 1 ? ' + ' + (r.bldgList.length - 1) + ' nearby' : '') +
+        ' | Property type: ' + r.ptSel,
       'Units: ' + r.unitCount + ' | Avg SF: ' + r.avgSf + ' | Delivery: ' + r.deliveryYr,
       'Concession: ' + r.concMo + ' month(s)',
       '',
