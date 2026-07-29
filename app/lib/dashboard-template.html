@@ -3740,74 +3740,78 @@ function buildCDReport() {
     }
     mapDiv.style.display = 'block';
 
-    // Defer Leaflet work until the container has been painted with its CSS dimensions
+    // Wait past the 300ms drawer slide-in animation on first init
+    var delay = uwMiniMap ? 60 : 360;
     setTimeout(function() {
+      var anchorCoords = COMP_COORDS[anchor];
+      var radius = parseFloat(document.getElementById('uw-radius').value);
+      var zoom = radius <= 0.5 ? 15 : radius <= 1 ? 14 : radius <= 2 ? 13 : 12;
+
       if (!uwMiniMap) {
-        uwMiniMap = L.map('uw-map', { zoomControl: false, attributionControl: false, tap: false });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        uwMiniMap = L.map('uw-map', {
+          center: anchorCoords, zoom: zoom,
+          zoomControl: false, attributionControl: false, tap: false
+        });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
           subdomains: 'abcd', maxZoom: 19
         }).addTo(uwMiniMap);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+          subdomains: 'abcd', maxZoom: 19, pane: 'shadowPane'
+        }).addTo(uwMiniMap);
         L.control.zoom({ position: 'bottomright' }).addTo(uwMiniMap);
+      } else {
+        uwMiniMap.invalidateSize();
+        uwMiniMap.setView(anchorCoords, zoom, { animate: false });
       }
-      uwMiniMap.invalidateSize();
+
       uwMiniLayers.forEach(function(l) { uwMiniMap.removeLayer(l); });
       uwMiniLayers = [];
 
-    var anchorCoords = COMP_COORDS[anchor];
-    var radius = parseFloat(document.getElementById('uw-radius').value);
+      // Radius circle
+      var radiusCircle = null;
+      if (radius > 0 && radius < 999) {
+        radiusCircle = L.circle(anchorCoords, {
+          radius: radius * 1609.34,
+          color: '#0d4d3a', fillColor: '#0d4d3a',
+          fillOpacity: 0.07, weight: 1.5, dashArray: '5 4'
+        }).addTo(uwMiniMap);
+        uwMiniLayers.push(radiusCircle);
+      }
 
-    // Radius circle
-    var radiusCircle = null;
-    if (radius > 0 && radius < 999) {
-      radiusCircle = L.circle(anchorCoords, {
-        radius: radius * 1609.34,
-        color: '#0d4d3a', fillColor: '#0d4d3a',
-        fillOpacity: 0.07, weight: 1.5, dashArray: '5 4'
-      }).addTo(uwMiniMap);
-      uwMiniLayers.push(radiusCircle);
-    }
-
-    // Other buildings
-    Object.keys(AGG.bldg_stats).forEach(function(b) {
-      if (b === anchor) return;
-      var c = COMP_COORDS[b];
-      if (!c) return;
-      var d = haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]);
-      var inRange = radius >= 999 || d <= radius;
-      var m = L.circleMarker(c, {
-        radius: 5,
-        fillColor: inRange ? '#5f8275' : '#bbb',
-        color: inRange ? '#fff' : '#ddd',
-        weight: 1.5, fillOpacity: inRange ? 0.9 : 0.45
-      }).addTo(uwMiniMap);
-      m.bindTooltip(b + (inRange ? ' ' + d.toFixed(2) + ' mi' : ''), {
-        className: 'leaflet-tooltip-own', direction: 'top', sticky: false
+      // Other buildings
+      Object.keys(AGG.bldg_stats).forEach(function(b) {
+        if (b === anchor) return;
+        var c = COMP_COORDS[b];
+        if (!c) return;
+        var d = haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]);
+        var inRange = radius >= 999 || d <= radius;
+        var m = L.circleMarker(c, {
+          radius: 5,
+          fillColor: inRange ? '#5f8275' : '#bbb',
+          color: inRange ? '#fff' : '#ddd',
+          weight: 1.5, fillOpacity: inRange ? 0.9 : 0.45
+        }).addTo(uwMiniMap);
+        m.bindTooltip(b + (inRange ? ' — ' + d.toFixed(2) + ' mi' : ''), {
+          className: 'leaflet-tooltip-own', direction: 'top', sticky: false
+        });
+        uwMiniLayers.push(m);
       });
-      uwMiniLayers.push(m);
-    });
 
-    // Anchor marker — gold star icon via divIcon
-    var anchorIcon = L.divIcon({
-      className: '',
-      html: '<div style="width:14px;height:14px;border-radius:50%;background:#0d4d3a;border:2.5px solid #fff;box-shadow:0 0 0 2px #0d4d3a"></div>',
-      iconSize: [14, 14], iconAnchor: [7, 7]
-    });
-    var anchorM = L.marker(anchorCoords, { icon: anchorIcon, zIndexOffset: 1000 }).addTo(uwMiniMap);
-    anchorM.bindTooltip('★ ' + anchor, {
-      className: 'leaflet-tooltip-own', direction: 'top', permanent: true, offset: [0, -10]
-    });
-    uwMiniLayers.push(anchorM);
+      // Anchor marker
+      var anchorIcon = L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;border-radius:50%;background:#0d4d3a;border:2.5px solid #fff;box-shadow:0 0 0 2px #0d4d3a"></div>',
+        iconSize: [14, 14], iconAnchor: [7, 7]
+      });
+      var anchorM = L.marker(anchorCoords, { icon: anchorIcon, zIndexOffset: 1000 }).addTo(uwMiniMap);
+      anchorM.bindTooltip('★ ' + anchor, {
+        className: 'leaflet-tooltip-own', direction: 'top', permanent: true, offset: [0, -10]
+      });
+      uwMiniLayers.push(anchorM);
 
-    // Fit view
-    if (radiusCircle) {
-      uwMiniMap.fitBounds(radiusCircle.getBounds(), { padding: [16, 16] });
-    } else {
-      var pts = [anchorCoords];
-      Object.keys(COMP_COORDS).forEach(function(b) { pts.push(COMP_COORDS[b]); });
-      uwMiniMap.fitBounds(L.latLngBounds(pts), { padding: [20, 20] });
-    }
-
-    }, 60); // end setTimeout — ensures container is visible before Leaflet measures it
+      // Second invalidateSize after layers placed
+      setTimeout(function() { uwMiniMap.invalidateSize(); }, 50);
+    }, delay);
   }
 
   // ── Get the active building list for the API call ──
