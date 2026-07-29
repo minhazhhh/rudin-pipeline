@@ -3796,18 +3796,9 @@ function buildCDReport() {
     });
     uwMainLayers.push(anchorM);
 
-    // Fit view — geographic bounds to avoid the panel on the left
-    if (radius > 0 && radius < 999) {
-      var latDelta = radiusM / 111320;
-      var lngDelta = latDelta / Math.cos(anchorCoords[0] * Math.PI / 180);
-      map.fitBounds(
-        [[anchorCoords[0] - latDelta, anchorCoords[1] - lngDelta],
-         [anchorCoords[0] + latDelta, anchorCoords[1] + lngDelta]],
-        { paddingTopLeft: [30, 350], paddingBottomRight: [30, 30] }
-      );
-    } else {
-      map.setView(anchorCoords, 15, { animate: true });
-    }
+    // Fit view — use setView to avoid fitBounds projection issues during resize
+    var zoom = radius <= 0.25 ? 16 : radius <= 0.5 ? 15 : radius <= 1 ? 14 : radius <= 2 ? 13 : 12;
+    map.setView(anchorCoords, zoom, { animate: true });
   }
 
   // ── Get the active building list for the API call ──
