@@ -2952,6 +2952,15 @@ function buildCDReport() {
   let singleUT = trendUTs.includes('1BD') ? '1BD' : (trendUTs[0] || 'ST');
   let qFrom = AGG.quarters[0];
   let qTo = AGG.quarters[AGG.quarters.length - 1];
+  function quarterToYearMonth(q) {
+    if (!q) return '';
+    const m = String(q).match(/Q(\d)\s+(\d{4})/i);
+    if (!m) return '';
+    const qNum = parseInt(m[1], 10);
+    const year = m[2];
+    const month = String(qNum * 3 - 2).padStart(2, '0');
+    return year + '-' + month;
+  }
   const _firstYM = quarterToYearMonth(AGG.quarters[0]) || '';
   const _lastYM  = quarterToYearMonth(AGG.quarters[AGG.quarters.length - 1]) || '';
 
