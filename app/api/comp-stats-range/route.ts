@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  if (leases.length > 0) {
+  if (leases.length > 0 && leases.some(l => l.grossRent != null)) {
     type Cell = { rents: number[]; psfs: number[]; sfs: number[] };
     const groups: Record<string, Cell> = {};
     for (const l of leases) {
