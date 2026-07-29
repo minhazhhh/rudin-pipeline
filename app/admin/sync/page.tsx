@@ -785,11 +785,33 @@ export default function SyncPage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
 
-      <h1 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.25rem" }}>Import &amp; Sync</h1>
-      <p style={{ color: "#555", fontSize: "0.88rem", marginBottom: "2rem", maxWidth: 700 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: "0.25rem" }}>
+        <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Import &amp; Sync</h1>
+        <a
+          href="/rudin-import-converter.md"
+          download="rudin-import-converter.md"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "0.4rem 0.9rem",
+            border: "1px solid var(--accent, #0d4d3a)",
+            color: "var(--accent, #0d4d3a)",
+            fontSize: "0.78rem", fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            background: "transparent",
+          }}
+          title="Download this file, then attach it to a Claude conversation alongside your spreadsheet to get a perfectly formatted CSV ready to import"
+        >
+          ↓ Download Claude converter skill
+        </a>
+      </div>
+      <p style={{ color: "#555", fontSize: "0.88rem", marginBottom: "0.5rem", maxWidth: 700 }}>
         Drop any spreadsheet — the AI reads all sheets, maps every column to the right field,
         auto-imports all data into the database, and gives you a clean normalized XLSX to keep.
         {lastSyncedAt && <>{" "}Last synced {new Date(lastSyncedAt).toLocaleString()}.</>}
+      </p>
+      <p style={{ color: "#777", fontSize: "0.8rem", marginBottom: "2rem", maxWidth: 700 }}>
+        <strong style={{ color: "#555" }}>Prefer manual control?</strong> Download the converter skill above, attach it to a Claude conversation with your spreadsheet, and Claude will output a clean CSV you can drop here directly — no guessing.
       </p>
 
       {/* ── Drop zone ───────────────────────────────────────────────────────── */}
