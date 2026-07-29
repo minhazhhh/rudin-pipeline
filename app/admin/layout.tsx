@@ -8,10 +8,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="admin-shell">
       <AdminNav />
-      <main className="admin-main" style={{ paddingBottom: draftCount > 0 ? "52px" : undefined }}>
+      <main className="admin-main">
+        <DraftBar initialCount={draftCount} />
         {children}
       </main>
-      <DraftBar initialCount={draftCount} />
     </div>
   );
 }
