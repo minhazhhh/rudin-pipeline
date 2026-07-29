@@ -51,7 +51,7 @@ export default async function CompBuildingsAdminPage() {
           buildings={missingCoords.map((b) => ({ id: b.id, name: b.name }))}
         />
       )}
-      <EditableTable columns={COLUMNS} apiBase="/api/comp-buildings" initialRows={rows} emptyRow={EMPTY_ROW} resource="comp-buildings" />
+      <EditableTable columns={COLUMNS} apiBase="/api/comp-buildings" initialRows={rows} emptyRow={EMPTY_ROW} resource="comp-buildings" draftMode />
     </div>
   );
 }

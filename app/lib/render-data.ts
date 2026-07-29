@@ -1,4 +1,5 @@
 import { prisma } from "@/app/lib/prisma";
+import type { AdminDraft } from "@/app/generated/prisma/client";
 
 // Fixed taxonomies used only for display ordering — not user-editable content.
 const PT_ORDER = ["Conversion", "Primary", "Market"];
@@ -10,7 +11,97 @@ function triple(avg: number | null, med: number | null, min: number | null, max:
   return n == null ? null : { avg, med, min, max, n };
 }
 
-export async function loadDashboardData() {
+type P = Record<string, unknown>;
+
+function applyDraftPatches(
+  raw: {
+    projects: { id: string; [k: string]: unknown }[];
+    compBuildings: { id: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[];
+    overallStats: { id: string; [k: string]: unknown }[];
+    typeStats: { id: string; [k: string]: unknown }[];
+    trendPoints: { id: string; [k: string]: unknown }[];
+  },
+  drafts: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[]
+) {
+  for (const draft of drafts) {
+    const p = draft.payload as P | null;
+    switch (draft.resource) {
+      case "comp-buildings": {
+        if (draft.method === "PUT" && draft.entityId) {
+          const b = raw.compBuildings.find((b) => b.id === draft.entityId);
+          if (b && p) Object.assign(b, p);
+        } else if (draft.method === "DELETE" && draft.entityId) {
+          const idx = raw.compBuildings.findIndex((b) => b.id === draft.entityId);
+          if (idx !== -1) raw.compBuildings.splice(idx, 1);
+        } else if (draft.method === "POST" && p) {
+          raw.compBuildings.push({ id: `draft-${draft.id}`, stats: [], quarterStats: [], ...p } as typeof raw.compBuildings[0]);
+        }
+        break;
+      }
+      case "comp-building-stats": {
+        if (draft.method === "PUT" && draft.entityId && p) {
+          for (const b of raw.compBuildings) {
+            const s = b.stats.find((s) => s.id === draft.entityId);
+            if (s) { Object.assign(s, p); break; }
+          }
+        } else if (draft.method === "DELETE" && draft.entityId) {
+          for (const b of raw.compBuildings) {
+            const idx = b.stats.findIndex((s) => s.id === draft.entityId);
+            if (idx !== -1) { b.stats.splice(idx, 1); break; }
+          }
+        } else if (draft.method === "POST" && p) {
+          const building = raw.compBuildings.find((b) => b.id === p.buildingId);
+          if (building) building.stats.push({ id: `draft-${draft.id}`, ...p } as typeof raw.compBuildings[0]["stats"][0]);
+        }
+        break;
+      }
+      case "projects": {
+        if (draft.method === "PUT" && draft.entityId && p) {
+          const proj = raw.projects.find((x) => x.id === draft.entityId);
+          if (proj) Object.assign(proj, p);
+        } else if (draft.method === "DELETE" && draft.entityId) {
+          const idx = raw.projects.findIndex((x) => x.id === draft.entityId);
+          if (idx !== -1) raw.projects.splice(idx, 1);
+        } else if (draft.method === "POST" && p) {
+          raw.projects.push({ id: `draft-${draft.id}`, ...p } as typeof raw.projects[0]);
+        }
+        break;
+      }
+      case "overall-stats": {
+        if (draft.method === "PUT" && draft.entityId && p) {
+          const s = raw.overallStats.find((x) => x.id === draft.entityId);
+          if (s) Object.assign(s, p);
+        } else if (draft.method === "DELETE" && draft.entityId) {
+          const idx = raw.overallStats.findIndex((x) => x.id === draft.entityId);
+          if (idx !== -1) raw.overallStats.splice(idx, 1);
+        }
+        break;
+      }
+      case "trend": {
+        if (draft.method === "PUT" && draft.entityId && p) {
+          const pt = raw.trendPoints.find((x) => x.id === draft.entityId);
+          if (pt) Object.assign(pt, p);
+        } else if (draft.method === "DELETE" && draft.entityId) {
+          const idx = raw.trendPoints.findIndex((x) => x.id === draft.entityId);
+          if (idx !== -1) raw.trendPoints.splice(idx, 1);
+        }
+        break;
+      }
+      case "type-stats": {
+        if (draft.method === "PUT" && draft.entityId && p) {
+          const s = raw.typeStats.find((x) => x.id === draft.entityId);
+          if (s) Object.assign(s, p);
+        } else if (draft.method === "DELETE" && draft.entityId) {
+          const idx = raw.typeStats.findIndex((x) => x.id === draft.entityId);
+          if (idx !== -1) raw.typeStats.splice(idx, 1);
+        }
+        break;
+      }
+    }
+  }
+}
+
+export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[]) {
   const [projects, compBuildings, overallStats, typeStats, trendPoints] = await Promise.all([
     prisma.project.findMany({ orderBy: { sqft: "desc" } }),
     prisma.compBuilding.findMany({ include: { stats: true, quarterStats: true } }),
@@ -18,6 +109,10 @@ export async function loadDashboardData() {
     prisma.typeUnitStat.findMany(),
     prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } }),
   ]);
+
+  if (drafts && drafts.length > 0) {
+    applyDraftPatches({ projects: projects as { id: string; [k: string]: unknown }[], compBuildings: compBuildings as { id: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[], overallStats: overallStats as { id: string; [k: string]: unknown }[], typeStats: typeStats as { id: string; [k: string]: unknown }[], trendPoints: trendPoints as { id: string; [k: string]: unknown }[] }, drafts);
+  }
 
   const DATA = projects.map((p) => ({
     n: p.name,
