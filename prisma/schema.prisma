@@ -235,6 +235,13 @@ model AdminDraft {
   createdAt   DateTime @default(now())
 }
 
+model ImportPreview {
+  id        String   @id @default(cuid())
+  resources Json     // Record<string, Record<string, string>[]>
+  fileName  String
+  createdAt DateTime @default(now())
+}
+
 model SyncConfig {
   id                            Int       @id @default(1)
   projectsSheetUrl              String?

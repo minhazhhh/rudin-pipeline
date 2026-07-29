@@ -453,6 +453,10 @@ export default function SyncPage() {
   const [diffLoading, setDiffLoading] = useState(false);
   const [importModes, setImportModes] = useState<Record<string, "all" | "new-only">>({});
 
+  // Import preview
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   // Version history / undo
   const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -849,6 +853,48 @@ export default function SyncPage() {
     setAiMappedFields(new Set()); setAiReasoning(null); fileRef.current = null;
   }
 
+  async function handlePreviewOnDashboard() {
+    if (!aiResult) return;
+    setPreviewError(null);
+    setPreviewing(true);
+    try {
+      // Build the filtered resource set (respect checked resources + new-only mode)
+      const filtered: Record<string, Record<string, string>[]> = {};
+      for (const [r, rows] of Object.entries(aiResult.resources)) {
+        if (!confirmSelected.has(r)) continue;
+        const mode = importModes[r] ?? "all";
+        if (mode === "new-only" && diffResults[r]?.updateKeys?.length) {
+          const skipSet = new Set(diffResults[r].updateKeys);
+          filtered[r] = rows.filter((row) => {
+            const k = clientRowKey(r, row);
+            return k === null || !skipSet.has(k);
+          });
+        } else {
+          filtered[r] = rows;
+        }
+      }
+      if (!Object.keys(filtered).length) {
+        setPreviewError("Select at least one resource to preview.");
+        return;
+      }
+      const res = await fetch("/api/comps-import/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resources: filtered, fileName: aiResult.fileName }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setPreviewError(body.error ?? "Failed to start preview.");
+        return;
+      }
+      window.open("/", "_blank");
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   // Sheet sync
   async function saveUrls() {
     setSaving(true);
@@ -1156,12 +1202,22 @@ export default function SyncPage() {
               style={{ padding: "7px 18px", background: confirmSelected.size === 0 ? "var(--ink-faint)" : "var(--accent)", color: "#fff", border: "none", cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit" }}>
               Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
             </button>
+            <button
+              onClick={() => { void handlePreviewOnDashboard(); }}
+              disabled={confirmSelected.size === 0 || previewing}
+              title="See how the dashboard will look with this data before importing"
+              style={{ padding: "7px 16px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #2d5a9e", cursor: confirmSelected.size === 0 || previewing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit", opacity: confirmSelected.size === 0 || previewing ? 0.5 : 1 }}>
+              {previewing ? "Opening…" : "Preview on dashboard ↗"}
+            </button>
             <button onClick={resetDrop}
               style={{ padding: "7px 14px", background: "none", border: "1px solid var(--line)", cursor: "pointer", fontSize: "13px", color: "var(--ink-soft)", fontFamily: "inherit" }}>
               ← Start over
             </button>
             {confirmSelected.size === 0 && (
               <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>Select at least one resource to import.</span>
+            )}
+            {previewError && (
+              <span style={{ fontSize: "12px", color: "var(--red)" }}>{previewError}</span>
             )}
           </div>
         </div>

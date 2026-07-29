@@ -1,5 +1,6 @@
 import { prisma } from "@/app/lib/prisma";
 import type { AdminDraft } from "@/app/generated/prisma/client";
+import { csvNum, csvBool, csvStr } from "@/app/lib/sync";
 
 // Fixed taxonomies used only for display ordering — not user-editable content.
 const PT_ORDER = ["Conversion", "Primary", "Market"];
@@ -101,7 +102,162 @@ function applyDraftPatches(
   }
 }
 
-export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[]) {
+// ── Import preview data application ──────────────────────────────────────────
+// Takes raw string-valued import rows (same format as /api/comps-import receives)
+// and merges them into the in-memory Prisma arrays so the dashboard renders as if
+// the import had already run, without actually writing to the DB.
+
+function deriveQOrder(q: string): number {
+  const m = q.trim().match(/Q(\d)\s+(\d{4})/i);
+  if (m) return parseInt(m[2]) * 10 + parseInt(m[1]);
+  return 0;
+}
+
+function applyImportPreviewData(
+  raw: {
+    projects: { id: string; [k: string]: unknown }[];
+    compBuildings: { id: string; name: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[];
+    overallStats: { id: string; [k: string]: unknown }[];
+    typeStats: { id: string; [k: string]: unknown }[];
+    trendPoints: { id: string; [k: string]: unknown }[];
+  },
+  previewResources: Record<string, Record<string, string>[]>
+) {
+  // projects — replace by name
+  if (previewResources["projects"]?.length) {
+    const byName = new Map(raw.projects.map((p) => [p.name as string, p]));
+    for (const row of previewResources["projects"]) {
+      const name = csvStr(row.name);
+      if (!name) continue;
+      byName.set(name, {
+        id: byName.get(name)?.id ?? `preview-${name}`,
+        name,
+        borough: csvStr(row.borough),
+        status: csvStr(row.status),
+        category: csvStr(row.category),
+        units: csvNum(row.units),
+        sqft: csvNum(row.sqft),
+        deliveryLabel: csvStr(row.deliveryLabel),
+        sponsor: csvStr(row.sponsor),
+        lender: csvStr(row.lender),
+        address: row.address?.trim() || null,
+        lat: csvNum(row.lat) ?? 0,
+        lng: csvNum(row.lng) ?? 0,
+        isRudin: csvBool(row.isRudin),
+        imageUrl: csvStr(row.imageUrl),
+        affPct: csvNum(row.affPct),
+        mktU: csvNum(row.mktU) != null ? Math.round(csvNum(row.mktU)!) : null,
+        affU: csvNum(row.affU) != null ? Math.round(csvNum(row.affU)!) : null,
+        avgSf: csvNum(row.avgSf) != null ? Math.round(csvNum(row.avgSf)!) : null,
+        affBands: null,
+        compBuildingName: row.compBuildingName?.trim() || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as typeof raw.projects[0]);
+    }
+    raw.projects.splice(0, raw.projects.length, ...byName.values());
+    raw.projects.sort((a, b) => ((b.sqft as number | null) ?? 0) - ((a.sqft as number | null) ?? 0));
+  }
+
+  // comp-buildings — upsert by name, preserving existing stats arrays
+  if (previewResources["comp-buildings"]?.length) {
+    const byName = new Map(raw.compBuildings.map((b) => [b.name, b]));
+    for (const row of previewResources["comp-buildings"]) {
+      const name = csvStr(row.name);
+      if (!name) continue;
+      const existing = byName.get(name);
+      byName.set(name, {
+        id: existing?.id ?? `preview-${name}`,
+        name,
+        propertyType: csvStr(row.propertyType) || "Market",
+        lat: csvNum(row.lat),
+        lng: csvNum(row.lng),
+        underwritten: csvBool(row.underwritten),
+        note: row.note?.trim() || null,
+        totalN: csvNum(row.totalN) != null ? Math.round(csvNum(row.totalN)!) : null,
+        stats: existing?.stats ?? [],
+        quarterStats: existing?.quarterStats ?? [],
+        createdAt: existing?.createdAt ?? new Date(),
+        updatedAt: new Date(),
+      } as typeof raw.compBuildings[0]);
+    }
+    raw.compBuildings.splice(0, raw.compBuildings.length, ...byName.values());
+  }
+
+  // comp-building-stats — group by buildingName, replace stats on matched buildings
+  if (previewResources["comp-building-stats"]?.length) {
+    const statsByBuilding = new Map<string, Record<string, string>[]>();
+    for (const row of previewResources["comp-building-stats"]) {
+      const name = (row.buildingName ?? "").trim();
+      if (!name) continue;
+      if (!statsByBuilding.has(name)) statsByBuilding.set(name, []);
+      statsByBuilding.get(name)!.push(row);
+    }
+    for (const b of raw.compBuildings) {
+      const rows = statsByBuilding.get(b.name);
+      if (!rows) continue;
+      b.stats = rows.map((row) => ({
+        id: `preview-stat-${b.name}-${row.unitType}`,
+        buildingId: b.id,
+        unitType: csvStr(row.unitType),
+        avgRent: csvNum(row.avgRent), medRent: csvNum(row.medRent),
+        minRent: csvNum(row.minRent), maxRent: csvNum(row.maxRent), nRent: csvNum(row.nRent),
+        avgPsf: csvNum(row.avgPsf), medPsf: csvNum(row.medPsf),
+        minPsf: csvNum(row.minPsf), maxPsf: csvNum(row.maxPsf), nPsf: csvNum(row.nPsf),
+        avgSf: csvNum(row.avgSf), medSf: csvNum(row.medSf),
+        minSf: csvNum(row.minSf), maxSf: csvNum(row.maxSf), nSf: csvNum(row.nSf),
+      })) as typeof raw.compBuildings[0]["stats"];
+    }
+  }
+
+  // overall-stats — replace all
+  if (previewResources["overall-stats"]?.length) {
+    const newStats = previewResources["overall-stats"].map((row) => ({
+      id: `preview-os-${row.unitType}`,
+      unitType: csvStr(row.unitType),
+      avgRent: csvNum(row.avgRent), medRent: csvNum(row.medRent),
+      minRent: csvNum(row.minRent), maxRent: csvNum(row.maxRent), nRent: csvNum(row.nRent),
+      avgPsf: csvNum(row.avgPsf), medPsf: csvNum(row.medPsf),
+      minPsf: csvNum(row.minPsf), maxPsf: csvNum(row.maxPsf), nPsf: csvNum(row.nPsf),
+      avgSf: csvNum(row.avgSf), medSf: csvNum(row.medSf),
+      minSf: csvNum(row.minSf), maxSf: csvNum(row.maxSf), nSf: csvNum(row.nSf),
+    })) as typeof raw.overallStats;
+    raw.overallStats.splice(0, raw.overallStats.length, ...newStats);
+  }
+
+  // type-stats — replace all
+  if (previewResources["type-stats"]?.length) {
+    const newStats = previewResources["type-stats"].map((row) => ({
+      id: `preview-ts-${row.propertyType}-${row.unitType}`,
+      propertyType: csvStr(row.propertyType),
+      unitType: csvStr(row.unitType),
+      avgRent: csvNum(row.avgRent), medRent: csvNum(row.medRent),
+      minRent: csvNum(row.minRent), maxRent: csvNum(row.maxRent), nRent: csvNum(row.nRent),
+      avgPsf: csvNum(row.avgPsf), medPsf: csvNum(row.medPsf),
+      minPsf: csvNum(row.minPsf), maxPsf: csvNum(row.maxPsf), nPsf: csvNum(row.nPsf),
+    })) as typeof raw.typeStats;
+    raw.typeStats.splice(0, raw.typeStats.length, ...newStats);
+  }
+
+  // trend — replace all, derive quarterOrder if missing
+  if (previewResources["trend"]?.length) {
+    const newPoints = previewResources["trend"].map((row) => {
+      const quarter = csvStr(row.quarter);
+      return {
+        id: `preview-tr-${quarter}-${row.unitType}`,
+        quarter,
+        quarterOrder: csvNum(row.quarterOrder) ?? deriveQOrder(quarter),
+        unitType: csvStr(row.unitType),
+        avgRent: csvNum(row.avgRent) ?? 0,
+        avgPsf: csvNum(row.avgPsf),
+      };
+    }) as typeof raw.trendPoints;
+    newPoints.sort((a, b) => ((a.quarterOrder as number) ?? 0) - ((b.quarterOrder as number) ?? 0));
+    raw.trendPoints.splice(0, raw.trendPoints.length, ...newPoints);
+  }
+}
+
+export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[], importPreview?: Record<string, Record<string, string>[]>) {
   const [projects, compBuildings, overallStats, typeStats, trendPoints] = await Promise.all([
     prisma.project.findMany({ orderBy: { sqft: "desc" } }),
     prisma.compBuilding.findMany({ include: { stats: true, quarterStats: true } }),
@@ -112,6 +268,10 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
 
   if (drafts && drafts.length > 0) {
     applyDraftPatches({ projects: projects as { id: string; [k: string]: unknown }[], compBuildings: compBuildings as { id: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[], overallStats: overallStats as { id: string; [k: string]: unknown }[], typeStats: typeStats as { id: string; [k: string]: unknown }[], trendPoints: trendPoints as { id: string; [k: string]: unknown }[] }, drafts);
+  }
+
+  if (importPreview && Object.keys(importPreview).length > 0) {
+    applyImportPreviewData({ projects: projects as { id: string; [k: string]: unknown }[], compBuildings: compBuildings as { id: string; name: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[], overallStats: overallStats as { id: string; [k: string]: unknown }[], typeStats: typeStats as { id: string; [k: string]: unknown }[], trendPoints: trendPoints as { id: string; [k: string]: unknown }[] }, importPreview);
   }
 
   const DATA = projects.map((p) => ({
