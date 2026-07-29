@@ -2598,7 +2598,11 @@ function buildCDBldg() {
         <option value="leases">Total Leases</option>
       </select>
     </div>
-    <div style="font-size:10.5px;color:var(--ink-faint);margin-left:auto;text-align:right">Check rows to compare &rarr; see % variance<br><span style="font-size:9.5px;color:var(--gold)">UW = underwritten rents, not actual leases</span></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="eyebrow">Search</span>
+      <input id="cd-bldg-search" type="text" placeholder="Filter buildings…" oninput="filterCDBldg()" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);outline:none;width:160px;background:#fff">
+    </div>
+    <div style="font-size:10.5px;color:var(--ink-faint);margin-left:auto;text-align:right">Check rows to compare &rarr; see full breakdown<br><span style="font-size:9.5px;color:var(--gold)">UW = underwritten rents, not actual leases</span></div>
   </div>
   <div style="font-size:10px;color:var(--ink-faint);margin-bottom:12px">&#x25CF; Green = above peer avg &nbsp;&nbsp; Gray = below</div>
   <div id="cd-bldg-cmp-panel" style="display:none"></div>
@@ -2621,9 +2625,10 @@ function buildCDBldg() {
 }
 
 function filterCDBldg() {
-  const ptFilter = document.getElementById('cd-bldg-pt')?.value || '';
-  const utFilter = document.getElementById('cd-bldg-ut')?.value || '';
-  const sortBy   = document.getElementById('cd-bldg-sort')?.value || 'name';
+  const ptFilter  = document.getElementById('cd-bldg-pt')?.value || '';
+  const utFilter  = document.getElementById('cd-bldg-ut')?.value || '';
+  const sortBy    = document.getElementById('cd-bldg-sort')?.value || 'name';
+  const searchVal = (document.getElementById('cd-bldg-search')?.value || '').toLowerCase().trim();
   let bldgs = Object.keys(AGG.bldg_stats).sort();
   const uts = AGG.ut_order;
   const showUTs = utFilter ? [utFilter] : uts.filter(t => bldgs.some(b=>AGG.bldg_stats[b]?.units?.[t]));
@@ -2635,6 +2640,7 @@ function filterCDBldg() {
   });
 
   if(ptFilter) bldgs = bldgs.filter(b=>AGG.bldg_stats[b]?.pt===ptFilter);
+  if(searchVal) bldgs = bldgs.filter(b=>b.toLowerCase().includes(searchVal));
   if(sortBy==='type') bldgs.sort((a,b)=>(AGG.bldg_stats[a]?.pt||'').localeCompare(AGG.bldg_stats[b]?.pt||''));
   if(sortBy==='leases') bldgs.sort((a,b)=>(AGG.bldg_stats[b]?.total_n||0)-(AGG.bldg_stats[a]?.total_n||0));
 
@@ -2679,53 +2685,93 @@ function filterCDBldg() {
   };
 
   const panel = document.getElementById('cd-bldg-cmp-panel');
-  if(panel && sel.size >= 2) {
+  if(panel && sel.size >= 1) {
     const selArr = Array.from(sel);
     const showUTsAll = uts.filter(t => selArr.some(b=>AGG.bldg_stats[b]?.units?.[t]?.gr?.avg));
+
     let ph = `<div class="cd-card" style="margin-bottom:18px;border:1px solid var(--accent-line);background:var(--accent-soft)">
-      <div class="cd-ph" style="color:var(--accent)">Comparing ${selArr.length} Buildings — Avg Rent &amp; % Variance</div>
-      <div class="table-wrap"><table class="cdt">
-        <thead><tr>
-          <th>Building</th><th>Type</th>
-          ${showUTsAll.map(t=>`<th class="r" colspan="2" style="border-left:1px solid var(--line-soft);color:${UT_COLORS[t]}">${t}</th>`).join('')}
-        </tr>
-        <tr><th></th><th></th>
-          ${showUTsAll.map(()=>'<th class="r" style="font-size:9px;border-left:1px solid var(--line-soft)">Avg Rent</th><th class="r" style="font-size:9px">vs. Lowest</th>').join('')}
-        </tr></thead><tbody>`;
+      <div class="cd-ph" style="color:var(--accent)">${selArr.length === 1 ? selArr[0] + ' — Full Breakdown' : 'Comparing ' + selArr.length + ' Buildings'}</div>`;
 
-    // Find min per UT among selected
-    const minPerUT = {};
-    showUTsAll.forEach(t => {
-      const vals = selArr.map(b=>AGG.bldg_stats[b]?.units?.[t]?.gr?.avg).filter(Boolean);
-      minPerUT[t] = vals.length ? Math.min(...vals) : null;
-    });
-
+    // Per-building detailed unit-type tables
+    ph += `<div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:${selArr.length >= 2 ? '18px' : '0'}">`;
     selArr.forEach(b => {
       const bdata = AGG.bldg_stats[b];
+      const bUTs = uts.filter(t => bdata?.units?.[t]?.gr?.avg);
+      if (!bUTs.length) return;
       const pt = bdata?.pt || 'Market';
-      const col = PT_COLORS[pt]||'#888';
-      ph += `<tr>
-        <td style="font-weight:500;color:var(--ink);white-space:nowrap">${b}</td>
-        <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
-      showUTsAll.forEach(t => {
-        const v = bdata?.units?.[t]?.gr?.avg;
-        const base = minPerUT[t];
-        if(v && base) {
-          const diff = v - base;
-          const pct = (diff/base*100);
-          const isBase = diff === 0;
-          ph += `<td class="r" style="font-weight:600;border-left:1px solid var(--line-soft)">${fmtR(v)}</td>
-            <td class="r" style="font-weight:600;color:${isBase?'var(--ink-faint)':diff>0?'var(--red)':'var(--accent)'}">
-              ${isBase?'Base':(diff>0?'+':'')+pct.toFixed(1)+'%'}
-            </td>`;
-        } else {
-          ph += `<td class="r" style="color:var(--line);border-left:1px solid var(--line-soft)">—</td><td class="r" style="color:var(--line)">—</td>`;
-        }
+      const col = PT_COLORS[pt] || '#888';
+      ph += `<div style="flex:1;min-width:320px">`;
+      if (selArr.length >= 2) ph += `<div style="font-weight:700;font-size:11px;color:var(--ink);margin-bottom:6px;white-space:nowrap">${b} <span class="badge-outline" style="border-color:${col}22;color:${col};font-size:9px">${pt}</span></div>`;
+      ph += `<div class="table-wrap"><table class="cdt" style="font-size:10.5px">
+        <thead><tr>
+          <th>Unit Type</th>
+          <th class="r">Avg Rent</th><th class="r">Med Rent</th>
+          <th class="r">Min</th><th class="r">Max</th>
+          <th class="r">Avg&nbsp;$/SF</th><th class="r">Med&nbsp;$/SF</th>
+          <th class="r">Leases</th>
+        </tr></thead><tbody>`;
+      bUTs.forEach(t => {
+        const v = bdata.units[t];
+        ph += `<tr>
+          <td><span style="color:${UT_COLORS[t]||'#888'};font-weight:600">${t}</span></td>
+          <td class="r">${fmtR(v.gr?.avg)}</td>
+          <td class="r">${fmtR(v.gr?.med)}</td>
+          <td class="r">${fmtR(v.gr?.min)}</td>
+          <td class="r">${fmtR(v.gr?.max)}</td>
+          <td class="r">${fmtP(v.psf?.avg)}</td>
+          <td class="r">${fmtP(v.psf?.med)}</td>
+          <td class="r">${v.gr?.n ?? '—'}</td>
+        </tr>`;
       });
-      ph += '</tr>';
+      ph += '</tbody></table></div></div>';
     });
-    ph += '</tbody></table></div>';
-    ph += `<div style="margin-top:10px"><button onclick="window._bldgCmpSel=new Set();filterCDBldg();" style="padding:5px 14px;border:1px solid var(--line);background:transparent;font-family:inherit;font-size:11px;cursor:pointer;border-radius:1px;color:var(--ink-soft)">Clear Comparison</button></div>`;
+    ph += '</div>';
+
+    // Cross-building avg rent + variance table (only when 2+)
+    if (selArr.length >= 2 && showUTsAll.length) {
+      const minPerUT = {};
+      showUTsAll.forEach(t => {
+        const vals = selArr.map(b=>AGG.bldg_stats[b]?.units?.[t]?.gr?.avg).filter(Boolean);
+        minPerUT[t] = vals.length ? Math.min(...vals) : null;
+      });
+      ph += `<div style="border-top:1px solid var(--accent-line);padding-top:14px;margin-top:4px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:8px">Avg Rent Variance vs. Lowest</div>
+        <div class="table-wrap"><table class="cdt" style="font-size:10.5px">
+          <thead><tr>
+            <th>Building</th><th>Type</th>
+            ${showUTsAll.map(t=>`<th class="r" colspan="2" style="border-left:1px solid var(--line-soft);color:${UT_COLORS[t]}">${t}</th>`).join('')}
+          </tr>
+          <tr><th></th><th></th>
+            ${showUTsAll.map(()=>'<th class="r" style="font-size:9px;border-left:1px solid var(--line-soft)">Avg Rent</th><th class="r" style="font-size:9px">vs. Lowest</th>').join('')}
+          </tr></thead><tbody>`;
+      selArr.forEach(b => {
+        const bdata = AGG.bldg_stats[b];
+        const pt = bdata?.pt || 'Market';
+        const col = PT_COLORS[pt]||'#888';
+        ph += `<tr>
+          <td style="font-weight:500;color:var(--ink);white-space:nowrap">${b}</td>
+          <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
+        showUTsAll.forEach(t => {
+          const v = bdata?.units?.[t]?.gr?.avg;
+          const base = minPerUT[t];
+          if(v && base) {
+            const diff = v - base;
+            const pct = (diff/base*100);
+            const isBase = diff === 0;
+            ph += `<td class="r" style="font-weight:600;border-left:1px solid var(--line-soft)">${fmtR(v)}</td>
+              <td class="r" style="font-weight:600;color:${isBase?'var(--ink-faint)':diff>0?'var(--red)':'var(--accent)'}">
+                ${isBase?'Base':(diff>0?'+':'')+pct.toFixed(1)+'%'}
+              </td>`;
+          } else {
+            ph += `<td class="r" style="color:var(--line);border-left:1px solid var(--line-soft)">—</td><td class="r" style="color:var(--line)">—</td>`;
+          }
+        });
+        ph += '</tr>';
+      });
+      ph += '</tbody></table></div></div>';
+    }
+
+    ph += `<div style="margin-top:12px"><button onclick="window._bldgCmpSel=new Set();filterCDBldg();" style="padding:5px 14px;border:1px solid var(--line);background:transparent;font-family:inherit;font-size:11px;cursor:pointer;border-radius:1px;color:var(--ink-soft)">Clear Selection</button></div>`;
     ph += '</div>';
     panel.innerHTML = ph;
     panel.style.display = 'block';
