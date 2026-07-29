@@ -3634,20 +3634,27 @@ function buildCDReport() {
   var uwBtn = document.getElementById('uw-btn');
   if (!uwBtn) return;
 
+  function fireResize() { window.dispatchEvent(new Event('resize')); }
+
   function enterUWMode() {
     document.body.classList.add('uw-mode');
     uwBtn.classList.add('on');
+    fireResize();
+    setTimeout(fireResize, 160);
     setTimeout(function() {
-      map.invalidateSize();
+      fireResize();
       uwAnchorChanged();
     }, 320);
+    setTimeout(fireResize, 500);
   }
   window.uwExit = function() {
     document.body.classList.remove('uw-mode');
     uwBtn.classList.remove('on');
     uwMainLayers.forEach(function(l) { map.removeLayer(l); });
     uwMainLayers = [];
-    setTimeout(function() { map.invalidateSize(); }, 320);
+    fireResize();
+    setTimeout(fireResize, 160);
+    setTimeout(fireResize, 350);
   };
   uwBtn.onclick = enterUWMode;
 
@@ -3742,11 +3749,12 @@ function buildCDReport() {
     var radius = parseFloat(document.getElementById('uw-radius').value);
 
     // Radius circle
+    var radiusM = radius * 1609.34;
     if (radius > 0 && radius < 999) {
       var circle = L.circle(anchorCoords, {
-        radius: radius * 1609.34,
+        radius: radiusM,
         color: '#0d4d3a', fillColor: '#0d4d3a',
-        fillOpacity: 0.08, weight: 2, dashArray: '6 5', interactive: false
+        fillOpacity: 0.06, weight: 3, dashArray: '8 6', opacity: 0.85, interactive: false
       }).addTo(map);
       uwMainLayers.push(circle);
     }
@@ -3782,10 +3790,15 @@ function buildCDReport() {
     });
     uwMainLayers.push(anchorM);
 
-    // Fit view: leave left padding for the panel (320px + 20px margin)
+    // Fit view — geographic bounds to avoid the panel on the left
     if (radius > 0 && radius < 999) {
-      var bounds = L.circle(anchorCoords, { radius: radius * 1609.34 }).getBounds();
-      map.fitBounds(bounds, { paddingTopLeft: [20, 350], paddingBottomRight: [20, 20] });
+      var latDelta = radiusM / 111320;
+      var lngDelta = latDelta / Math.cos(anchorCoords[0] * Math.PI / 180);
+      map.fitBounds(
+        [[anchorCoords[0] - latDelta, anchorCoords[1] - lngDelta],
+         [anchorCoords[0] + latDelta, anchorCoords[1] + lngDelta]],
+        { paddingTopLeft: [30, 350], paddingBottomRight: [30, 30] }
+      );
     } else {
       map.setView(anchorCoords, 15, { animate: true });
     }
