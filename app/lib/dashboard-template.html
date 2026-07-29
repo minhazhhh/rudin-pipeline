@@ -3696,7 +3696,7 @@ function buildCDReport() {
       info.textContent = '';
       return;
     }
-    var anchorCoords = AGG.COMP_COORDS && AGG.COMP_COORDS[anchor];
+    var anchorCoords = COMP_COORDS && COMP_COORDS[anchor];
     if (!anchorCoords) {
       info.textContent = anchor + ' — no location data, anchor only';
       return;
@@ -3708,7 +3708,7 @@ function buildCDReport() {
     var nearby = [];
     Object.keys(AGG.bldg_stats).forEach(function(b) {
       if (b === anchor) return;
-      var c = AGG.COMP_COORDS && AGG.COMP_COORDS[b];
+      var c = COMP_COORDS && COMP_COORDS[b];
       if (!c) return;
       var d = haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]);
       if (d <= radius) nearby.push({ name: b, mi: d });
@@ -3726,12 +3726,12 @@ function buildCDReport() {
     var anchor = document.getElementById('uw-anchor').value;
     if (!anchor) return null; // no anchor → API uses all
     var radius = parseFloat(document.getElementById('uw-radius').value);
-    var anchorCoords = AGG.COMP_COORDS && AGG.COMP_COORDS[anchor];
+    var anchorCoords = COMP_COORDS && COMP_COORDS[anchor];
     var list = [anchor];
     if (radius > 0 && anchorCoords) {
       Object.keys(AGG.bldg_stats).forEach(function(b) {
         if (b === anchor) return;
-        var c = AGG.COMP_COORDS && AGG.COMP_COORDS[b];
+        var c = COMP_COORDS && COMP_COORDS[b];
         if (!c) return;
         if (haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]) <= radius) {
           list.push(b);
