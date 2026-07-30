@@ -67,9 +67,6 @@ type FieldChange = { field: string; before: string; after: string };
 type FieldDiffItem = { key: string; label: string; changes: FieldChange[] };
 type FieldDiffData = { items: FieldDiffItem[]; totalUpdates: number };
 
-type ValidationIssue = { row?: number; key?: string; field?: string; message: string; severity: "error" | "warning" };
-type ValidationResult = { errors: ValidationIssue[]; warnings: ValidationIssue[] };
-
 type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -517,107 +514,6 @@ function FieldDiffPanel({
   );
 }
 
-// ─── Validation panel ─────────────────────────────────────────────────────────
-
-function ValidationPanel({
-  vr,
-  acknowledged,
-  onAcknowledge,
-}: {
-  vr: ValidationResult | "loading" | "error" | undefined;
-  acknowledged: boolean;
-  onAcknowledge: (v: boolean) => void;
-}) {
-  if (!vr || vr === "loading") {
-    return (
-      <div style={{ padding: "6px 14px", background: "#f8fafc", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 7, fontSize: "11px", color: "var(--ink-faint)" }}>
-        <span style={{ display: "inline-block", width: 11, height: 11, border: "1.5px solid #cbd5e1", borderTop: "1.5px solid #64748b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        Validating…
-      </div>
-    );
-  }
-  if (vr === "error") {
-    return (
-      <div style={{ padding: "6px 14px", background: "#fef2f2", borderBottom: "1px solid #fca5a5", fontSize: "11px", color: "#dc2626" }}>
-        ⚠ Validation check failed — could not connect to database
-      </div>
-    );
-  }
-
-  const { errors, warnings } = vr;
-  if (errors.length === 0 && warnings.length === 0) {
-    return (
-      <div style={{ padding: "5px 14px", background: "#f0fdf4", borderBottom: "1px solid #bbf7d0", display: "flex", alignItems: "center", gap: 6, fontSize: "11px", color: "#15803d", fontWeight: 600 }}>
-        <span>✓</span> Validation passed — no issues found
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ borderBottom: "1px solid var(--line-soft)" }}>
-      {/* Errors */}
-      {errors.length > 0 && (
-        <div style={{ background: "#fef2f2", borderBottom: "1px solid #fca5a5" }}>
-          <div style={{ padding: "5px 14px 3px", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: "12px" }}>🚫</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {errors.length} Error{errors.length !== 1 ? "s" : ""} — must fix before importing
-            </span>
-          </div>
-          <ul style={{ margin: "0 0 6px", padding: "0 14px 0 34px", listStyle: "disc" }}>
-            {errors.slice(0, 10).map((e, i) => (
-              <li key={i} style={{ fontSize: "11px", color: "#7f1d1d", padding: "1px 0", lineHeight: 1.5 }}>
-                {e.row ? <span style={{ color: "#b91c1c", fontWeight: 600, marginRight: 4 }}>Row {e.row}:</span> : null}
-                {e.key ? <span style={{ fontWeight: 600, marginRight: 4 }}>{e.key}</span> : null}
-                {e.field ? <span style={{ fontFamily: "monospace", background: "#fee2e2", padding: "0 3px", borderRadius: 2, marginRight: 4 }}>{e.field}</span> : null}
-                {e.message}
-              </li>
-            ))}
-            {errors.length > 10 && (
-              <li style={{ fontSize: "10.5px", color: "#b91c1c", listStyle: "none", paddingLeft: 0 }}>
-                + {errors.length - 10} more errors
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
-
-      {/* Warnings */}
-      {warnings.length > 0 && (
-        <div style={{ background: "#fffbeb", borderBottom: "1px solid #fde68a" }}>
-          <div style={{ padding: "5px 14px 3px", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: "12px" }}>⚠️</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {warnings.length} Warning{warnings.length !== 1 ? "s" : ""} — review before proceeding
-            </span>
-          </div>
-          <ul style={{ margin: "0 0 6px", padding: "0 14px 0 34px", listStyle: "disc" }}>
-            {warnings.map((w, i) => (
-              <li key={i} style={{ fontSize: "11px", color: "#78350f", padding: "1px 0", lineHeight: 1.5 }}>
-                {w.row ? <span style={{ color: "#92400e", fontWeight: 600, marginRight: 4 }}>Row {w.row}:</span> : null}
-                {w.key ? <span style={{ fontWeight: 600, marginRight: 4 }}>{w.key}</span> : null}
-                {w.field ? <span style={{ fontFamily: "monospace", background: "#fef3c7", padding: "0 3px", borderRadius: 2, marginRight: 4 }}>{w.field}</span> : null}
-                {w.message}
-              </li>
-            ))}
-          </ul>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 14px 7px", cursor: "pointer", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(e) => onAcknowledge(e.target.checked)}
-              style={{ width: 14, height: 14, accentColor: "#b45309", cursor: "pointer" }}
-            />
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#92400e" }}>
-              I have reviewed these warnings and want to proceed anyway
-            </span>
-          </label>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SyncPage() {
@@ -664,11 +560,6 @@ export default function SyncPage() {
   const [fieldDiffResults, setFieldDiffResults] = useState<Record<string, FieldDiffData | "loading" | "error">>({});
   const [collapsedDiff, setCollapsedDiff] = useState<Set<string>>(new Set()); // resources the user has manually collapsed
   const fieldDiffFired = useRef<Set<string>>(new Set()); // tracks in-flight/done fetches to avoid duplicates
-
-  // Validation
-  const [validationResults, setValidationResults] = useState<Record<string, ValidationResult | "loading" | "error">>({});
-  const [acknowledgedWarnings, setAcknowledgedWarnings] = useState<Set<string>>(new Set());
-  const validationFired = useRef<Set<string>>(new Set());
 
   // Import preview
   const [previewing, setPreviewing] = useState(false);
@@ -805,32 +696,6 @@ export default function SyncPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diffResults]);
 
-  // ── Validation (fires as soon as aiResult is set) ─────────────────────────
-  useEffect(() => {
-    if (!aiResult) return;
-    const siblingKeys: Record<string, string[]> = {};
-    if (aiResult.resources["comp-buildings"]) {
-      siblingKeys["comp-buildings"] = aiResult.resources["comp-buildings"]
-        .map((r) => r.name?.trim()).filter(Boolean) as string[];
-    }
-    for (const [r, rows] of Object.entries(aiResult.resources)) {
-      if (validationFired.current.has(r)) continue;
-      validationFired.current.add(r);
-      setValidationResults((prev) => ({ ...prev, [r]: "loading" }));
-      fetch("/api/comps-import/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource: r, rows, siblingKeys }),
-      })
-        .then(async (res) => {
-          const data: ValidationResult | "error" = res.ok ? (await res.json() as ValidationResult) : "error";
-          setValidationResults((prev) => ({ ...prev, [r]: data }));
-        })
-        .catch(() => setValidationResults((prev) => ({ ...prev, [r]: "error" })));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiResult]);
-
   // ── AI import flow ─────────────────────────────────────────────────────────
 
   async function runImports(resources: Record<string, Record<string, string>[]>) {
@@ -925,8 +790,9 @@ export default function SyncPage() {
         setDiffResults({});
         setDiffErrors(new Set());
         setImportModes({});
-        setFieldDiffResults({}); setCollapsedDiff(new Set()); fieldDiffFired.current = new Set();
-        setValidationResults({}); setAcknowledgedWarnings(new Set()); validationFired.current = new Set();
+        setFieldDiffResults({});
+        setCollapsedDiff(new Set());
+        fieldDiffFired.current = new Set();
         setStep("confirm");
 
         const diffResources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
@@ -974,8 +840,9 @@ export default function SyncPage() {
       setDiffResults({});
       setDiffErrors(new Set());
       setImportModes({});
-      setFieldDiffResults({}); setCollapsedDiff(new Set()); fieldDiffFired.current = new Set();
-      setValidationResults({}); setAcknowledgedWarnings(new Set()); validationFired.current = new Set();
+      setFieldDiffResults({});
+      setCollapsedDiff(new Set());
+      fieldDiffFired.current = new Set();
       setStep("confirm"); // show preview + confirm before importing
 
       // Fetch duplicate detection counts — one request per resource, update UI as each arrives
@@ -1125,7 +992,6 @@ export default function SyncPage() {
     setRawRows([]); setHeaders([]); setFileName(""); setManualResult(null);
     setAiMappedFields(new Set()); setAiReasoning(null); fileRef.current = null;
     setFieldDiffResults({}); setCollapsedDiff(new Set()); fieldDiffFired.current = new Set();
-    setValidationResults({}); setAcknowledgedWarnings(new Set()); validationFired.current = new Set();
   }
 
   async function handlePreviewOnDashboard() {
@@ -1421,17 +1287,6 @@ export default function SyncPage() {
                     </div>
                   )}
 
-                  {/* Validation — errors block import, warnings require acknowledgment */}
-                  <ValidationPanel
-                    vr={validationResults[r]}
-                    acknowledged={acknowledgedWarnings.has(r)}
-                    onAcknowledge={(v) => setAcknowledgedWarnings((prev) => {
-                      const next = new Set(prev);
-                      v ? next.add(r) : next.delete(r);
-                      return next;
-                    })}
-                  />
-
                   {/* Field-level before/after diff — shown when updates exist, expanded by default */}
                   {diff && diff.updateCount > 0 && <FieldDiffPanel
                     resource={r}
@@ -1477,72 +1332,47 @@ export default function SyncPage() {
             );
           })}
 
-          {(() => {
-            const selectedResources = IMPORT_ORDER.filter((r) => confirmSelected.has(r) && (aiResult.resources[r]?.length ?? 0) > 0);
-            const totalErrors = selectedResources.reduce((acc, r) => {
-              const vr = validationResults[r];
-              return acc + (vr && vr !== "loading" && vr !== "error" ? vr.errors.length : 0);
-            }, 0);
-            const resourcesWithUnackedWarnings = selectedResources.filter((r) => {
-              const vr = validationResults[r];
-              return vr && vr !== "loading" && vr !== "error" && vr.warnings.length > 0 && !acknowledgedWarnings.has(r);
-            });
-            const blocked = confirmSelected.size === 0 || totalErrors > 0 || resourcesWithUnackedWarnings.length > 0;
-            const blockReason = confirmSelected.size === 0
-              ? "Select at least one resource to import."
-              : totalErrors > 0
-                ? `Fix ${totalErrors} error${totalErrors !== 1 ? "s" : ""} before importing.`
-                : resourcesWithUnackedWarnings.length > 0
-                  ? `Acknowledge warnings on: ${resourcesWithUnackedWarnings.map((r) => RESOURCE_LABELS[r]).join(", ")}`
-                  : null;
-
-            return (
-              <div style={{ display: "flex", gap: 8, marginTop: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-                <button
-                  onClick={() => {
-                    const filtered: Record<string, Record<string, string>[]> = {};
-                    for (const [r, rows] of Object.entries(aiResult.resources)) {
-                      if (!confirmSelected.has(r)) continue;
-                      const mode = importModes[r] ?? "all";
-                      if (mode === "new-only" && diffResults[r]?.updateKeys?.length) {
-                        const skipSet = new Set(diffResults[r].updateKeys);
-                        filtered[r] = rows.filter((row) => {
-                          const k = clientRowKey(r, row);
-                          return k === null || !skipSet.has(k);
-                        });
-                      } else {
-                        filtered[r] = rows;
-                      }
-                    }
-                    runImports(filtered);
-                  }}
-                  disabled={blocked}
-                  title={blockReason ?? undefined}
-                  style={{ padding: "7px 18px", background: blocked ? "#94a3b8" : "var(--accent)", color: "#fff", border: "none", cursor: blocked ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit" }}>
-                  Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
-                </button>
-                <button
-                  onClick={() => { void handlePreviewOnDashboard(); }}
-                  disabled={confirmSelected.size === 0 || previewing}
-                  title="See how the dashboard will look with this data before importing"
-                  style={{ padding: "7px 16px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #2d5a9e", cursor: confirmSelected.size === 0 || previewing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit", opacity: confirmSelected.size === 0 || previewing ? 0.5 : 1 }}>
-                  {previewing ? "Opening…" : "Preview on dashboard ↗"}
-                </button>
-                <button onClick={resetDrop}
-                  style={{ padding: "7px 14px", background: "none", border: "1px solid var(--line)", cursor: "pointer", fontSize: "13px", color: "var(--ink-soft)", fontFamily: "inherit" }}>
-                  ← Start over
-                </button>
-                {blockReason && (
-                  <span style={{ fontSize: "12px", color: totalErrors > 0 ? "var(--red)" : "#b45309", fontWeight: 600 }}>
-                    {totalErrors > 0 ? "🚫" : "⚠️"} {blockReason}
-                  </span>
-                )}
-                {previewError && (
-                  <span style={{ fontSize: "12px", color: "var(--red)" }}>{previewError}</span>
-                )}
-              </div>
-            );
-          })()}
+          <div style={{ display: "flex", gap: 8, marginTop: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={() => {
+                const filtered: Record<string, Record<string, string>[]> = {};
+                for (const [r, rows] of Object.entries(aiResult.resources)) {
+                  if (!confirmSelected.has(r)) continue;
+                  const mode = importModes[r] ?? "all";
+                  if (mode === "new-only" && diffResults[r]?.updateKeys?.length) {
+                    const skipSet = new Set(diffResults[r].updateKeys);
+                    filtered[r] = rows.filter((row) => {
+                      const k = clientRowKey(r, row);
+                      return k === null || !skipSet.has(k);
+                    });
+                  } else {
+                    filtered[r] = rows;
+                  }
+                }
+                runImports(filtered);
+              }}
+              disabled={confirmSelected.size === 0}
+              style={{ padding: "7px 18px", background: confirmSelected.size === 0 ? "var(--ink-faint)" : "var(--accent)", color: "#fff", border: "none", cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit" }}>
+              Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
+            </button>
+            <button
+              onClick={() => { void handlePreviewOnDashboard(); }}
+              disabled={confirmSelected.size === 0 || previewing}
+              title="See how the dashboard will look with this data before importing"
+              style={{ padding: "7px 16px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #2d5a9e", cursor: confirmSelected.size === 0 || previewing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit", opacity: confirmSelected.size === 0 || previewing ? 0.5 : 1 }}>
+              {previewing ? "Opening…" : "Preview on dashboard ↗"}
+            </button>
+            <button onClick={resetDrop}
+              style={{ padding: "7px 14px", background: "none", border: "1px solid var(--line)", cursor: "pointer", fontSize: "13px", color: "var(--ink-soft)", fontFamily: "inherit" }}>
+              ← Start over
+            </button>
+            {confirmSelected.size === 0 && (
+              <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>Select at least one resource to import.</span>
+            )}
+            {previewError && (
+              <span style={{ fontSize: "12px", color: "var(--red)" }}>{previewError}</span>
+            )}
+          </div>
         </div>
       )}
 
