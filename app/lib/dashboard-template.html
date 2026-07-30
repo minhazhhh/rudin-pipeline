@@ -2867,6 +2867,11 @@ function buildCDTrend() {
   let metric = 'gr'; // 'gr' | 'psf'
   let qFrom = AGG.quarters[0];
   let qTo   = AGG.quarters[AGG.quarters.length-1];
+  let viewMode = 'market'; // 'market' | 'buildings'
+  const activeBldgs = new Set();
+  let bldgUT = (allUTs.includes('ST') ? 'ST' : allUTs[0]) || '';
+  let bldgSearch = '';
+  const BLDG_PALETTE = ['#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#0284c7','#9333ea','#059669'];
 
   function filteredQs() {
     const fi = AGG.quarters.indexOf(qFrom);
@@ -2874,129 +2879,183 @@ function buildCDTrend() {
     return AGG.quarters.slice(fi < 0 ? 0 : fi, ti < 0 ? AGG.quarters.length : ti+1);
   }
 
+  function bldgsForUT(ut) {
+    if (!AGG.bldg_trend) return [];
+    return Object.keys(AGG.bldg_trend).filter(b =>
+      AGG.quarters.some(q => AGG.bldg_trend[b][q]?.[ut])
+    ).sort();
+  }
+
   function render() {
     const qs = filteredQs();
-    const uts = allUTs;
-
     let h = '';
 
-    // Controls row
-    h += `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:20px">
+    // Top controls row
+    h += `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+      <div style="display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;flex-shrink:0">
+        <button onclick="window._cdTrendMode('market')" style="padding:5px 14px;font-size:11px;font-weight:600;font-family:inherit;border:none;cursor:pointer;background:${viewMode==='market'?'var(--accent)':'var(--paper)'};color:${viewMode==='market'?'#fff':'var(--ink-soft)'}">Market</button>
+        <button onclick="window._cdTrendMode('buildings')" style="padding:5px 14px;font-size:11px;font-weight:600;font-family:inherit;border:none;cursor:pointer;border-left:1px solid var(--line);background:${viewMode==='buildings'?'var(--accent)':'var(--paper)'};color:${viewMode==='buildings'?'#fff':'var(--ink-soft)'}">By Building</button>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="eyebrow">From</span>
-        <select id="cd-trend-from" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+        <select id="cd-trend-from" style="padding:5px 10px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:var(--paper);outline:none;cursor:pointer">
           ${AGG.quarters.map(q=>`<option value="${q}"${q===qFrom?' selected':''}>${q}</option>`).join('')}
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="eyebrow">To</span>
-        <select id="cd-trend-to" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:#fff;outline:none;cursor:pointer">
+        <select id="cd-trend-to" style="padding:5px 10px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:var(--paper);outline:none;cursor:pointer">
           ${AGG.quarters.map(q=>`<option value="${q}"${q===qTo?' selected':''}>${q}</option>`).join('')}
         </select>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:8px" id="cd-trend-toggles"></div>
-      <span id="cd-trend-uts-actions"></span>
+      ${viewMode === 'market'
+        ? `<div style="display:flex;gap:6px;flex-wrap:wrap" id="cd-trend-toggles"></div><span id="cd-trend-uts-actions"></span>`
+        : `<div style="display:flex;align-items:center;gap:7px">
+            <span class="eyebrow">Unit Type</span>
+            <select id="cd-trend-bldg-ut" style="padding:5px 10px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);background:var(--paper);outline:none;cursor:pointer">
+              ${allUTs.map(t=>`<option value="${t}"${t===bldgUT?' selected':''}>${t}</option>`).join('')}
+            </select>
+          </div>`
+      }
       <div style="display:flex;gap:6px" id="cd-trend-metric"></div>
       <div style="margin-left:auto;font-size:10.5px;color:var(--ink-faint)">${qs.length} quarters &middot; ${qs[0]} &ndash; ${qs[qs.length-1]}</div>
     </div>`;
 
-    // Chart
-    h += `<div class="cd-card" style="margin-bottom:20px">
-      <div class="cd-ph">${metric === 'gr' ? 'Avg Gross Rent by Quarter' : 'Avg $/SF by Quarter'}</div>
-      <div style="position:relative;height:200px">
-        <canvas id="cd-trend-chart"></canvas>
-      </div>
-    </div>`;
+    if (viewMode === 'market') {
+      // ── Market mode (original) ────────────────────────────────────────────
+      h += `<div class="cd-card" style="margin-bottom:20px">
+        <div class="cd-ph">${metric==='gr'?'Avg Gross Rent by Quarter':'Avg $/SF by Quarter'}</div>
+        <div style="position:relative;height:200px"><canvas id="cd-trend-chart"></canvas></div>
+      </div>`;
 
-    // QoQ table — only showing selected quarters
-    h += `<div class="cd-card"><div class="cd-ph">Quarter-over-Quarter Summary <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--ink-faint)">${qs[0]} &ndash; ${qs[qs.length-1]}</span></div>`;
-    h += `<div class="table-wrap"><table class="cdt"><thead><tr>
-      <th>Unit Type</th>
-      ${qs.map(q=>`<th class="r">${q}</th>`).join('')}
-      <th class="r">Period Δ</th>
-      <th class="r">QoQ Latest</th>
-    </tr></thead><tbody>`;
+      const src = metric==='gr'?AGG.trend:AGG.trend_psf;
+      const fmt = metric==='gr'?fmtR:fmtP;
+      h += `<div class="cd-card"><div class="cd-ph">Quarter-over-Quarter Summary <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--ink-faint)">${qs[0]} &ndash; ${qs[qs.length-1]}</span></div>`;
+      h += `<div class="table-wrap"><table class="cdt"><thead><tr>
+        <th>Unit Type</th>${qs.map(q=>`<th class="r">${q}</th>`).join('')}
+        <th class="r">Period Δ</th><th class="r">QoQ Latest</th>
+      </tr></thead><tbody>`;
+      allUTs.forEach(t => {
+        const vals = qs.map(q => src[q]?.[t]||null);
+        const firstVal = vals.find(v=>v), lastVal = [...vals].reverse().find(v=>v), prevVal = vals[vals.length-2]||null;
+        let periodDelta = '—';
+        if (firstVal && lastVal && firstVal !== lastVal) { const chg=(lastVal-firstVal)/firstVal*100; periodDelta=`<span style="font-weight:600;color:${chg>=0?'var(--accent)':'var(--red)'}">${chg>=0?'+':''}${chg.toFixed(1)}%</span>`; }
+        let qoq = '—';
+        if (lastVal && prevVal) { const chg=(lastVal-prevVal)/prevVal*100; qoq=`<span style="font-weight:600;color:${chg>=0?'var(--accent)':'var(--red)'}">${chg>=0?'+':''}${chg.toFixed(1)}%</span>`; }
+        h += `<tr><td><span class="ut-tag" style="background:${UT_COLORS[t]||'#888'}">${t}</span></td>
+          ${vals.map((v,vi)=>{ const prev=vals[vi-1]; let cls=''; if(v&&prev) cls=v>prev?'style="color:var(--accent)"':v<prev?'style="color:var(--red)"':''; return `<td class="r" ${cls}>${v?fmt(v):'—'}</td>`; }).join('')}
+          <td class="r">${periodDelta}</td><td class="r">${qoq}</td></tr>`;
+      });
+      h += '</tbody></table></div></div>';
 
-    const src = metric === 'gr' ? AGG.trend : AGG.trend_psf;
-    const fmt = metric === 'gr' ? fmtR : fmtP;
-    uts.forEach((t,i) => {
-      const vals = qs.map(q => src[q]?.[t] || null);
-      const firstVal = vals.find(v=>v);
-      const lastVal  = [...vals].reverse().find(v=>v);
-      const prevVal  = vals[vals.length-2] || null;
+    } else {
+      // ── By Building mode ──────────────────────────────────────────────────
+      const allBldgsForUT = bldgsForUT(bldgUT);
+      const visibleBldgs = bldgSearch ? allBldgsForUT.filter(b=>b.toLowerCase().includes(bldgSearch.toLowerCase())) : allBldgsForUT;
+      const selBldgs = [...activeBldgs].filter(b=>allBldgsForUT.includes(b));
+      const fmt = metric==='gr'?fmtR:fmtP;
 
-      // Period delta (first → last)
-      let periodDelta = '—';
-      if (firstVal && lastVal && firstVal !== lastVal) {
-        const chg = (lastVal-firstVal)/firstVal*100;
-        periodDelta = `<span style="font-weight:600;color:${chg>=0?'var(--accent)':'var(--red)'}">${chg>=0?'+':''}${chg.toFixed(1)}%</span>`;
-      }
-      // QoQ latest
-      let qoq = '—';
-      if (lastVal && prevVal) {
-        const chg = (lastVal-prevVal)/prevVal*100;
-        qoq = `<span style="font-weight:600;color:${chg>=0?'var(--accent)':'var(--red)'}">${chg>=0?'+':''}${chg.toFixed(1)}%</span>`;
-      }
+      h += `<div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="width:210px;flex-shrink:0;border:1px solid var(--line);background:var(--paper-raised)">
+          <div style="padding:7px 10px;border-bottom:1px solid var(--line-soft);font-size:10.5px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center">
+            Buildings
+            ${selBldgs.length?`<span style="font-size:10px;color:var(--ink-faint);font-weight:400;text-transform:none;letter-spacing:0">${selBldgs.length} selected</span>`:''}
+          </div>
+          <div style="padding:6px 8px;border-bottom:1px solid var(--line-soft)">
+            <input id="cd-trend-bldg-search" type="text" placeholder="Search…" value="${bldgSearch.replace(/"/g,'&quot;')}"
+              style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11px;outline:none;background:var(--paper);color:var(--ink)"/>
+          </div>
+          <div style="max-height:320px;overflow-y:auto">
+            ${!visibleBldgs.length ? `<div style="padding:12px 10px;font-size:11px;color:var(--ink-faint)">No buildings with ${bldgUT} data</div>` :
+              visibleBldgs.map(b => {
+                const selIdx = selBldgs.indexOf(b);
+                const col = selIdx >= 0 ? BLDG_PALETTE[selIdx % BLDG_PALETTE.length] : null;
+                return `<label style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;background:${col?'var(--accent-soft)':'transparent'};border-bottom:1px solid var(--line-soft)">
+                  <input type="checkbox" ${col?'checked':''} onchange="window._cdTrendBldgToggle('${b.replace(/'/g,"\\'").replace(/\\/g,'\\\\').replace(/"/g,'\\"')}',this.checked)" style="accent-color:${col||'var(--accent)'};cursor:pointer;flex-shrink:0"/>
+                  <span style="width:8px;height:8px;border-radius:50%;background:${col||'transparent'};border:${col?'none':'1px solid var(--line)'};flex-shrink:0;display:inline-block"></span>
+                  <span style="font-size:11px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="${b.replace(/"/g,'&quot;')}">${b}</span>
+                </label>`;
+              }).join('')}
+          </div>
+          ${selBldgs.length?`<div style="padding:4px 10px;border-top:1px solid var(--line-soft)"><button onclick="window._cdTrendClearBldgs()" style="font-size:10.5px;color:var(--ink-faint);background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit">Clear all</button></div>`:''}
+        </div>
 
-      h += `<tr>
-        <td><span class="ut-tag" style="background:${UT_COLORS[t]||'#888'}">${t}</span></td>
-        ${vals.map((v,vi) => {
-          const prev = vals[vi-1];
-          let cls = '';
-          if (v && prev) cls = v > prev ? 'style="color:var(--accent)"' : v < prev ? 'style="color:var(--red)"' : '';
-          return `<td class="r" ${cls}>${v?fmt(v):'—'}</td>`;
-        }).join('')}
-        <td class="r">${periodDelta}</td>
-        <td class="r">${qoq}</td>
-      </tr>`;
-    });
-    h += '</tbody></table></div></div>';
+        <div style="flex:1;min-width:0">
+          <div class="cd-card" style="margin-bottom:16px">
+            <div class="cd-ph">${metric==='gr'?'Avg Gross Rent':'Avg $/SF'} — ${bldgUT}
+              ${!selBldgs.length?'<span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-faint)"> — select buildings on the left</span>':''}
+            </div>
+            <div style="position:relative;height:200px"><canvas id="cd-trend-chart"></canvas></div>
+          </div>
+          ${selBldgs.length ? `<div class="cd-card">
+            <div class="cd-ph">Building Comparison <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--ink-faint)">${qs[0]} &ndash; ${qs[qs.length-1]}</span></div>
+            <div class="table-wrap"><table class="cdt"><thead><tr>
+              <th>Building</th>${qs.map(q=>`<th class="r">${q}</th>`).join('')}
+              <th class="r">Period Δ</th><th class="r">Latest</th>
+            </tr></thead><tbody>` +
+            selBldgs.map((b,bi) => {
+              const col = BLDG_PALETTE[bi % BLDG_PALETTE.length];
+              const vals = qs.map(q => { const d=AGG.bldg_trend?.[b]?.[q]?.[bldgUT]; return d?(metric==='gr'?d.gr:d.psf):null; });
+              const firstVal=vals.find(v=>v), lastVal=[...vals].reverse().find(v=>v);
+              let pd='—';
+              if (firstVal&&lastVal&&firstVal!==lastVal) { const chg=(lastVal-firstVal)/firstVal*100; pd=`<span style="font-weight:600;color:${chg>=0?'var(--accent)':'var(--red)'}">${chg>=0?'+':''}${chg.toFixed(1)}%</span>`; }
+              return `<tr>
+                <td style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:5px;vertical-align:middle"></span>
+                  <span title="${b.replace(/"/g,'&quot;')}">${b}</span>
+                </td>
+                ${vals.map((v,vi)=>{ const prev=vals[vi-1]; let cls=''; if(v&&prev) cls=v>prev?'style="color:var(--accent)"':v<prev?'style="color:var(--red)"':''; return `<td class="r" ${cls}>${v?fmt(v):'<span style="color:var(--line)">—</span>'}</td>`; }).join('')}
+                <td class="r">${pd}</td><td class="r">${lastVal?fmt(lastVal):'—'}</td>
+              </tr>`;
+            }).join('') +
+            '</tbody></table></div></div>' : ''}
+        </div>
+      </div>`;
+    }
 
     el.innerHTML = h;
 
     // Wire date range selects
     document.getElementById('cd-trend-from').onchange = function() {
       qFrom = this.value;
-      const fi = AGG.quarters.indexOf(qFrom);
-      const ti = AGG.quarters.indexOf(qTo);
-      if (fi > ti) { qTo = AGG.quarters[fi]; }
-      render(); drawTrendChart();
+      if (AGG.quarters.indexOf(qFrom) > AGG.quarters.indexOf(qTo)) qTo = qFrom;
+      render();
     };
     document.getElementById('cd-trend-to').onchange = function() {
       qTo = this.value;
-      const fi = AGG.quarters.indexOf(qFrom);
-      const ti = AGG.quarters.indexOf(qTo);
-      if (ti < fi) { qFrom = AGG.quarters[ti]; }
-      render(); drawTrendChart();
+      if (AGG.quarters.indexOf(qTo) < AGG.quarters.indexOf(qFrom)) qFrom = qTo;
+      render();
     };
 
-    // Unit type toggles
-    const tw = document.getElementById('cd-trend-toggles');
-    uts.forEach(t => {
-      const c = UT_COLORS[t]||'#888';
-      const btn = document.createElement('button');
-      btn.textContent = t;
-      btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:pointer;border:1px solid ${activeUTs.has(t)?c:'var(--line)'};background:${activeUTs.has(t)?c:'transparent'};color:${activeUTs.has(t)?'#fff':'var(--ink-soft)'};font-family:inherit;transition:all 160ms`;
-      btn.onclick = () => {
-        activeUTs.has(t) ? activeUTs.delete(t) : activeUTs.add(t);
-        btn.style.background = activeUTs.has(t)?c:'transparent';
-        btn.style.color = activeUTs.has(t)?'#fff':'var(--ink-soft)';
-        btn.style.borderColor = activeUTs.has(t)?c:'var(--line)';
-        drawTrendChart();
-      };
-      tw.appendChild(btn);
-    });
-
-    const utActions = document.getElementById('cd-trend-uts-actions');
-    utActions.appendChild(linkBtn('Select All', () => { uts.forEach(t => activeUTs.add(t)); render(); }));
-    utActions.appendChild(linkBtn('Clear', () => { activeUTs.clear(); render(); }));
+    if (viewMode === 'market') {
+      const tw = document.getElementById('cd-trend-toggles');
+      allUTs.forEach(t => {
+        const c = UT_COLORS[t]||'#888';
+        const btn = document.createElement('button');
+        btn.textContent = t;
+        btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:pointer;border:1px solid ${activeUTs.has(t)?c:'var(--line)'};background:${activeUTs.has(t)?c:'transparent'};color:${activeUTs.has(t)?'#fff':'var(--ink-soft)'};font-family:inherit;transition:all 160ms`;
+        btn.onclick = () => {
+          activeUTs.has(t) ? activeUTs.delete(t) : activeUTs.add(t);
+          btn.style.background = activeUTs.has(t)?c:'transparent';
+          btn.style.color = activeUTs.has(t)?'#fff':'var(--ink-soft)';
+          btn.style.borderColor = activeUTs.has(t)?c:'var(--line)';
+          drawTrendChart();
+        };
+        tw.appendChild(btn);
+      });
+      const ua = document.getElementById('cd-trend-uts-actions');
+      ua.appendChild(linkBtn('Select All', () => { allUTs.forEach(t=>activeUTs.add(t)); render(); }));
+      ua.appendChild(linkBtn('Clear', () => { activeUTs.clear(); render(); }));
+    } else {
+      document.getElementById('cd-trend-bldg-ut').onchange = function() { bldgUT = this.value; render(); };
+      document.getElementById('cd-trend-bldg-search').oninput = function() { bldgSearch = this.value; render(); };
+    }
 
     // Metric toggle
     const mw = document.getElementById('cd-trend-metric');
     ['gr','psf'].forEach(m => {
       const btn = document.createElement('button');
-      btn.textContent = m === 'gr' ? 'Avg Rent' : '$/SF';
-      const c = 'var(--gold)';
+      btn.textContent = m==='gr'?'Avg Rent':'$/SF';
       btn.style.cssText = `padding:4px 11px;border-radius:1px;font-size:10px;font-weight:500;cursor:pointer;border:1px solid ${metric===m?'#a8895a':'var(--line)'};background:${metric===m?'#a8895a':'transparent'};color:${metric===m?'#fff':'var(--ink-soft)'};font-family:inherit;transition:all 160ms`;
       btn.onclick = () => { metric = m; render(); };
       mw.appendChild(btn);
@@ -3005,22 +3064,35 @@ function buildCDTrend() {
     drawTrendChart();
   }
 
+  window._cdTrendMode = function(mode) { viewMode = mode; render(); };
+  window._cdTrendBldgToggle = function(bldg, on) { on ? activeBldgs.add(bldg) : activeBldgs.delete(bldg); render(); };
+  window._cdTrendClearBldgs = function() { activeBldgs.clear(); render(); };
+
   let trendChartInst = null;
   function drawTrendChart() {
     const qs = filteredQs();
-    const uts = allUTs;
-    const src = metric === 'gr' ? AGG.trend : AGG.trend_psf;
-    const fmt = metric === 'gr' ? fmtR : fmtP;
-    const ds = uts.filter(t=>activeUTs.has(t)).map(t => {
-      const c = UT_COLORS[t]||'#888';
-      return {
-        label:t,
-        data: qs.map(q => src[q]?.[t]||null),
-        borderColor:c, backgroundColor:c+'18', borderWidth:2,
-        tension:.35, pointRadius:4, pointBackgroundColor:'#fff',
-        pointBorderColor:c, pointBorderWidth:2, spanGaps:true
-      };
-    });
+    const fmt = metric==='gr'?fmtR:fmtP;
+    let ds;
+
+    if (viewMode === 'market') {
+      const src = metric==='gr'?AGG.trend:AGG.trend_psf;
+      ds = allUTs.filter(t=>activeUTs.has(t)).map(t => {
+        const c = UT_COLORS[t]||'#888';
+        return { label:t, data:qs.map(q=>src[q]?.[t]||null), borderColor:c, backgroundColor:c+'18', borderWidth:2, tension:.35, pointRadius:4, pointBackgroundColor:'#fff', pointBorderColor:c, pointBorderWidth:2, spanGaps:true };
+      });
+    } else {
+      const selBldgs = [...activeBldgs].filter(b=>AGG.bldg_trend?.[b]);
+      ds = selBldgs.map((b,bi) => {
+        const c = BLDG_PALETTE[bi % BLDG_PALETTE.length];
+        return {
+          label: b.length>30 ? b.slice(0,29)+'…' : b,
+          data: qs.map(q => { const d=AGG.bldg_trend?.[b]?.[q]?.[bldgUT]; return d?(metric==='gr'?d.gr:d.psf):null; }),
+          borderColor:c, backgroundColor:c+'18', borderWidth:2, tension:.35, pointRadius:4,
+          pointBackgroundColor:'#fff', pointBorderColor:c, pointBorderWidth:2, spanGaps:true
+        };
+      });
+    }
+
     if (trendChartInst) trendChartInst.destroy();
     const canvas = document.getElementById('cd-trend-chart');
     if (!canvas) return;
