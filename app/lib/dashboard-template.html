@@ -2230,8 +2230,9 @@ function addCompToPeek(p) {
   const bs = gbs(p.n);
   const hasD = !!(bs && Object.keys(bs.units||{}).length > 0);
 
+  const compName = NAME_MAP[p.n] || p.n;
   let h = '<div class="pk-comp-section" style="background:#f4f6f4;border-radius:7px;padding:13px;margin-top:4px">';
-  h += '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a9a8a;margin-bottom:10px;padding-bottom:6px;border-bottom:.5px solid #e8ede8">Rent Comp Analysis</div>';
+  h += '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a9a8a;margin-bottom:10px;padding-bottom:6px;border-bottom:.5px solid #e8ede8;display:flex;align-items:center;justify-content:space-between">Rent Comp Analysis <a href="/buildings/' + encodeURIComponent(compName) + '" target="_blank" style="font-size:8.5px;font-weight:600;color:#00614a;text-decoration:none;text-transform:none;letter-spacing:0">View all unit data ↗</a></div>';
 
   if (hasD) {
     h += '<div style="font-size:9px;color:#a8c8a0;font-weight:500;margin-bottom:8px">Actual leases on record</div>';
@@ -2675,7 +2676,7 @@ function filterCDBldg() {
     const isUW = bdata.underwritten || false;
     rows += `<tr style="${sel.has(b)?'background:var(--accent-soft)':isUW?'background:#fffdf5':''}">
       <td style="text-align:center"><input type="checkbox" ${checked} style="cursor:pointer;accent-color:var(--accent)" onchange="window._bldgCmpToggle('${b.replace(/'/g,"\\'")}',this.checked)"/></td>
-      <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''}</td>
+      <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''} <a href="/buildings/${encodeURIComponent(b)}" target="_blank" style="font-size:9px;color:var(--accent);text-decoration:none;font-weight:600;opacity:.7;margin-left:4px" title="View all unit data for this building">↗</a></td>
       <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
     showUTs.forEach(t => {
       const v = bdata.units?.[t];
