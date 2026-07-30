@@ -574,7 +574,7 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
     for (const ut of unitTypes) {
       if (!ALLOWED_UNIT_TYPES.includes(ut)) continue;
       const utLeases = bLeases.filter((l: { unitType: string | null }) => l.unitType === ut);
-      const rent = computeStats(utLeases.map((l: { grossRent: number | null }) => l.grossRent).filter((n: number | null): n is number => n !== null));
+      const rent = computeStats(utLeases.map((l: { grossRent: number | null; netRent: number | null }) => l.grossRent ?? l.netRent).filter((n: number | null): n is number => n !== null));
       const psf  = computeStats(utLeases.map((l: { grossPsf: number | null }) => l.grossPsf).filter((n: number | null): n is number => n !== null));
       const sf   = computeStats(utLeases.map((l: { unitSf: number | null }) => l.unitSf).filter((n: number | null): n is number => n !== null));
       await prisma.compBuildingStat.create({
@@ -598,12 +598,13 @@ async function recalculateLeaseCompStats(buildingNames: string[]): Promise<void>
       for (const ut of unitTypes) {
         if (!ALLOWED_UNIT_TYPES.includes(ut)) continue;
         const utLeases = qLeases.filter((l: { unitType: string | null }) => l.unitType === ut);
-        const rent = computeStats(utLeases.map((l: { grossRent: number | null }) => l.grossRent).filter((n: number | null): n is number => n !== null));
+        const rent = computeStats(utLeases.map((l: { grossRent: number | null; netRent: number | null }) => l.grossRent ?? l.netRent).filter((n: number | null): n is number => n !== null));
         const psf  = computeStats(utLeases.map((l: { grossPsf: number | null }) => l.grossPsf).filter((n: number | null): n is number => n !== null));
+        const nRent = utLeases.filter((l: { grossRent: number | null; netRent: number | null }) => (l.grossRent ?? l.netRent) !== null).length || utLeases.length;
         await prisma.compBuildingQuarterStat.upsert({
           where: { buildingId_quarter_unitType: { buildingId: b.id, quarter: q, unitType: ut } },
-          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.filter((l) => l.grossRent !== null).length || utLeases.length },
-          update: { avgRent: rent.avg, avgPsf: psf.avg, n: utLeases.filter((l) => l.grossRent !== null).length || utLeases.length },
+          create: { buildingId: b.id, quarter: q, quarterOrder: quarterOrder(q), unitType: ut, avgRent: rent.avg, avgPsf: psf.avg, n: nRent },
+          update: { avgRent: rent.avg, avgPsf: psf.avg, n: nRent },
         });
       }
     }

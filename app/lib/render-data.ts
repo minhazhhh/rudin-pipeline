@@ -287,7 +287,7 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
     prisma.overallUnitStat.findMany(),
     prisma.typeUnitStat.findMany(),
     prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } }),
-    prisma.leaseComp.findMany({ select: { building: true, quarter: true, unitType: true, grossRent: true, grossPsf: true, leaseDate: true } }),
+    prisma.leaseComp.findMany({ select: { building: true, quarter: true, unitType: true, grossRent: true, netRent: true, grossPsf: true, leaseDate: true } }),
   ]);
 
   if (drafts && drafts.length > 0) {
@@ -427,22 +427,28 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
     bldg_trend[b.name] = byQuarter;
   }
 
-  // Fallback: if no CompBuildingQuarterStat data exists, derive bldg_trend from raw LeaseComp records.
-  // Uses LeaseComp.quarter when present, otherwise derives quarter from leaseDate.
-  // LeaseComp.building is the raw import string; resolved case-insensitively against CompBuilding names.
-  if (Object.keys(bldg_trend).length === 0 && leaseComps.length > 0) {
+  // If CompBuildingQuarterStat has no rent values (all null — e.g. data used netRent column),
+  // or no quarter stats at all, derive bldg_trend from raw LeaseComp records instead.
+  // Derives quarter from LeaseComp.quarter if set, otherwise from leaseDate.
+  const hasRentData = Object.values(bldg_trend).some((byQ) =>
+    Object.values(byQ).some((byUT) => Object.values(byUT).some((c) => c.gr !== null))
+  );
+  if (!hasRentData && leaseComps.length > 0) {
+    // Reset whatever null-only entries were built above
+    for (const k of Object.keys(bldg_trend)) delete bldg_trend[k];
+
     const nameByLower = new Map<string, string>();
     for (const b of compBuildings) nameByLower.set(b.name.toLowerCase(), b.name);
 
     function quarterFromDate(d: Date): string {
-      const q = Math.floor(d.getUTCMonth() / 3) + 1;
-      return `Q${q} ${d.getUTCFullYear()}`;
+      return `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
     }
 
     type Cell = { grSum: number; psfSum: number; psfN: number; n: number };
     const acc: Record<string, Record<string, Record<string, Cell>>> = {};
     for (const lc of leaseComps) {
       if (!lc.unitType) continue;
+      const rent = lc.grossRent ?? lc.netRent;
       const q = lc.quarter ?? (lc.leaseDate ? quarterFromDate(lc.leaseDate) : null);
       if (!q) continue;
       const canon = nameByLower.get(lc.building.toLowerCase());
@@ -451,7 +457,7 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
       acc[canon][q] ??= {};
       acc[canon][q][lc.unitType] ??= { grSum: 0, psfSum: 0, psfN: 0, n: 0 };
       const cell = acc[canon][q][lc.unitType];
-      if (lc.grossRent != null) { cell.grSum += lc.grossRent; cell.n++; }
+      if (rent != null) { cell.grSum += rent; cell.n++; }
       if (lc.grossPsf != null) { cell.psfSum += lc.grossPsf; cell.psfN++; }
     }
     for (const [bName, byQ] of Object.entries(acc)) {
