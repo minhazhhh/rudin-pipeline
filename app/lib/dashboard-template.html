@@ -1248,6 +1248,47 @@ table.cmp-table td.r{text-align:right}
   </div>
 </div>
 
+<!-- BUILDING UNIT MODAL -->
+<div id="bldg-modal-scrim" onclick="closeBldgModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;backdrop-filter:blur(3px)"></div>
+<div id="bldg-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:96vw;height:94vh;background:#fff;border-radius:4px;z-index:3001;box-shadow:0 24px 80px rgba(0,0,0,.35);overflow:hidden;display:none;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#1a2e24;flex-shrink:0">
+    <span id="bldg-modal-title" style="color:#e8f4e8;font-size:13px;font-weight:600"></span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a id="bldg-modal-ext" href="#" target="_blank" style="color:#7ab89a;font-size:11px;text-decoration:none;opacity:.8" title="Open in new tab">↗ open in new tab</a>
+      <button onclick="closeBldgModal()" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1">&#10005;</button>
+    </div>
+  </div>
+  <iframe id="bldg-modal-frame" src="" style="flex:1;border:none;width:100%;height:100%"></iframe>
+</div>
+<script>
+function openBldgModal(name) {
+  var url = '/buildings/' + encodeURIComponent(name);
+  var modal = document.getElementById('bldg-modal');
+  var scrim = document.getElementById('bldg-modal-scrim');
+  var frame = document.getElementById('bldg-modal-frame');
+  var title = document.getElementById('bldg-modal-title');
+  var ext   = document.getElementById('bldg-modal-ext');
+  frame.src = url;
+  title.textContent = name;
+  ext.href = url;
+  modal.style.display = 'flex';
+  scrim.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeBldgModal() {
+  var modal = document.getElementById('bldg-modal');
+  var scrim = document.getElementById('bldg-modal-scrim');
+  var frame = document.getElementById('bldg-modal-frame');
+  modal.style.display = 'none';
+  scrim.style.display = 'none';
+  frame.src = '';
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeBldgModal();
+});
+</script>
+
 <!-- COMPARE PANEL -->
 <div id="cmp-panel" style="position:fixed;top:0;right:-680px;width:660px;height:100vh;background:#fff;z-index:2100;box-shadow:-6px 0 40px rgba(0,0,0,.18);transition:right .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;font-family:'Basis Grotesque','Inter',sans-serif">
   <div style="background:#1e2b28;padding:16px 20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
@@ -2232,7 +2273,7 @@ function addCompToPeek(p) {
 
   const compName = NAME_MAP[p.n] || p.n;
   let h = '<div class="pk-comp-section" style="background:#f4f6f4;border-radius:7px;padding:13px;margin-top:4px">';
-  h += '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a9a8a;margin-bottom:10px;padding-bottom:6px;border-bottom:.5px solid #e8ede8;display:flex;align-items:center;justify-content:space-between">Rent Comp Analysis <a href="/buildings/' + encodeURIComponent(compName) + '" target="_blank" style="font-size:8.5px;font-weight:600;color:#00614a;text-decoration:none;text-transform:none;letter-spacing:0">View all unit data ↗</a></div>';
+  h += '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a9a8a;margin-bottom:10px;padding-bottom:6px;border-bottom:.5px solid #e8ede8;display:flex;align-items:center;justify-content:space-between">Rent Comp Analysis <a href="#" onclick="openBldgModal(\'' + compName.replace(/'/g, "\\'") + '\');return false;" style="font-size:8.5px;font-weight:600;color:#00614a;text-decoration:none;text-transform:none;letter-spacing:0">View all unit data ↗</a></div>';
 
   if (hasD) {
     h += '<div style="font-size:9px;color:#a8c8a0;font-weight:500;margin-bottom:8px">Actual leases on record</div>';
@@ -2678,7 +2719,7 @@ function filterCDBldg() {
     const isUW = bdata.underwritten || false;
     rows += `<tr style="${sel.has(b)?'background:var(--accent-soft)':isUW?'background:#fffdf5':''}">
       <td style="text-align:center"><input type="checkbox" ${checked} style="cursor:pointer;accent-color:var(--accent)" onchange="window._bldgCmpToggle('${b.replace(/'/g,"\\'")}',this.checked)"/></td>
-      <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''} <a href="/buildings/${encodeURIComponent(b)}" target="_blank" style="display:inline-block;font-size:9px;color:var(--accent);text-decoration:none;font-weight:700;margin-left:6px;padding:2px 7px;border:1px solid var(--accent);border-radius:3px;letter-spacing:.02em;vertical-align:middle;opacity:.85" title="View all unit data for this building">Units ↗</a></td>
+      <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''} <a href="#" onclick="openBldgModal('${b.replace(/'/g,"\\'")}');return false;" style="display:inline-block;font-size:9px;color:var(--accent);text-decoration:none;font-weight:700;margin-left:6px;padding:2px 7px;border:1px solid var(--accent);border-radius:3px;letter-spacing:.02em;vertical-align:middle;opacity:.85" title="View all unit data for this building">Units ↗</a></td>
       <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
     showUTs.forEach(t => {
       const v = bdata.units?.[t];
