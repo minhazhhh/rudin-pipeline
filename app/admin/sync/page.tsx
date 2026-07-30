@@ -63,6 +63,10 @@ type ImportMode = "replace" | "upsert";
 
 type DiffResult = { newCount: number; updateCount: number; noKeyCount: number; updateKeys: string[] };
 
+type FieldChange = { field: string; before: string; after: string };
+type FieldDiffItem = { key: string; label: string; changes: FieldChange[] };
+type FieldDiffData = { items: FieldDiffItem[]; totalUpdates: number };
+
 type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -453,6 +457,10 @@ export default function SyncPage() {
   const [diffLoading, setDiffLoading] = useState(false);
   const [importModes, setImportModes] = useState<Record<string, "all" | "new-only">>({});
 
+  // Field-level before/after diff
+  const [fieldDiffResults, setFieldDiffResults] = useState<Record<string, FieldDiffData | "loading" | "error">>({});
+  const [expandedDiff, setExpandedDiff] = useState<Set<string>>(new Set());
+
   // Import preview
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -562,6 +570,30 @@ export default function SyncPage() {
       });
   }
 
+  // ── Field-level diff (auto-fetch once diff shows updates) ─────────────────
+  // Runs after each diffResults update; fires field-diff for any resource with updates not yet fetched.
+  useEffect(() => {
+    if (!aiResult) return;
+    for (const [r, diff] of Object.entries(diffResults)) {
+      if (diff.updateCount === 0) continue;
+      if (r in fieldDiffResults) continue; // already loading/loaded
+      const rows = aiResult.resources[r];
+      if (!rows?.length) continue;
+      setFieldDiffResults((prev) => ({ ...prev, [r]: "loading" }));
+      fetch("/api/comps-import/field-diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource: r, rows }),
+      })
+        .then(async (res) => {
+          const data = res.ok ? await res.json() : "error";
+          setFieldDiffResults((prev) => ({ ...prev, [r]: data }));
+        })
+        .catch(() => setFieldDiffResults((prev) => ({ ...prev, [r]: "error" })));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diffResults]);
+
   // ── AI import flow ─────────────────────────────────────────────────────────
 
   async function runImports(resources: Record<string, Record<string, string>[]>) {
@@ -656,6 +688,8 @@ export default function SyncPage() {
         setDiffResults({});
         setDiffErrors(new Set());
         setImportModes({});
+        setFieldDiffResults({});
+        setExpandedDiff(new Set());
         setStep("confirm");
 
         const diffResources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
@@ -703,6 +737,8 @@ export default function SyncPage() {
       setDiffResults({});
       setDiffErrors(new Set());
       setImportModes({});
+      setFieldDiffResults({});
+      setExpandedDiff(new Set());
       setStep("confirm"); // show preview + confirm before importing
 
       // Fetch duplicate detection counts — one request per resource, update UI as each arrives
@@ -851,6 +887,7 @@ export default function SyncPage() {
     setStep("drop"); setAiResult(null); setImportStatuses({}); setNormalizeError(null);
     setRawRows([]); setHeaders([]); setFileName(""); setManualResult(null);
     setAiMappedFields(new Set()); setAiReasoning(null); fileRef.current = null;
+    setFieldDiffResults({}); setExpandedDiff(new Set());
   }
 
   async function handlePreviewOnDashboard() {
@@ -1145,6 +1182,108 @@ export default function SyncPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Field-level before/after diff — shown when updates exist */}
+                  {diff && diff.updateCount > 0 && (() => {
+                    const fdr = fieldDiffResults[r];
+                    const isExpanded = expandedDiff.has(r);
+                    const toggle = () => setExpandedDiff((prev) => {
+                      const next = new Set(prev);
+                      next.has(r) ? next.delete(r) : next.add(r);
+                      return next;
+                    });
+                    const fmtDisplay = (val: string, field: string): string => {
+                      if (val === "" || val === "null") return "—";
+                      const lf = field.toLowerCase();
+                      if ((lf.includes("rent") || lf === "avgpsf" || lf.includes("psf")) && !lf.startsWith("n")) {
+                        const n = parseFloat(val);
+                        if (!isNaN(n)) return "$" + n.toFixed(lf.includes("psf") ? 2 : 0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                      }
+                      if (lf === "nrent" || lf === "npsf" || lf === "nsf" || lf === "n" || lf === "units" || lf === "sqft" || lf === "totaln") {
+                        const n = parseInt(val, 10);
+                        if (!isNaN(n)) return n.toLocaleString();
+                      }
+                      if (lf.includes("sf") && !lf.startsWith("avg") && !lf.startsWith("med") && !lf.startsWith("min") && !lf.startsWith("max")) {
+                        const n = parseFloat(val);
+                        if (!isNaN(n)) return Math.round(n).toLocaleString() + " sf";
+                      }
+                      if (lf === "avgsf" || lf === "medsf" || lf === "minsf" || lf === "maxsf") {
+                        const n = parseFloat(val);
+                        if (!isNaN(n)) return Math.round(n).toLocaleString() + " sf";
+                      }
+                      if (val === "true") return "Yes";
+                      if (val === "false") return "No";
+                      return val;
+                    };
+                    return (
+                      <div style={{ borderBottom: "1px solid var(--line-soft)" }}>
+                        {/* Toggle header */}
+                        <button
+                          onClick={toggle}
+                          style={{ width: "100%", padding: "7px 14px", background: isExpanded ? "#fffbeb" : "var(--paper)", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}
+                        >
+                          <span style={{ fontSize: "13px", color: "#7a5a1a" }}>{isExpanded ? "▾" : "▸"}</span>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "#7a5a1a" }}>
+                            {fdr === "loading" ? "Loading changes…" :
+                             fdr === "error" ? "Could not load change details" :
+                             fdr ? `${fdr.items.length} record${fdr.items.length !== 1 ? "s" : ""} with field changes${fdr.totalUpdates > fdr.items.length ? ` (showing ${fdr.items.length} of ${fdr.totalUpdates})` : ""}` :
+                             "Loading changes…"}
+                          </span>
+                          {fdr && fdr !== "loading" && fdr !== "error" && fdr.items.length > 0 && (
+                            <span style={{ marginLeft: "auto", fontSize: "10px", color: "#7a5a1a", fontWeight: 400 }}>
+                              {isExpanded ? "hide" : "view before / after"}
+                            </span>
+                          )}
+                        </button>
+
+                        {/* Expanded diff table */}
+                        {isExpanded && fdr && fdr !== "loading" && fdr !== "error" && fdr.items.length > 0 && (
+                          <div style={{ background: "#fffbeb", borderTop: "1px solid #e8d59a", overflowX: "auto", maxHeight: 420, overflowY: "auto" }}>
+                            <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "11.5px" }}>
+                              <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                                <tr style={{ background: "#fef3c7" }}>
+                                  <th style={{ padding: "5px 12px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 160 }}>Record</th>
+                                  <th style={{ padding: "5px 10px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 100 }}>Field</th>
+                                  <th style={{ padding: "5px 10px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 120 }}>Current</th>
+                                  <th style={{ padding: "5px 10px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 120 }}>Incoming</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {fdr.items.flatMap((item, ii) =>
+                                  item.changes.map((ch, ci) => (
+                                    <tr key={`${ii}-${ci}`} style={{ borderBottom: "1px solid #f0e8c8", background: ii % 2 === 0 ? "#fffdf5" : "#fef9e7" }}>
+                                      {ci === 0 ? (
+                                        <td rowSpan={item.changes.length} style={{ padding: "4px 12px", fontWeight: 600, color: "#5a3a0a", verticalAlign: "top", borderRight: "1px solid #e8d59a", whiteSpace: "nowrap", fontSize: "11px" }}>
+                                          {item.label}
+                                        </td>
+                                      ) : null}
+                                      <td style={{ padding: "4px 10px", color: "#7a5a1a", fontWeight: 500, fontSize: "11px", borderRight: "1px solid #f0e8c8", whiteSpace: "nowrap" }}>{ch.field}</td>
+                                      <td style={{ padding: "4px 10px", background: ch.before === "" ? "transparent" : "rgba(220,38,38,.07)", color: ch.before === "" ? "var(--ink-faint)" : "#7f1d1d", fontFamily: "monospace", fontSize: "11px", borderRight: "1px solid #f0e8c8", whiteSpace: "nowrap" }}>
+                                        {fmtDisplay(ch.before, ch.field)}
+                                      </td>
+                                      <td style={{ padding: "4px 10px", background: ch.after === "" ? "transparent" : "rgba(22,163,74,.07)", color: ch.after === "" ? "var(--ink-faint)" : "#14532d", fontFamily: "monospace", fontSize: "11px", whiteSpace: "nowrap" }}>
+                                        {fmtDisplay(ch.after, ch.field)}
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                            {fdr.totalUpdates > fdr.items.length && (
+                              <div style={{ padding: "5px 12px", fontSize: "10.5px", color: "#7a5a1a", background: "#fef3c7", borderTop: "1px solid #e8d59a" }}>
+                                + {(fdr.totalUpdates - fdr.items.length).toLocaleString()} more records with changes not shown
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {isExpanded && fdr && fdr !== "loading" && fdr !== "error" && fdr.items.length === 0 && (
+                          <div style={{ padding: "8px 14px", fontSize: "11px", color: "var(--ink-faint)", background: "#fffbeb" }}>
+                            No field-level differences found (values may match after normalization).
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Data preview */}
                   <div style={{ overflowX: "auto", fontSize: "12px" }}>

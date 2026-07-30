@@ -939,18 +939,15 @@ table.cmp-table td.r{text-align:right}
 
 /* ── Quick Underwrite Panel ── */
 #uw-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
-@media(min-width:861px){
-  .sidebar{transition:width 300ms cubic-bezier(.4,0,.2,1)}
-  .uw-mode .sidebar{width:0!important;min-width:0!important;border:none;overflow:hidden}
-}
+@keyframes uw-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 #uw-panel{
   display:none;position:fixed;top:66px;left:10px;z-index:500;
   width:520px;max-height:calc(100vh - 76px);
   background:#fff;border-radius:6px;
-  box-shadow:0 2px 20px rgba(0,0,0,.2);
+  box-shadow:0 4px 24px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.08);
   flex-direction:column;overflow:hidden;
 }
-.uw-mode #uw-panel{display:flex}
+.uw-mode #uw-panel{display:flex;animation:uw-in 160ms ease-out both}
 #uw-panel-head{
   background:var(--accent);color:#fff;padding:12px 16px;
   display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px;
@@ -3700,12 +3697,7 @@ function buildCDReport() {
     document.body.classList.add('uw-mode');
     uwBtn.classList.add('on');
     fireResize();
-    setTimeout(fireResize, 160);
-    setTimeout(function() {
-      fireResize();
-      uwAnchorChanged();
-    }, 320);
-    setTimeout(fireResize, 500);
+    setTimeout(uwAnchorChanged, 80);
   }
   window.uwExit = function() {
     document.body.classList.remove('uw-mode');
@@ -3713,8 +3705,6 @@ function buildCDReport() {
     uwMainLayers.forEach(function(l) { map.removeLayer(l); });
     uwMainLayers = [];
     fireResize();
-    setTimeout(fireResize, 160);
-    setTimeout(fireResize, 350);
   };
   uwBtn.onclick = enterUWMode;
 
