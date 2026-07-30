@@ -113,6 +113,14 @@ function deriveQOrder(q: string): number {
   return 0;
 }
 
+export type PreviewChanges = {
+  newProjects: string[];
+  changedProjects: string[];
+  newBuildings: string[];
+  changedBuildings: string[];
+  resourcesReplaced: string[]; // overall-stats, trend, etc.
+};
+
 function applyImportPreviewData(
   raw: {
     projects: { id: string; [k: string]: unknown }[];
@@ -122,13 +130,17 @@ function applyImportPreviewData(
     trendPoints: { id: string; [k: string]: unknown }[];
   },
   previewResources: Record<string, Record<string, string>[]>
-) {
+): PreviewChanges {
+  const changes: PreviewChanges = { newProjects: [], changedProjects: [], newBuildings: [], changedBuildings: [], resourcesReplaced: [] };
   // projects — replace by name
   if (previewResources["projects"]?.length) {
     const byName = new Map(raw.projects.map((p) => [p.name as string, p]));
     for (const row of previewResources["projects"]) {
       const name = csvStr(row.name);
       if (!name) continue;
+      const isNew = !byName.has(name);
+      if (isNew) changes.newProjects.push(name);
+      else changes.changedProjects.push(name);
       byName.set(name, {
         id: byName.get(name)?.id ?? `preview-${name}`,
         name,
@@ -165,6 +177,9 @@ function applyImportPreviewData(
     for (const row of previewResources["comp-buildings"]) {
       const name = csvStr(row.name);
       if (!name) continue;
+      const isNew = !byName.has(name);
+      if (isNew) changes.newBuildings.push(name);
+      else changes.changedBuildings.push(name);
       const existing = byName.get(name);
       byName.set(name, {
         id: existing?.id ?? `preview-${name}`,
@@ -207,6 +222,9 @@ function applyImportPreviewData(
         avgSf: csvNum(row.avgSf), medSf: csvNum(row.medSf),
         minSf: csvNum(row.minSf), maxSf: csvNum(row.maxSf), nSf: csvNum(row.nSf),
       })) as typeof raw.compBuildings[0]["stats"];
+      if (!changes.newBuildings.includes(b.name) && !changes.changedBuildings.includes(b.name)) {
+        changes.changedBuildings.push(b.name);
+      }
     }
   }
 
@@ -223,6 +241,7 @@ function applyImportPreviewData(
       minSf: csvNum(row.minSf), maxSf: csvNum(row.maxSf), nSf: csvNum(row.nSf),
     })) as typeof raw.overallStats;
     raw.overallStats.splice(0, raw.overallStats.length, ...newStats);
+    changes.resourcesReplaced.push("overall-stats");
   }
 
   // type-stats — replace all
@@ -237,6 +256,7 @@ function applyImportPreviewData(
       minPsf: csvNum(row.minPsf), maxPsf: csvNum(row.maxPsf), nPsf: csvNum(row.nPsf),
     })) as typeof raw.typeStats;
     raw.typeStats.splice(0, raw.typeStats.length, ...newStats);
+    changes.resourcesReplaced.push("type-stats");
   }
 
   // trend — replace all, derive quarterOrder if missing
@@ -254,7 +274,10 @@ function applyImportPreviewData(
     }) as typeof raw.trendPoints;
     newPoints.sort((a, b) => ((a.quarterOrder as number) ?? 0) - ((b.quarterOrder as number) ?? 0));
     raw.trendPoints.splice(0, raw.trendPoints.length, ...newPoints);
+    changes.resourcesReplaced.push("trend");
   }
+
+  return changes;
 }
 
 export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[], importPreview?: Record<string, Record<string, string>[]>) {
@@ -270,8 +293,9 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
     applyDraftPatches({ projects: projects as { id: string; [k: string]: unknown }[], compBuildings: compBuildings as { id: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[], overallStats: overallStats as { id: string; [k: string]: unknown }[], typeStats: typeStats as { id: string; [k: string]: unknown }[], trendPoints: trendPoints as { id: string; [k: string]: unknown }[] }, drafts);
   }
 
+  let previewChanges: PreviewChanges | undefined;
   if (importPreview && Object.keys(importPreview).length > 0) {
-    applyImportPreviewData({ projects: projects as { id: string; [k: string]: unknown }[], compBuildings: compBuildings as { id: string; name: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[], overallStats: overallStats as { id: string; [k: string]: unknown }[], typeStats: typeStats as { id: string; [k: string]: unknown }[], trendPoints: trendPoints as { id: string; [k: string]: unknown }[] }, importPreview);
+    previewChanges = applyImportPreviewData({ projects: projects as { id: string; [k: string]: unknown }[], compBuildings: compBuildings as { id: string; name: string; stats: { id: string; [k: string]: unknown }[]; quarterStats: { id: string; [k: string]: unknown }[]; [k: string]: unknown }[], overallStats: overallStats as { id: string; [k: string]: unknown }[], typeStats: typeStats as { id: string; [k: string]: unknown }[], trendPoints: trendPoints as { id: string; [k: string]: unknown }[] }, importPreview);
   }
 
   const DATA = projects.map((p) => ({
@@ -418,5 +442,5 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
     if (p.compBuildingName) NAME_MAP[p.name] = p.compBuildingName;
   }
 
-  return { DATA, YEARS, maxUnits, maxSf, COMP_COORDS, AGG, BSTATS, NAME_MAP };
+  return { DATA, YEARS, maxUnits, maxSf, COMP_COORDS, AGG, BSTATS, NAME_MAP, previewChanges };
 }

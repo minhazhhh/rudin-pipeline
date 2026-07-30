@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadDashboardData } from "@/app/lib/render-data";
+import type { PreviewChanges } from "@/app/lib/render-data";
 import { prisma } from "@/app/lib/prisma";
 import { draftMode } from "next/headers";
 
@@ -12,6 +13,94 @@ const template = fs.readFileSync(TEMPLATE_PATH, "utf8");
 // Escape "<" so no JSON string value can prematurely close the surrounding <script> tag.
 function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+function buildPreviewHighlightScript(changes: PreviewChanges): string {
+  const newProjects = JSON.stringify(changes.newProjects);
+  const changedProjects = JSON.stringify(changes.changedProjects);
+  const newBuildings = JSON.stringify(changes.newBuildings);
+  const changedBuildings = JSON.stringify(changes.changedBuildings);
+  const resourcesReplaced = JSON.stringify(changes.resourcesReplaced);
+  return `
+<style>
+.preview-new-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:5px;background:#22c55e;color:#052e16;text-transform:uppercase}
+.preview-changed-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:5px;background:#facc15;color:#422006;text-transform:uppercase}
+.preview-highlight-new{outline:2px solid #22c55e!important;outline-offset:-2px}
+.preview-highlight-changed{outline:2px solid #facc15!important;outline-offset:-2px}
+.preview-resource-bar{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
+</style>
+<script>
+(function() {
+  var NEW_PROJECTS = ${newProjects};
+  var CHANGED_PROJECTS = ${changedProjects};
+  var NEW_BUILDINGS = ${newBuildings};
+  var CHANGED_BUILDINGS = ${changedBuildings};
+  var RESOURCES_REPLACED = ${resourcesReplaced};
+
+  function applyHighlights() {
+    // Highlight project list cards (#pi-{i}) by matching DATA[i].n
+    if (typeof DATA !== 'undefined') {
+      DATA.forEach(function(p, i) {
+        var el = document.getElementById('pi-' + i);
+        if (!el) return;
+        var isNew = NEW_PROJECTS.indexOf(p.n) !== -1;
+        var isChanged = CHANGED_PROJECTS.indexOf(p.n) !== -1;
+        if (isNew || isChanged) {
+          el.classList.add(isNew ? 'preview-highlight-new' : 'preview-highlight-changed');
+          // Add badge to the name text node inside the pin div
+          var pinDiv = el.querySelector('.pin');
+          if (pinDiv && !pinDiv.querySelector('.preview-new-badge, .preview-changed-badge')) {
+            var badge = document.createElement('span');
+            badge.className = isNew ? 'preview-new-badge' : 'preview-changed-badge';
+            badge.textContent = isNew ? 'NEW' : 'UPDATED';
+            pinDiv.appendChild(badge);
+          }
+        }
+      });
+    }
+  }
+
+  // Also update the banner text to show what changed
+  function updateBannerDetails() {
+    var banner = document.getElementById('import-preview-banner');
+    if (!banner) return;
+    var detail = banner.querySelector('span[style*="flex:1"], span[style*="flex: 1"]');
+    if (!detail) return;
+
+    var parts = [];
+    if (NEW_PROJECTS.length) parts.push('<span style="color:#86efac;font-weight:700">' + NEW_PROJECTS.length + ' new project' + (NEW_PROJECTS.length !== 1 ? 's' : '') + '</span>');
+    if (CHANGED_PROJECTS.length) parts.push('<span style="color:#fde047;font-weight:700">' + CHANGED_PROJECTS.length + ' updated project' + (CHANGED_PROJECTS.length !== 1 ? 's' : '') + '</span>');
+    if (NEW_BUILDINGS.length) parts.push('<span style="color:#86efac;font-weight:700">' + NEW_BUILDINGS.length + ' new comp building' + (NEW_BUILDINGS.length !== 1 ? 's' : '') + '</span>');
+    if (CHANGED_BUILDINGS.length) parts.push('<span style="color:#fde047;font-weight:700">' + CHANGED_BUILDINGS.length + ' updated comp building' + (CHANGED_BUILDINGS.length !== 1 ? 's' : '') + '</span>');
+    if (RESOURCES_REPLACED.indexOf('overall-stats') !== -1) parts.push('<span style="color:#fde047;font-weight:700">market stats</span>');
+    if (RESOURCES_REPLACED.indexOf('trend') !== -1) parts.push('<span style="color:#fde047;font-weight:700">trend data</span>');
+
+    if (parts.length) {
+      var existing = detail.innerHTML;
+      var dashIdx = existing.indexOf(' — ');
+      var prefix = dashIdx !== -1 ? existing.slice(0, dashIdx) : existing;
+      detail.innerHTML = prefix + ' — ' + parts.join(', ');
+    }
+  }
+
+  // Watch #plist for changes (render() rewrites its innerHTML every call)
+  function watchAndHighlight() {
+    var plist = document.getElementById('plist');
+    if (plist) {
+      var obs = new MutationObserver(applyHighlights);
+      obs.observe(plist, { childList: true });
+      applyHighlights(); // in case already rendered
+    }
+    updateBannerDetails();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', watchAndHighlight);
+  } else {
+    setTimeout(watchAndHighlight, 0);
+  }
+})();
+</script>`;
 }
 
 function buildPreviewBanner(draftCount: number): string {
@@ -83,7 +172,7 @@ export async function GET() {
     ? (importPreviewRecord.resources as Record<string, Record<string, string>[]>)
     : undefined;
 
-  const { DATA, YEARS, maxUnits, maxSf, COMP_COORDS, AGG, BSTATS, NAME_MAP } = await loadDashboardData(
+  const { DATA, YEARS, maxUnits, maxSf, COMP_COORDS, AGG, BSTATS, NAME_MAP, previewChanges } = await loadDashboardData(
     isPreview && !importPreviewRecord ? drafts : undefined,
     importPreviewResources
   );
@@ -103,7 +192,11 @@ export async function GET() {
       const resources = importPreviewResources!;
       const resourceCount = Object.keys(resources).length;
       const totalRows = Object.values(resources).reduce((s, r) => s + r.length, 0);
-      html = html.replace("</body>", buildImportPreviewBanner(resourceCount, totalRows, importPreviewRecord.fileName) + "\n</body>");
+      let inject = buildImportPreviewBanner(resourceCount, totalRows, importPreviewRecord.fileName);
+      if (previewChanges) {
+        inject += buildPreviewHighlightScript(previewChanges);
+      }
+      html = html.replace("</body>", inject + "\n</body>");
     } else if (drafts.length > 0) {
       html = html.replace("</body>", buildPreviewBanner(drafts.length) + "\n</body>");
     }
