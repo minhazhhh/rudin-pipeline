@@ -70,87 +70,92 @@ export default async function BuildingPage({ params }: Props) {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "28px 32px" }}>
-        {/* All-time stats table */}
-        {building.stats.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#7a9a8a", marginBottom: 10 }}>
-              All-Time Aggregates (from comp-building-stats)
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", fontSize: 13, background: "#fff", borderRadius: 4, border: "1px solid #d4e4d4" }}>
-                <thead>
-                  <tr style={{ background: "#f4f6f4" }}>
-                    {["Type", "n", "Avg Rent", "Med Rent", "Min", "Max", "Avg $/SF", "Avg SF"].map((h) => (
-                      <th key={h} style={{ padding: "7px 14px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: .5, color: "#5a7a68", borderBottom: "1.5px solid #d4e4d4", textAlign: h === "Type" ? "left" : "right" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {building.stats.map((s) => (
-                    <tr key={s.id} style={{ borderBottom: "1px solid #eef2ee" }}>
-                      <td style={{ padding: "7px 14px", fontWeight: 700 }}>{s.unitType}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right", color: "#6b7b75" }}>{fmtN(s.nRent)}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right", fontWeight: 600 }}>{fmtRent(s.avgRent)}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right" }}>{fmtRent(s.medRent)}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right", color: "#6b7b75" }}>{fmtRent(s.minRent)}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right", color: "#6b7b75" }}>{fmtRent(s.maxRent)}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right" }}>{s.avgPsf != null ? "$" + s.avgPsf.toFixed(2) : "—"}</td>
-                      <td style={{ padding: "7px 14px", textAlign: "right" }}>{s.avgSf != null ? Math.round(s.avgSf).toLocaleString() : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Quarterly trend table */}
-        {quarters.length > 0 && unitTypes.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#7a9a8a", marginBottom: 10 }}>
-              Quarterly History
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", fontSize: 12, background: "#fff", borderRadius: 4, border: "1px solid #d4e4d4", minWidth: 400 }}>
-                <thead>
-                  <tr style={{ background: "#f4f6f4" }}>
-                    <th style={{ padding: "7px 14px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: .5, color: "#5a7a68", borderBottom: "1.5px solid #d4e4d4", textAlign: "left" }}>Quarter</th>
-                    {unitTypes.map((t) => (
-                      <th key={t} colSpan={2} style={{ padding: "7px 14px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: .5, color: "#5a7a68", borderBottom: "1.5px solid #d4e4d4", textAlign: "center", borderLeft: "1px solid #eef2ee" }}>{t}</th>
-                    ))}
-                  </tr>
-                  <tr style={{ background: "#f9fbf9" }}>
-                    <th style={{ padding: "5px 14px", borderBottom: "1px solid #d4e4d4" }}></th>
-                    {unitTypes.map((t) => (
-                      <>
-                        <th key={t + "-r"} style={{ padding: "5px 10px", fontSize: 9, color: "#7a9a8a", fontWeight: 600, textAlign: "right", borderBottom: "1px solid #d4e4d4", borderLeft: "1px solid #eef2ee" }}>Avg Rent</th>
-                        <th key={t + "-n"} style={{ padding: "5px 10px", fontSize: 9, color: "#7a9a8a", fontWeight: 600, textAlign: "right", borderBottom: "1px solid #d4e4d4" }}>n</th>
-                      </>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {quarters.map((q, qi) => {
-                    const rowStats = building.quarterStats.filter((s) => s.quarter === q);
-                    return (
-                      <tr key={q} style={{ background: qi % 2 === 0 ? "#fff" : "#f9fbf9", borderBottom: "1px solid #eef2ee" }}>
-                        <td style={{ padding: "6px 14px", fontWeight: 600, fontSize: 12, color: "#3a4a42", whiteSpace: "nowrap" }}>{q}</td>
-                        {unitTypes.map((t) => {
-                          const s = rowStats.find((r) => r.unitType === t);
-                          return (
-                            <>
-                              <td key={t + "-r"} style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600, color: "#1e3a2a", borderLeft: "1px solid #eef2ee" }}>{s ? fmtRent(s.avgRent) : "—"}</td>
-                              <td key={t + "-n"} style={{ padding: "6px 10px", textAlign: "right", color: "#7a9a8a", fontSize: 11 }}>{s ? s.n : "—"}</td>
-                            </>
-                          );
-                        })}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 32px" }}>
+        {/* Side-by-side: all-time stats + quarterly history */}
+        {(building.stats.length > 0 || (quarters.length > 0 && unitTypes.length > 0)) && (
+          <div style={{ display: "flex", gap: 20, marginBottom: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+            {/* All-time stats */}
+            {building.stats.length > 0 && (
+              <div style={{ flex: "0 0 auto" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#7a9a8a", marginBottom: 8 }}>
+                  All-Time Aggregates
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", fontSize: 12, background: "#fff", borderRadius: 4, border: "1px solid #d4e4d4" }}>
+                    <thead>
+                      <tr style={{ background: "#f4f6f4" }}>
+                        {["Type", "n", "Avg Rent", "Med Rent", "Min", "Max", "Avg $/SF", "Avg SF"].map((h) => (
+                          <th key={h} style={{ padding: "6px 12px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: .5, color: "#5a7a68", borderBottom: "1.5px solid #d4e4d4", textAlign: h === "Type" ? "left" : "right" }}>{h}</th>
+                        ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {building.stats.map((s) => (
+                        <tr key={s.id} style={{ borderBottom: "1px solid #eef2ee" }}>
+                          <td style={{ padding: "6px 12px", fontWeight: 700 }}>{s.unitType}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right", color: "#6b7b75" }}>{fmtN(s.nRent)}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 600 }}>{fmtRent(s.avgRent)}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right" }}>{fmtRent(s.medRent)}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right", color: "#6b7b75" }}>{fmtRent(s.minRent)}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right", color: "#6b7b75" }}>{fmtRent(s.maxRent)}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right" }}>{s.avgPsf != null ? "$" + s.avgPsf.toFixed(2) : "—"}</td>
+                          <td style={{ padding: "6px 12px", textAlign: "right" }}>{s.avgSf != null ? Math.round(s.avgSf).toLocaleString() : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Quarterly history */}
+            {quarters.length > 0 && unitTypes.length > 0 && (
+              <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#7a9a8a", marginBottom: 8 }}>
+                  Quarterly History
+                </div>
+                <div style={{ overflowX: "auto", maxHeight: 280, overflowY: "auto", borderRadius: 4, border: "1px solid #d4e4d4" }}>
+                  <table style={{ borderCollapse: "collapse", fontSize: 12, background: "#fff", minWidth: 300, width: "100%" }}>
+                    <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                      <tr style={{ background: "#f4f6f4" }}>
+                        <th style={{ padding: "6px 12px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: .5, color: "#5a7a68", borderBottom: "1.5px solid #d4e4d4", textAlign: "left" }}>Quarter</th>
+                        {unitTypes.map((t) => (
+                          <th key={t} colSpan={2} style={{ padding: "6px 12px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: .5, color: "#5a7a68", borderBottom: "1.5px solid #d4e4d4", textAlign: "center", borderLeft: "1px solid #eef2ee" }}>{t}</th>
+                        ))}
+                      </tr>
+                      <tr style={{ background: "#f9fbf9" }}>
+                        <th style={{ padding: "4px 12px", borderBottom: "1px solid #d4e4d4", background: "#f9fbf9" }}></th>
+                        {unitTypes.map((t) => (
+                          <>
+                            <th key={t + "-r"} style={{ padding: "4px 8px", fontSize: 9, color: "#7a9a8a", fontWeight: 600, textAlign: "right", borderBottom: "1px solid #d4e4d4", borderLeft: "1px solid #eef2ee", background: "#f9fbf9" }}>Avg Rent</th>
+                            <th key={t + "-n"} style={{ padding: "4px 8px", fontSize: 9, color: "#7a9a8a", fontWeight: 600, textAlign: "right", borderBottom: "1px solid #d4e4d4", background: "#f9fbf9" }}>n</th>
+                          </>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quarters.map((q, qi) => {
+                        const rowStats = building.quarterStats.filter((s) => s.quarter === q);
+                        return (
+                          <tr key={q} style={{ background: qi % 2 === 0 ? "#fff" : "#f9fbf9", borderBottom: "1px solid #eef2ee" }}>
+                            <td style={{ padding: "5px 12px", fontWeight: 600, fontSize: 11, color: "#3a4a42", whiteSpace: "nowrap" }}>{q}</td>
+                            {unitTypes.map((t) => {
+                              const s = rowStats.find((r) => r.unitType === t);
+                              return (
+                                <>
+                                  <td key={t + "-r"} style={{ padding: "5px 8px", textAlign: "right", fontWeight: 600, color: "#1e3a2a", borderLeft: "1px solid #eef2ee" }}>{s ? fmtRent(s.avgRent) : "—"}</td>
+                                  <td key={t + "-n"} style={{ padding: "5px 8px", textAlign: "right", color: "#7a9a8a", fontSize: 11 }}>{s ? s.n : "—"}</td>
+                                </>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

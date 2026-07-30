@@ -2637,8 +2637,10 @@ function buildCDBldg() {
   showUTs.forEach(t => {
     h += `<th class="r" colspan="2" style="border-left:1px solid var(--line-soft)"><span style="color:${UT_COLORS[t]||'#888'}">${t}</span></th>`;
   });
+  h += `<th style="border-left:1px solid var(--line-soft)">Status</th>`;
   h += `</tr><tr><th></th><th></th><th></th>`;
   showUTs.forEach(() => { h += '<th class="r" style="font-size:9px;border-left:1px solid var(--line-soft)">Avg Rent</th><th class="r" style="font-size:9px">$/SF</th>'; });
+  h += '<th style="font-size:9px;border-left:1px solid var(--line-soft)">Unit Records</th>';
   h += '</tr></thead><tbody id="cd-bldg-tbody"></tbody></table></div>';
 
   el.innerHTML = h;
@@ -2693,6 +2695,22 @@ function filterCDBldg() {
         rows += `<td class="r" style="color:var(--line);border-left:1px solid var(--line-soft)">—</td><td class="r" style="color:var(--line)">—</td>`;
       }
     });
+    // Status counts column
+    const bstats = (typeof BSTATS !== 'undefined') ? BSTATS[b] : null;
+    const sc = bstats?.status_counts || {};
+    const totalRec = bstats?.unit_record_count || 0;
+    const scKeys = Object.keys(sc).sort();
+    let statusHtml = '';
+    if (scKeys.length) {
+      statusHtml = scKeys.map(k => {
+        const pct = totalRec ? Math.round(sc[k]/totalRec*100) : 0;
+        const color = k === 'Leased' ? 'var(--accent)' : k === 'Vacant' ? 'var(--red)' : 'var(--ink-soft)';
+        return `<span style="display:inline-flex;align-items:center;gap:2px;font-size:9px;margin-right:4px;color:${color};font-weight:600" title="${k}: ${sc[k]}">${k[0]}<span style="font-weight:400;color:var(--ink-faint)">${sc[k]}</span></span>`;
+      }).join('');
+    } else if (totalRec) {
+      statusHtml = `<span style="font-size:9px;color:var(--ink-faint)">${totalRec.toLocaleString()} rec</span>`;
+    }
+    rows += `<td style="white-space:nowrap;border-left:1px solid var(--line-soft);font-size:10px">${statusHtml || `<span style="color:var(--line)">—</span>`}</td>`;
     rows += '</tr>';
   });
 

@@ -283,7 +283,7 @@ function applyImportPreviewData(
 export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[], importPreview?: Record<string, Record<string, string>[]>) {
   const [projects, compBuildings, overallStats, typeStats, trendPoints] = await Promise.all([
     prisma.project.findMany({ orderBy: { sqft: "desc" } }),
-    prisma.compBuilding.findMany({ include: { stats: true, quarterStats: true } }),
+    prisma.compBuilding.findMany({ include: { stats: true, quarterStats: true, units: { select: { status: true } } } }),
     prisma.overallUnitStat.findMany(),
     prisma.typeUnitStat.findMany(),
     prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } }),
@@ -353,7 +353,13 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
         avg_psf: s.avgPsf,
       };
     }
-    BSTATS[b.name] = { type: b.propertyType, units };
+    // Status counts from individual unit records
+    const statusCounts: Record<string, number> = {};
+    for (const u of b.units) {
+      const s = (u.status ?? "unknown").toLowerCase().trim();
+      statusCounts[s] = (statusCounts[s] ?? 0) + 1;
+    }
+    BSTATS[b.name] = { type: b.propertyType, units, ...(b.units.length > 0 ? { status_counts: statusCounts, unit_record_count: b.units.length } : {}) };
   }
 
   const bldg_stats: Record<string, unknown> = {};
