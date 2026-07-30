@@ -281,12 +281,13 @@ function applyImportPreviewData(
 }
 
 export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resource" | "entityId" | "method" | "payload">[], importPreview?: Record<string, Record<string, string>[]>) {
-  const [projects, compBuildings, overallStats, typeStats, trendPoints] = await Promise.all([
+  const [projects, compBuildings, overallStats, typeStats, trendPoints, leaseComps] = await Promise.all([
     prisma.project.findMany({ orderBy: { sqft: "desc" } }),
     prisma.compBuilding.findMany({ include: { stats: true, quarterStats: true, units: { select: { status: true } } } }),
     prisma.overallUnitStat.findMany(),
     prisma.typeUnitStat.findMany(),
     prisma.trendPoint.findMany({ orderBy: { quarterOrder: "asc" } }),
+    prisma.leaseComp.findMany({ where: { quarter: { not: null } }, select: { building: true, quarter: true, unitType: true, grossRent: true, grossPsf: true } }),
   ]);
 
   if (drafts && drafts.length > 0) {
@@ -424,6 +425,40 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
       byQuarter[s.quarter][s.unitType] = { gr: s.avgRent, psf: s.avgPsf, n: s.n };
     }
     bldg_trend[b.name] = byQuarter;
+  }
+
+  // Fallback: if no CompBuildingQuarterStat data exists, derive bldg_trend from raw LeaseComp records.
+  // LeaseComp.building is the raw import string; resolve it case-insensitively against CompBuilding names.
+  if (Object.keys(bldg_trend).length === 0 && leaseComps.length > 0) {
+    const nameByLower = new Map<string, string>();
+    for (const b of compBuildings) nameByLower.set(b.name.toLowerCase(), b.name);
+
+    type Cell = { grSum: number; psfSum: number; psfN: number; n: number };
+    const acc: Record<string, Record<string, Record<string, Cell>>> = {};
+    for (const lc of leaseComps) {
+      if (!lc.quarter || !lc.unitType) continue;
+      const canon = nameByLower.get(lc.building.toLowerCase());
+      if (!canon) continue;
+      acc[canon] ??= {};
+      acc[canon][lc.quarter] ??= {};
+      acc[canon][lc.quarter][lc.unitType] ??= { grSum: 0, psfSum: 0, psfN: 0, n: 0 };
+      const cell = acc[canon][lc.quarter][lc.unitType];
+      if (lc.grossRent != null) { cell.grSum += lc.grossRent; cell.n++; }
+      if (lc.grossPsf != null) { cell.psfSum += lc.grossPsf; cell.psfN++; }
+    }
+    for (const [bName, byQ] of Object.entries(acc)) {
+      bldg_trend[bName] = {};
+      for (const [q, byUT] of Object.entries(byQ)) {
+        bldg_trend[bName][q] = {};
+        for (const [ut, cell] of Object.entries(byUT)) {
+          bldg_trend[bName][q][ut] = {
+            gr: cell.n > 0 ? cell.grSum / cell.n : null,
+            psf: cell.psfN > 0 ? cell.psfSum / cell.psfN : null,
+            n: cell.n,
+          };
+        }
+      }
+    }
   }
 
   // All comp building names (sorted), regardless of whether they have stats or trend data.
