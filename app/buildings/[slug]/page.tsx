@@ -29,12 +29,16 @@ export default async function BuildingPage({ params }: Props) {
   if (!building) notFound();
 
   const unitCount = building.units.length;
-  const quarters = [...new Set(building.quarterStats.map((q) => q.quarter))].sort(
+  const allQuarters = [...new Set(building.quarterStats.map((q) => q.quarter))].sort(
     (a, b) => {
       const aq = building.quarterStats.find((s) => s.quarter === a)?.quarterOrder ?? 0;
       const bq = building.quarterStats.find((s) => s.quarter === b)?.quarterOrder ?? 0;
       return aq - bq;
     }
+  );
+  // Only show quarters that have at least one non-null avgRent value
+  const quarters = allQuarters.filter((q) =>
+    building.quarterStats.some((s) => s.quarter === q && s.avgRent != null)
   );
 
   const unitTypes = [...new Set(building.stats.map((s) => s.unitType))];
