@@ -1438,7 +1438,8 @@ var yearVisHidden = {}; // years hidden in "By Year" mode
 // Year color ramp — built after YEARS is available (below)
 var YEAR_COLORS = {};
 function buildYearColors() {
-  var palette = ["#4a7aaa","#e07840","#5eb8a8","#8b2840","#c8a060","#7a6aaa","#3a9a68","#c05090","#6888b8","#a0784a"];
+  // High-contrast, easily distinguishable colors
+  var palette = ["#e63946","#2196f3","#ff9800","#4caf50","#9c27b0","#00bcd4","#ff5722","#607d8b","#f06292","#8bc34a"];
   YEARS.forEach(function(y, i) {
     YEAR_COLORS[y] = palette[i % palette.length];
   });
@@ -1479,14 +1480,24 @@ function updateLegend() {
 function toggleYearVis(y) {
   if (yearVisHidden[y]) delete yearVisHidden[y]; else yearVisHidden[y] = 1;
   updateLegend();
-  render();
+  render(); // must full-render to add/remove markers
+}
+function applyBubbleColors() {
+  if (typeof mkrs === "undefined" || typeof DATA === "undefined") return;
+  DATA.forEach(function(p, i) {
+    var m = mkrs[i];
+    if (!m || p.rudin) return; // rudin markers use custom divIcon, skip
+    if (m.setStyle) m.setStyle({ fillColor: getBubbleColor(p) });
+  });
 }
 function setBubbleMode(mode) {
   bubbleMode = mode;
-  document.getElementById("bm-status").classList.toggle("bm-active", mode === "status");
-  document.getElementById("bm-year").classList.toggle("bm-active", mode === "year");
+  var btnStatus = document.getElementById("bm-status");
+  var btnYear   = document.getElementById("bm-year");
+  if (btnStatus) btnStatus.classList.toggle("bm-active", mode === "status");
+  if (btnYear)   btnYear.classList.toggle("bm-active", mode === "year");
   updateLegend();
-  render();
+  applyBubbleColors();
 }
 
 var mapDiv = document.getElementById("map");
