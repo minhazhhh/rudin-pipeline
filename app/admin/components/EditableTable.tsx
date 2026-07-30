@@ -22,11 +22,12 @@ export interface EditableTableProps {
   emptyRow: Row; // template used when "Add row" is clicked
   idKey?: string;
   resource?: string; // e.g. "comp-buildings" — enables version history panel
+  draftMode?: boolean; // when true, PUT/DELETE on existing rows are staged as drafts
 }
 
 type SnapMeta = { id: string; label: string; createdAt: string };
 
-export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id", resource }: EditableTableProps) {
+export default function EditableTable({ columns, apiBase, initialRows, emptyRow, idKey = "id", resource, draftMode = false }: EditableTableProps) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
@@ -34,6 +35,9 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
+  // Draft state — tracks which rows have been staged (not yet live)
+  const [stagedKeys, setStagedKeys] = useState<Set<string>>(new Set());
+  const [stagedDeletes, setStagedDeletes] = useState<Set<string>>(new Set());
 
   // ── Version history ────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
@@ -115,6 +119,25 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
     const url = isNew ? apiBase : `${apiBase}/${existingId}`;
     const method = isNew ? "POST" : "PUT";
 
+    // Stage as draft when updating an existing row in draft mode
+    if (draftMode && !isNew && resource) {
+      const label = String(row[columns[0]?.key] ?? existingId);
+      const res = await fetch("/api/admin/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource, entityId: existingId, method: "PUT", payload, entityLabel: label }),
+      });
+      setSavingKeys((s) => { const n = new Set(s); n.delete(key); return n; });
+      if (!res.ok) {
+        setErrors((e) => ({ ...e, [key]: "Failed to stage change." }));
+        return;
+      }
+      setStagedKeys((s) => new Set(s).add(key));
+      setDirty((prev) => { const n = new Set(prev); n.delete(key); return n; });
+      window.dispatchEvent(new CustomEvent("draft-staged"));
+      return;
+    }
+
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -153,6 +176,36 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
       setRows((prev) => prev.filter((_, i) => i !== idx));
       return;
     }
+
+    // In draft mode: stage the delete instead of executing immediately
+    if (draftMode && resource) {
+      if (stagedDeletes.has(existingId)) {
+        // Un-stage: remove the draft for this row
+        if (!confirm("Cancel the staged deletion for this row?")) return;
+        const draftsRes = await fetch("/api/admin/drafts");
+        if (draftsRes.ok) {
+          const drafts = (await draftsRes.json()) as { id: string; entityId: string; method: string }[];
+          const match = drafts.find((d) => d.entityId === existingId && d.method === "DELETE");
+          if (match) await fetch(`/api/admin/drafts/${match.id}`, { method: "DELETE" });
+        }
+        setStagedDeletes((s) => { const n = new Set(s); n.delete(existingId); return n; });
+        window.dispatchEvent(new CustomEvent("draft-staged"));
+        return;
+      }
+      if (!confirm("Stage this row for deletion? It won't be removed until you confirm all changes.")) return;
+      const label = String(row[columns[0]?.key] ?? existingId);
+      const res = await fetch("/api/admin/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource, entityId: existingId, method: "DELETE", entityLabel: label }),
+      });
+      if (res.ok) {
+        setStagedDeletes((s) => new Set(s).add(existingId));
+        window.dispatchEvent(new CustomEvent("draft-staged"));
+      }
+      return;
+    }
+
     if (!confirm("Delete this row? This can't be undone.")) return;
     const res = await fetch(`${apiBase}/${existingId}`, { method: "DELETE" });
     if (res.ok) {
@@ -165,9 +218,31 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
 
   async function deleteSelected() {
     if (selected.size === 0) return;
+    const ids = [...selected].filter((k) => !k.startsWith("new-"));
+
+    if (draftMode && resource) {
+      if (!confirm(`Stage ${ids.length} row(s) for deletion? They won't be removed until you confirm all changes.`)) return;
+      setBulkDeleting(true);
+      await Promise.all(
+        ids.map((id) => {
+          const row = rows.find((r, i) => rowKey(r, i) === id);
+          const label = row ? String(row[columns[0]?.key] ?? id) : id;
+          return fetch("/api/admin/drafts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resource, entityId: id, method: "DELETE", entityLabel: label }),
+          });
+        })
+      );
+      setStagedDeletes((s) => { const n = new Set(s); ids.forEach((id) => n.add(id)); return n; });
+      setSelected(new Set());
+      setBulkDeleting(false);
+      window.dispatchEvent(new CustomEvent("draft-staged"));
+      return;
+    }
+
     if (!confirm(`Delete ${selected.size} selected row(s)? This can't be undone.`)) return;
     setBulkDeleting(true);
-    const ids = [...selected].filter((k) => !k.startsWith("new-"));
     const results = await Promise.all(ids.map((id) => fetch(`${apiBase}/${id}`, { method: "DELETE" })));
     const failed = results.filter((r) => !r.ok).length;
     setRows((prev) => prev.filter((row, idx) => !selected.has(rowKey(row, idx))));
@@ -255,26 +330,33 @@ export default function EditableTable({ columns, apiBase, initialRows, emptyRow,
           <tbody>
             {rows.map((row, idx) => {
               const key = rowKey(row, idx);
-              const isDirty = dirty.has(key) || !(typeof row[idKey] === "string" && row[idKey]);
+              const existingId = typeof row[idKey] === "string" ? (row[idKey] as string) : "";
+              const isDirty = dirty.has(key) || !existingId;
               const isSelected = selected.has(key);
+              const isStaged = stagedKeys.has(key);
+              const isStagedDelete = existingId ? stagedDeletes.has(existingId) : false;
+              const rowClass = [isDirty && !isStaged ? "dirty" : "", isSelected ? "selected" : "", isStaged ? "staged" : "", isStagedDelete ? "staged-delete" : ""].filter(Boolean).join(" ");
               return (
-                <tr key={key} className={[isDirty ? "dirty" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ")}>
+                <tr key={key} className={rowClass}>
                   <td style={{ textAlign: "center" }}>
                     <input type="checkbox" checked={isSelected} onChange={(e) => toggleRow(key, e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey)} />
                   </td>
                   {columns.map((col) => (
-                    <td key={col.key}>{renderCell(col, row, idx, updateCell)}</td>
+                    <td key={col.key} style={isStagedDelete ? { textDecoration: "line-through", opacity: .5 } : undefined}>
+                      {renderCell(col, row, idx, updateCell)}
+                    </td>
                   ))}
                   <td>
                     <div className="admin-row-actions">
-                      <button className="admin-btn" disabled={savingKeys.has(key)} onClick={() => saveRow(idx)} type="button">
-                        {savingKeys.has(key) ? "Saving…" : "Save"}
+                      <button className="admin-btn" disabled={savingKeys.has(key) || isStagedDelete} onClick={() => saveRow(idx)} type="button" title={isStaged ? "Staged — will apply on Confirm" : undefined} style={isStaged ? { background: "#d97706", borderColor: "#d97706", color: "#fff" } : undefined}>
+                        {savingKeys.has(key) ? "Saving…" : isStaged ? "Staged ✓" : "Save"}
                       </button>
-                      <button className="admin-btn danger" onClick={() => deleteRow(idx)} type="button">
-                        Delete
+                      <button className="admin-btn danger" onClick={() => deleteRow(idx)} type="button" style={isStagedDelete ? { background: "#92400e", borderColor: "#92400e" } : undefined}>
+                        {isStagedDelete ? "Undo" : "Delete"}
                       </button>
                     </div>
                     {errors[key] && <div className="admin-error">{errors[key]}</div>}
+                    {isStagedDelete && <div style={{ fontSize: 11, color: "#92400e", marginTop: 2 }}>Staged for deletion</div>}
                   </td>
                 </tr>
               );

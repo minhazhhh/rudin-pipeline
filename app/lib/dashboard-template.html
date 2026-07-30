@@ -126,7 +126,7 @@ select.active-filter{border-color:#00614a!important;background:#e8f4f0!important
 .pucv.sm{font-size:11px}
 .puf{border-top:.5px solid rgba(255,255,255,.15);padding-top:8px;font-size:10.5px;color:rgba(255,255,255,.85);line-height:1.9}
 .puf span{color:#a8c8a0;font-weight:600}
-#legend{position:absolute;bottom:130px;right:18px;background:rgba(255,255,255,.97);border-radius:8px;padding:10px 13px;border:.5px solid rgba(0,97,74,.12);z-index:1000;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+#legend{position:fixed;bottom:24px;right:18px;background:rgba(255,255,255,.97);border-radius:8px;padding:10px 13px;border:.5px solid rgba(0,97,74,.12);z-index:1500;box-shadow:0 2px 12px rgba(0,0,0,.08)}
 .lt{font-weight:700;font-size:9.5px;color:#00614a;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase}
 .lr{display:flex;align-items:center;gap:6px;margin-bottom:4px}
 .lr:last-child{margin-bottom:0}
@@ -739,10 +739,10 @@ select:focus{border-color:var(--accent)!important}
 
 /* LEGEND */
 #legend{
-  position:absolute!important;bottom:24px!important;right:18px!important;
+  position:fixed!important;bottom:24px!important;right:18px!important;
   background:rgba(255,255,255,.97)!important;border:1px solid var(--line)!important;border-radius:1px!important;
   padding:14px 16px!important;box-shadow:var(--shadow-md)!important;
-  font-size:10.5px!important;z-index:1000!important;backdrop-filter:blur(8px)!important;
+  font-size:10.5px!important;z-index:1500!important;backdrop-filter:blur(8px)!important;
 }
 .lt{font-size:9px!important;font-weight:600!important;letter-spacing:.1em!important;text-transform:uppercase!important;color:var(--ink-faint)!important;margin-bottom:9px!important}
 .lr{display:flex!important;align-items:center!important;gap:8px!important;margin-bottom:6px!important}
@@ -939,23 +939,22 @@ table.cmp-table td.r{text-align:right}
 
 /* ── Quick Underwrite Panel ── */
 #uw-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
-#uw-scrim{display:none;position:fixed;inset:0;z-index:1401;background:rgba(0,0,0,.35)}
-#uw-scrim.on{display:block}
-#uw-drawer{
-  position:fixed;top:0;right:0;bottom:0;z-index:1402;
-  width:min(440px,100vw);background:#fff;
-  box-shadow:-4px 0 24px rgba(0,0,0,.18);
-  transform:translateX(100%);transition:transform 300ms cubic-bezier(.4,0,.2,1);
-  display:flex;flex-direction:column;overflow:hidden;
+@keyframes uw-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+#uw-panel{
+  display:none;position:fixed;top:66px;left:10px;z-index:500;
+  width:520px;max-height:calc(100vh - 76px);
+  background:#fff;border-radius:6px;
+  box-shadow:0 4px 24px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.08);
+  flex-direction:column;overflow:hidden;
 }
-#uw-drawer.open{transform:translateX(0)}
-#uw-head{
-  background:var(--accent);color:#fff;padding:16px 20px;
-  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+.uw-mode #uw-panel{display:flex;animation:uw-in 160ms ease-out both}
+#uw-panel-head{
+  background:var(--accent);color:#fff;padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px;
 }
-#uw-head h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.3px}
-#uw-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 4px;line-height:1}
-#uw-body{padding:16px 20px;overflow-y:auto;flex:1}
+#uw-panel-head h3{margin:0;font-size:14px;font-weight:600;letter-spacing:.3px;flex:1}
+#uw-exit-btn{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;font-size:11px;cursor:pointer;padding:3px 10px;border-radius:3px;white-space:nowrap;letter-spacing:.2px}
+#uw-panel-body{padding:14px 16px;overflow-y:auto;flex:1}
 .uw-section{margin-bottom:18px}
 .uw-label{font-size:11px;font-weight:600;letter-spacing:.6px;color:#666;text-transform:uppercase;margin-bottom:6px}
 .uw-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
@@ -967,6 +966,9 @@ table.cmp-table td.r{text-align:right}
 .uw-row input[type=range]{flex:1;accent-color:var(--accent)}
 .uw-row .uw-val{font-size:12px;color:#333;min-width:36px;text-align:right;font-variant-numeric:tabular-nums}
 .uw-slider-sum{font-size:11px;color:#888;text-align:right;margin-top:-6px;margin-bottom:10px}
+@media(max-width:860px){
+  #uw-panel{top:auto;bottom:0;left:0;right:0;width:100%;max-height:75vh;border-radius:12px 12px 0 0}
+}
 .uw-slider-sum.err{color:#c0392b;font-weight:600}
 #uw-calc-btn{
   width:100%;padding:10px;background:var(--accent);color:#fff;
@@ -976,17 +978,17 @@ table.cmp-table td.r{text-align:right}
 #uw-calc-btn:hover{background:#0a3e2f}
 #uw-calc-btn:disabled{background:#aaa;cursor:not-allowed}
 #uw-results{margin-top:18px;display:none}
-.uw-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-.uw-metric{background:#f5f8f7;border-radius:6px;padding:10px 12px}
-.uw-metric .uw-m-label{font-size:10px;font-weight:600;letter-spacing:.5px;color:#777;text-transform:uppercase;margin-bottom:4px}
-.uw-metric .uw-m-val{font-size:18px;font-weight:700;color:var(--accent)}
-.uw-metric .uw-m-sub{font-size:11px;color:#888;margin-top:2px}
-.uw-comp-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
-.uw-comp-table th{text-align:left;padding:5px 8px;background:#eef2f0;color:#555;font-weight:600;font-size:10px;letter-spacing:.4px;text-transform:uppercase}
-.uw-comp-table td{padding:5px 8px;border-bottom:1px solid #eee;color:#333}
+.uw-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.uw-metric{background:#f5f8f7;border-radius:8px;padding:16px 18px}
+.uw-metric .uw-m-label{font-size:11px;font-weight:600;letter-spacing:.5px;color:#777;text-transform:uppercase;margin-bottom:6px}
+.uw-metric .uw-m-val{font-size:32px;font-weight:700;color:var(--accent);line-height:1.1}
+.uw-metric .uw-m-sub{font-size:13px;color:#888;margin-top:4px}
+.uw-comp-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.uw-comp-table th{text-align:left;padding:8px 10px;background:#eef2f0;color:#555;font-weight:600;font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+.uw-comp-table td{padding:8px 10px;border-bottom:1px solid #eee;color:#333}
 .uw-comp-table tr:last-child td{border-bottom:none}
-.uw-supply{background:#fff8e6;border:1px solid #f0d080;border-radius:6px;padding:10px 12px;font-size:12px;color:#7a5a00;margin-bottom:10px}
-.uw-supply strong{font-size:15px;color:#5a4000}
+.uw-supply{background:#fff8e6;border:1px solid #f0d080;border-radius:8px;padding:14px 16px;font-size:13px;color:#7a5a00;margin-bottom:14px}
+.uw-supply strong{font-size:20px;color:#5a4000}
 #uw-copy-btn{
   width:100%;padding:8px;background:#f0f4f2;color:#333;
   border:1px solid #d0d7d4;border-radius:5px;font-size:13px;
@@ -1220,9 +1222,9 @@ table.cmp-table td.r{text-align:right}
 </div>
 <div id="legend">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-  <div class="lt" style="margin-bottom:0">Conversion Status</div>
-  <button id="coord-toggle" onclick="toggleCoordMode()" title="Edit pin coordinates" style="background:none;border:none;cursor:pointer;color:#a8c8a0;font-size:13px;padding:0;line-height:1;opacity:.6;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=coordMode?1:.6">&#9881;</button>
-</div>
+    <div class="lt" style="margin-bottom:0">Conversion Status</div>
+    <button id="coord-toggle" onclick="toggleCoordMode()" title="Edit pin coordinates" style="background:none;border:none;cursor:pointer;color:#a8c8a0;font-size:13px;padding:0;line-height:1;opacity:.6;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=coordMode?1:.6">&#9881;</button>
+  </div>
   <div class="lr"><div class="ld" style="background:#4a7aaa"></div><span class="ll">Completed</span></div>
   <div class="lr"><div class="ld" style="background:#8b2840"></div><span class="ll">Under Construction</span></div>
   <div class="lr"><div class="ld" style="background:#88c0d0"></div><span class="ll">Planned Conversion</span></div>
@@ -1243,6 +1245,47 @@ table.cmp-table td.r{text-align:right}
   </div>
 </div>
 
+<!-- BUILDING UNIT MODAL -->
+<div id="bldg-modal-scrim" onclick="closeBldgModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;backdrop-filter:blur(3px)"></div>
+<div id="bldg-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:96vw;height:94vh;background:#fff;border-radius:4px;z-index:3001;box-shadow:0 24px 80px rgba(0,0,0,.35);overflow:hidden;display:none;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#1a2e24;flex-shrink:0">
+    <span id="bldg-modal-title" style="color:#e8f4e8;font-size:13px;font-weight:600"></span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a id="bldg-modal-ext" href="#" target="_blank" style="color:#7ab89a;font-size:11px;text-decoration:none;opacity:.8" title="Open in new tab">↗ open in new tab</a>
+      <button onclick="closeBldgModal()" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1">&#10005;</button>
+    </div>
+  </div>
+  <iframe id="bldg-modal-frame" src="" style="flex:1;border:none;width:100%;height:100%"></iframe>
+</div>
+<script>
+function openBldgModal(name) {
+  var url = '/buildings/' + encodeURIComponent(name);
+  var modal = document.getElementById('bldg-modal');
+  var scrim = document.getElementById('bldg-modal-scrim');
+  var frame = document.getElementById('bldg-modal-frame');
+  var title = document.getElementById('bldg-modal-title');
+  var ext   = document.getElementById('bldg-modal-ext');
+  frame.src = url;
+  title.textContent = name;
+  ext.href = url;
+  modal.style.display = 'flex';
+  scrim.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeBldgModal() {
+  var modal = document.getElementById('bldg-modal');
+  var scrim = document.getElementById('bldg-modal-scrim');
+  var frame = document.getElementById('bldg-modal-frame');
+  modal.style.display = 'none';
+  scrim.style.display = 'none';
+  frame.src = '';
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeBldgModal();
+});
+</script>
+
 <!-- COMPARE PANEL -->
 <div id="cmp-panel" style="position:fixed;top:0;right:-680px;width:660px;height:100vh;background:#fff;z-index:2100;box-shadow:-6px 0 40px rgba(0,0,0,.18);transition:right .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;font-family:'Basis Grotesque','Inter',sans-serif">
   <div style="background:#1e2b28;padding:16px 20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
@@ -1255,16 +1298,41 @@ table.cmp-table td.r{text-align:right}
 <div id="sb-scrim"></div>
 
 <!-- Quick Underwrite Panel -->
-<div id="uw-scrim"></div>
-<div id="uw-drawer" role="dialog" aria-label="Quick Underwrite">
-  <div id="uw-head">
+<div id="uw-panel" role="dialog" aria-label="Quick Underwrite">
+  <div id="uw-panel-head">
     <h3>&#129518; Quick Underwrite</h3>
-    <button id="uw-close" aria-label="Close">&#10005;</button>
+    <button id="uw-exit-btn" onclick="uwExit()">&#10005; Exit map view</button>
   </div>
-  <div id="uw-body">
+  <div id="uw-panel-body">
     <div class="uw-section">
-      <div class="uw-label">Market / Submarket</div>
+      <div class="uw-label">Anchor Building</div>
       <div class="uw-row">
+        <label for="uw-anchor">Primary comp</label>
+        <select id="uw-anchor" onchange="uwAnchorChanged()" style="max-width:200px">
+          <option value="">— all buildings —</option>
+        </select>
+      </div>
+      <div class="uw-row">
+        <label for="uw-radius">Include nearby</label>
+        <select id="uw-radius" onchange="uwAnchorChanged()">
+          <option value="0">Anchor only</option>
+          <option value="0.5">+ within 0.5 mi</option>
+          <option value="1" selected>+ within 1 mi</option>
+          <option value="2">+ within 2 mi</option>
+          <option value="999">+ all buildings</option>
+        </select>
+      </div>
+      <div id="uw-anchor-info" style="font-size:10px;color:var(--ink-soft);margin:4px 0 2px 8px;line-height:1.5;min-height:14px"></div>
+      <div class="uw-row">
+        <label for="uw-pt">Property type</label>
+        <select id="uw-pt">
+          <option value="">All types</option>
+          <option value="Conversion">Conversion</option>
+          <option value="Primary">Primary</option>
+          <option value="Market">Market Rate</option>
+        </select>
+      </div>
+      <div class="uw-row" style="display:none">
         <label for="uw-sub">Submarket</label>
         <select id="uw-sub">
           <option value="manhattan">Manhattan (All)</option>
@@ -1273,15 +1341,6 @@ table.cmp-table td.r{text-align:right}
           <option value="brooklyn">Brooklyn</option>
           <option value="queens">Queens</option>
           <option value="bronx">Bronx</option>
-        </select>
-      </div>
-      <div class="uw-row">
-        <label for="uw-pt">Property type</label>
-        <select id="uw-pt">
-          <option value="">All types</option>
-          <option value="Conversion">Conversion</option>
-          <option value="Primary">Primary</option>
-          <option value="Market">Market Rate</option>
         </select>
       </div>
     </div>
@@ -2209,8 +2268,9 @@ function addCompToPeek(p) {
   const bs = gbs(p.n);
   const hasD = !!(bs && Object.keys(bs.units||{}).length > 0);
 
+  const compName = NAME_MAP[p.n] || p.n;
   let h = '<div class="pk-comp-section" style="background:#f4f6f4;border-radius:7px;padding:13px;margin-top:4px">';
-  h += '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a9a8a;margin-bottom:10px;padding-bottom:6px;border-bottom:.5px solid #e8ede8">Rent Comp Analysis</div>';
+  h += '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a9a8a;margin-bottom:10px;padding-bottom:6px;border-bottom:.5px solid #e8ede8;display:flex;align-items:center;justify-content:space-between">Rent Comp Analysis <a href="#" onclick="openBldgModal(\'' + compName.replace(/'/g, "\\'") + '\');return false;" style="font-size:8.5px;font-weight:600;color:#00614a;text-decoration:none;text-transform:none;letter-spacing:0">View all unit data ↗</a></div>';
 
   if (hasD) {
     h += '<div style="font-size:9px;color:#a8c8a0;font-weight:500;margin-bottom:8px">Actual leases on record</div>';
@@ -2598,7 +2658,11 @@ function buildCDBldg() {
         <option value="leases">Total Leases</option>
       </select>
     </div>
-    <div style="font-size:10.5px;color:var(--ink-faint);margin-left:auto;text-align:right">Check rows to compare &rarr; see % variance<br><span style="font-size:9.5px;color:var(--gold)">UW = underwritten rents, not actual leases</span></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="eyebrow">Search</span>
+      <input id="cd-bldg-search" type="text" placeholder="Filter buildings…" oninput="filterCDBldg()" style="padding:6px 11px;border:1px solid var(--line);border-radius:1px;font-family:inherit;font-size:11.5px;color:var(--ink);outline:none;width:160px;background:#fff">
+    </div>
+    <div style="font-size:10.5px;color:var(--ink-faint);margin-left:auto;text-align:right">Check rows to compare &rarr; see full breakdown<br><span style="font-size:9.5px;color:var(--gold)">UW = underwritten rents, not actual leases</span></div>
   </div>
   <div style="font-size:10px;color:var(--ink-faint);margin-bottom:12px">&#x25CF; Green = above peer avg &nbsp;&nbsp; Gray = below</div>
   <div id="cd-bldg-cmp-panel" style="display:none"></div>
@@ -2611,8 +2675,10 @@ function buildCDBldg() {
   showUTs.forEach(t => {
     h += `<th class="r" colspan="2" style="border-left:1px solid var(--line-soft)"><span style="color:${UT_COLORS[t]||'#888'}">${t}</span></th>`;
   });
+  h += `<th style="border-left:1px solid var(--line-soft)">Status</th>`;
   h += `</tr><tr><th></th><th></th><th></th>`;
   showUTs.forEach(() => { h += '<th class="r" style="font-size:9px;border-left:1px solid var(--line-soft)">Avg Rent</th><th class="r" style="font-size:9px">$/SF</th>'; });
+  h += '<th style="font-size:9px;border-left:1px solid var(--line-soft)">Unit Records</th>';
   h += '</tr></thead><tbody id="cd-bldg-tbody"></tbody></table></div>';
 
   el.innerHTML = h;
@@ -2621,9 +2687,10 @@ function buildCDBldg() {
 }
 
 function filterCDBldg() {
-  const ptFilter = document.getElementById('cd-bldg-pt')?.value || '';
-  const utFilter = document.getElementById('cd-bldg-ut')?.value || '';
-  const sortBy   = document.getElementById('cd-bldg-sort')?.value || 'name';
+  const ptFilter  = document.getElementById('cd-bldg-pt')?.value || '';
+  const utFilter  = document.getElementById('cd-bldg-ut')?.value || '';
+  const sortBy    = document.getElementById('cd-bldg-sort')?.value || 'name';
+  const searchVal = (document.getElementById('cd-bldg-search')?.value || '').toLowerCase().trim();
   let bldgs = Object.keys(AGG.bldg_stats).sort();
   const uts = AGG.ut_order;
   const showUTs = utFilter ? [utFilter] : uts.filter(t => bldgs.some(b=>AGG.bldg_stats[b]?.units?.[t]));
@@ -2635,6 +2702,7 @@ function filterCDBldg() {
   });
 
   if(ptFilter) bldgs = bldgs.filter(b=>AGG.bldg_stats[b]?.pt===ptFilter);
+  if(searchVal) bldgs = bldgs.filter(b=>b.toLowerCase().includes(searchVal));
   if(sortBy==='type') bldgs.sort((a,b)=>(AGG.bldg_stats[a]?.pt||'').localeCompare(AGG.bldg_stats[b]?.pt||''));
   if(sortBy==='leases') bldgs.sort((a,b)=>(AGG.bldg_stats[b]?.total_n||0)-(AGG.bldg_stats[a]?.total_n||0));
 
@@ -2646,9 +2714,9 @@ function filterCDBldg() {
     const col = PT_COLORS[pt]||'#4a7aaa';
     const checked = sel.has(b) ? 'checked' : '';
     const isUW = bdata.underwritten || false;
-    rows += `<tr style="${sel.has(b)?'background:var(--accent-soft)':isUW?'background:#fffdf5':''}">
+    rows += `<tr data-bldg="${b.replace(/"/g,'&quot;')}" style="${sel.has(b)?'background:var(--accent-soft)':isUW?'background:#fffdf5':''}">
       <td style="text-align:center"><input type="checkbox" ${checked} style="cursor:pointer;accent-color:var(--accent)" onchange="window._bldgCmpToggle('${b.replace(/'/g,"\\'")}',this.checked)"/></td>
-      <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''}</td>
+      <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''} <a href="#" onclick="openBldgModal('${b.replace(/'/g,"\\'")}');return false;" style="display:inline-block;font-size:9px;color:var(--accent);text-decoration:none;font-weight:700;margin-left:6px;padding:2px 7px;border:1px solid var(--accent);border-radius:3px;letter-spacing:.02em;vertical-align:middle;opacity:.85" title="View all unit data for this building">Units ↗</a></td>
       <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
     showUTs.forEach(t => {
       const v = bdata.units?.[t];
@@ -2665,6 +2733,22 @@ function filterCDBldg() {
         rows += `<td class="r" style="color:var(--line);border-left:1px solid var(--line-soft)">—</td><td class="r" style="color:var(--line)">—</td>`;
       }
     });
+    // Status counts column
+    const bstats = (typeof BSTATS !== 'undefined') ? BSTATS[b] : null;
+    const sc = bstats?.status_counts || {};
+    const totalRec = bstats?.unit_record_count || 0;
+    const scKeys = Object.keys(sc).sort();
+    let statusHtml = '';
+    if (scKeys.length) {
+      statusHtml = scKeys.map(k => {
+        const pct = totalRec ? Math.round(sc[k]/totalRec*100) : 0;
+        const color = k === 'Leased' ? 'var(--accent)' : k === 'Vacant' ? 'var(--red)' : 'var(--ink-soft)';
+        return `<span style="display:inline-flex;align-items:center;gap:2px;font-size:9px;margin-right:4px;color:${color};font-weight:600" title="${k}: ${sc[k]}">${k[0]}<span style="font-weight:400;color:var(--ink-faint)">${sc[k]}</span></span>`;
+      }).join('');
+    } else if (totalRec) {
+      statusHtml = `<span style="font-size:9px;color:var(--ink-faint)">${totalRec.toLocaleString()} rec</span>`;
+    }
+    rows += `<td style="white-space:nowrap;border-left:1px solid var(--line-soft);font-size:10px">${statusHtml || `<span style="color:var(--line)">—</span>`}</td>`;
     rows += '</tr>';
   });
 
@@ -2679,53 +2763,93 @@ function filterCDBldg() {
   };
 
   const panel = document.getElementById('cd-bldg-cmp-panel');
-  if(panel && sel.size >= 2) {
+  if(panel && sel.size >= 1) {
     const selArr = Array.from(sel);
     const showUTsAll = uts.filter(t => selArr.some(b=>AGG.bldg_stats[b]?.units?.[t]?.gr?.avg));
+
     let ph = `<div class="cd-card" style="margin-bottom:18px;border:1px solid var(--accent-line);background:var(--accent-soft)">
-      <div class="cd-ph" style="color:var(--accent)">Comparing ${selArr.length} Buildings — Avg Rent &amp; % Variance</div>
-      <div class="table-wrap"><table class="cdt">
-        <thead><tr>
-          <th>Building</th><th>Type</th>
-          ${showUTsAll.map(t=>`<th class="r" colspan="2" style="border-left:1px solid var(--line-soft);color:${UT_COLORS[t]}">${t}</th>`).join('')}
-        </tr>
-        <tr><th></th><th></th>
-          ${showUTsAll.map(()=>'<th class="r" style="font-size:9px;border-left:1px solid var(--line-soft)">Avg Rent</th><th class="r" style="font-size:9px">vs. Lowest</th>').join('')}
-        </tr></thead><tbody>`;
+      <div class="cd-ph" style="color:var(--accent)">${selArr.length === 1 ? selArr[0] + ' — Full Breakdown' : 'Comparing ' + selArr.length + ' Buildings'}</div>`;
 
-    // Find min per UT among selected
-    const minPerUT = {};
-    showUTsAll.forEach(t => {
-      const vals = selArr.map(b=>AGG.bldg_stats[b]?.units?.[t]?.gr?.avg).filter(Boolean);
-      minPerUT[t] = vals.length ? Math.min(...vals) : null;
-    });
-
+    // Per-building detailed unit-type tables
+    ph += `<div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:${selArr.length >= 2 ? '18px' : '0'}">`;
     selArr.forEach(b => {
       const bdata = AGG.bldg_stats[b];
+      const bUTs = uts.filter(t => bdata?.units?.[t]?.gr?.avg);
+      if (!bUTs.length) return;
       const pt = bdata?.pt || 'Market';
-      const col = PT_COLORS[pt]||'#888';
-      ph += `<tr>
-        <td style="font-weight:500;color:var(--ink);white-space:nowrap">${b}</td>
-        <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
-      showUTsAll.forEach(t => {
-        const v = bdata?.units?.[t]?.gr?.avg;
-        const base = minPerUT[t];
-        if(v && base) {
-          const diff = v - base;
-          const pct = (diff/base*100);
-          const isBase = diff === 0;
-          ph += `<td class="r" style="font-weight:600;border-left:1px solid var(--line-soft)">${fmtR(v)}</td>
-            <td class="r" style="font-weight:600;color:${isBase?'var(--ink-faint)':diff>0?'var(--red)':'var(--accent)'}">
-              ${isBase?'Base':(diff>0?'+':'')+pct.toFixed(1)+'%'}
-            </td>`;
-        } else {
-          ph += `<td class="r" style="color:var(--line);border-left:1px solid var(--line-soft)">—</td><td class="r" style="color:var(--line)">—</td>`;
-        }
+      const col = PT_COLORS[pt] || '#888';
+      ph += `<div style="flex:1;min-width:320px">`;
+      if (selArr.length >= 2) ph += `<div style="font-weight:700;font-size:11px;color:var(--ink);margin-bottom:6px;white-space:nowrap">${b} <span class="badge-outline" style="border-color:${col}22;color:${col};font-size:9px">${pt}</span></div>`;
+      ph += `<div class="table-wrap"><table class="cdt" style="font-size:10.5px">
+        <thead><tr>
+          <th>Unit Type</th>
+          <th class="r">Avg Rent</th><th class="r">Med Rent</th>
+          <th class="r">Min</th><th class="r">Max</th>
+          <th class="r">Avg&nbsp;$/SF</th><th class="r">Med&nbsp;$/SF</th>
+          <th class="r">Leases</th>
+        </tr></thead><tbody>`;
+      bUTs.forEach(t => {
+        const v = bdata.units[t];
+        ph += `<tr>
+          <td><span style="color:${UT_COLORS[t]||'#888'};font-weight:600">${t}</span></td>
+          <td class="r">${fmtR(v.gr?.avg)}</td>
+          <td class="r">${fmtR(v.gr?.med)}</td>
+          <td class="r">${fmtR(v.gr?.min)}</td>
+          <td class="r">${fmtR(v.gr?.max)}</td>
+          <td class="r">${fmtP(v.psf?.avg)}</td>
+          <td class="r">${fmtP(v.psf?.med)}</td>
+          <td class="r">${v.gr?.n ?? '—'}</td>
+        </tr>`;
       });
-      ph += '</tr>';
+      ph += '</tbody></table></div></div>';
     });
-    ph += '</tbody></table></div>';
-    ph += `<div style="margin-top:10px"><button onclick="window._bldgCmpSel=new Set();filterCDBldg();" style="padding:5px 14px;border:1px solid var(--line);background:transparent;font-family:inherit;font-size:11px;cursor:pointer;border-radius:1px;color:var(--ink-soft)">Clear Comparison</button></div>`;
+    ph += '</div>';
+
+    // Cross-building avg rent + variance table (only when 2+)
+    if (selArr.length >= 2 && showUTsAll.length) {
+      const minPerUT = {};
+      showUTsAll.forEach(t => {
+        const vals = selArr.map(b=>AGG.bldg_stats[b]?.units?.[t]?.gr?.avg).filter(Boolean);
+        minPerUT[t] = vals.length ? Math.min(...vals) : null;
+      });
+      ph += `<div style="border-top:1px solid var(--accent-line);padding-top:14px;margin-top:4px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:8px">Avg Rent Variance vs. Lowest</div>
+        <div class="table-wrap"><table class="cdt" style="font-size:10.5px">
+          <thead><tr>
+            <th>Building</th><th>Type</th>
+            ${showUTsAll.map(t=>`<th class="r" colspan="2" style="border-left:1px solid var(--line-soft);color:${UT_COLORS[t]}">${t}</th>`).join('')}
+          </tr>
+          <tr><th></th><th></th>
+            ${showUTsAll.map(()=>'<th class="r" style="font-size:9px;border-left:1px solid var(--line-soft)">Avg Rent</th><th class="r" style="font-size:9px">vs. Lowest</th>').join('')}
+          </tr></thead><tbody>`;
+      selArr.forEach(b => {
+        const bdata = AGG.bldg_stats[b];
+        const pt = bdata?.pt || 'Market';
+        const col = PT_COLORS[pt]||'#888';
+        ph += `<tr>
+          <td style="font-weight:500;color:var(--ink);white-space:nowrap">${b}</td>
+          <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;
+        showUTsAll.forEach(t => {
+          const v = bdata?.units?.[t]?.gr?.avg;
+          const base = minPerUT[t];
+          if(v && base) {
+            const diff = v - base;
+            const pct = (diff/base*100);
+            const isBase = diff === 0;
+            ph += `<td class="r" style="font-weight:600;border-left:1px solid var(--line-soft)">${fmtR(v)}</td>
+              <td class="r" style="font-weight:600;color:${isBase?'var(--ink-faint)':diff>0?'var(--red)':'var(--accent)'}">
+                ${isBase?'Base':(diff>0?'+':'')+pct.toFixed(1)+'%'}
+              </td>`;
+          } else {
+            ph += `<td class="r" style="color:var(--line);border-left:1px solid var(--line-soft)">—</td><td class="r" style="color:var(--line)">—</td>`;
+          }
+        });
+        ph += '</tr>';
+      });
+      ph += '</tbody></table></div></div>';
+    }
+
+    ph += `<div style="margin-top:12px"><button onclick="window._bldgCmpSel=new Set();filterCDBldg();" style="padding:5px 14px;border:1px solid var(--line);background:transparent;font-family:inherit;font-size:11px;cursor:pointer;border-radius:1px;color:var(--ink-soft)">Clear Selection</button></div>`;
     ph += '</div>';
     panel.innerHTML = ph;
     panel.style.display = 'block';
@@ -2952,6 +3076,17 @@ function buildCDReport() {
   let singleUT = trendUTs.includes('1BD') ? '1BD' : (trendUTs[0] || 'ST');
   let qFrom = AGG.quarters[0];
   let qTo = AGG.quarters[AGG.quarters.length - 1];
+  function quarterToYearMonth(q) {
+    if (!q) return '';
+    const m = String(q).match(/Q(\d)\s+(\d{4})/i);
+    if (!m) return '';
+    const qNum = parseInt(m[1], 10);
+    const year = m[2];
+    const month = String(qNum * 3 - 2).padStart(2, '0');
+    return year + '-' + month;
+  }
+  const _firstYM = quarterToYearMonth(AGG.quarters[0]) || '';
+  const _lastYM  = quarterToYearMonth(AGG.quarters[AGG.quarters.length - 1]) || '';
 
   // Per-building date ranges for bldgtrend mode
   const bldgDateRanges = new Map();
@@ -3287,117 +3422,71 @@ function buildCDReport() {
           return;
         }
         drError = null;
-        drRows = [];
-        var bldgs = [...drSelBldgs];
-        var utOrder = AGG.ut_order || ['ST','ST+HO','1BD','1BD+HO','1BD+2HO','2BD','2B+HO','3BD'];
+        drLoading = true;
+        drRows = null;
+        render();
 
-        function dateToQuarter(ds) {
-          var d = new Date(ds + 'T12:00:00');
-          return 'Q' + (Math.floor(d.getMonth() / 3) + 1) + ' ' + d.getFullYear();
-        }
-        function qOrd(ql) {
-          var m = ql.match(/Q(\d)\s+(\d{4})/);
-          return m ? parseInt(m[2]) * 4 + parseInt(m[1]) : 0;
-        }
-        var qFrom = qOrd(dateToQuarter(drFrom));
-        var qTo   = qOrd(dateToQuarter(drTo));
+        fetch('/api/comp-stats-range', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buildings: [...drSelBldgs], startDate: drFrom, endDate: drTo })
+        })
+        .then(function(res) {
+          if (!res.ok) throw new Error('Server error ' + res.status);
+          return res.json();
+        })
+        .then(function(data) {
+          drLoading = false;
+          var apiRows = data.rows || [];
+          var overallSource = data.source; // "lease-comps" | "building-stat"
 
-        bldgs.sort().forEach(function(b) {
-          var bTrend = AGG.bldg_trend && AGG.bldg_trend[b];
-          var accumulator = {}; // ut -> { rents:[], psfs:[], n }
-          var matchedQs = [];
-
-          if (bTrend) {
-            Object.keys(bTrend).forEach(function(q) {
-              var ord = qOrd(q);
-              if (ord < qFrom || ord > qTo) return;
-              matchedQs.push(q);
-              var qData = bTrend[q];
-              Object.keys(qData).forEach(function(ut) {
-                if (!utOrder.includes(ut)) return;
-                var cell = qData[ut];
-                if (cell.gr == null) return;
-                if (!accumulator[ut]) accumulator[ut] = { rents: [], psfs: [], n: 0 };
-                accumulator[ut].rents.push(cell.gr);
-                accumulator[ut].n += cell.n || 0;
-                if (cell.psf != null) accumulator[ut].psfs.push(cell.psf);
-              });
-            });
-          }
-
-          var hasQData = bTrend && Object.keys(bTrend).length > 0; // building has ANY quarter data
-          var inRangeData = Object.keys(accumulator).length > 0;   // has data in the selected range
-
-          // Sort matched quarters for display label
-          matchedQs.sort(function(a, b) { return qOrd(a) - qOrd(b); });
-          var sourceLabel, sourceType;
-          if (inRangeData) {
-            sourceType = 'quarterly';
-            sourceLabel = matchedQs.length === 1
-              ? matchedQs[0]
-              : matchedQs[0] + ' – ' + matchedQs[matchedQs.length - 1] + ' (' + matchedQs.length + ' qtrs)';
-          } else if (hasQData) {
-            // Has quarter data, but none falls in the selected range
-            sourceType = 'norange';
-            sourceLabel = 'No quarterly data for this date range';
-          } else {
-            // No quarter data at all — fall back to all-time stats
-            sourceType = 'alltime';
-            sourceLabel = 'All-time avg (no quarter-level data available)';
-          }
-
-          utOrder.forEach(function(ut) {
-            var avgRent = null, medRent = null, minRent = null, maxRent = null;
-            var avgPsf = null, n = 0;
-
-            if (inRangeData) {
-              if (!accumulator[ut] || !accumulator[ut].rents.length) return;
-              var rents = accumulator[ut].rents.slice().sort(function(a,b){return a-b;});
-              var sum = rents.reduce(function(a,b){return a+b;},0);
-              avgRent = Math.round(sum / rents.length);
-              medRent = rents.length % 2 === 0
-                ? Math.round((rents[rents.length/2-1] + rents[rents.length/2]) / 2)
-                : rents[Math.floor(rents.length/2)];
-              minRent = rents[0];
-              maxRent = rents[rents.length-1];
-              n = accumulator[ut].n;
-              if (accumulator[ut].psfs.length) {
-                var psum = accumulator[ut].psfs.reduce(function(a,b){return a+b;},0);
-                avgPsf = Math.round(psum / accumulator[ut].psfs.length * 100) / 100;
-              }
-            } else if (sourceType === 'alltime') {
-              var us = AGG.bldg_stats && AGG.bldg_stats[b] && AGG.bldg_stats[b].units && AGG.bldg_stats[b].units[ut];
-              if (!us || !us.gr || us.gr.avg == null) return;
-              avgRent = us.gr.avg; medRent = us.gr.med;
-              minRent = us.gr.min; maxRent = us.gr.max;
-              n = us.gr.n || 0;
-              avgPsf = us.psf ? us.psf.avg : null;
-            } else {
-              return; // norange — skip individual unit rows, building header handles message
-            }
-            if (avgRent == null) return;
-            drRows.push({
-              building: b, unitType: ut, n: n,
-              avgRent: avgRent, medRent: medRent,
-              minRent: minRent, maxRent: maxRent,
-              avgPsf: avgPsf, medPsf: null,
-              avgSf: null, medSf: null,
-              sourceType: sourceType, sourceLabel: sourceLabel
-            });
+          // Index API rows by building
+          var byBldg = {};
+          apiRows.forEach(function(r) {
+            if (!byBldg[r.building]) byBldg[r.building] = [];
+            byBldg[r.building].push(r);
           });
 
-          // If building has quarter data but none in range, push a sentinel row
-          if (sourceType === 'norange') {
-            drRows.push({
-              building: b, unitType: null, n: 0,
-              avgRent: null, medRent: null, minRent: null, maxRent: null,
-              avgPsf: null, medPsf: null, avgSf: null, medSf: null,
-              sourceType: 'norange', sourceLabel: sourceLabel
+          drRows = [];
+          [...drSelBldgs].sort().forEach(function(b) {
+            var bRows = byBldg[b];
+            if (!bRows || !bRows.length) {
+              // Building selected but no data at all (no lease comps, no comp-building-stats)
+              drRows.push({
+                building: b, unitType: null, n: 0,
+                avgRent: null, medRent: null, minRent: null, maxRent: null,
+                avgPsf: null, medPsf: null, avgSf: null, medSf: null,
+                sourceType: 'norange', sourceLabel: 'No data found for this building'
+              });
+              return;
+            }
+            var src = bRows[0].source;
+            var srcType = src === 'lease-comps' ? 'quarterly' : 'alltime';
+            var fmtDate = function(s) { var p = s.split('-'); return p[1]+'/'+p[2]+'/'+p[0].slice(2); };
+            var srcLabel = src === 'lease-comps'
+              ? fmtDate(drFrom) + ' – ' + fmtDate(drTo)
+              : 'All-time avg — no lease data in date range';
+            bRows.forEach(function(r) {
+              drRows.push({
+                building: r.building, unitType: r.unitType, n: r.n,
+                avgRent: r.avgRent, medRent: r.medRent,
+                minRent: r.minRent, maxRent: r.maxRent,
+                avgPsf: r.avgPsf, medPsf: r.medPsf,
+                avgSf: r.avgSf, medSf: r.medSf,
+                sourceType: srcType, sourceLabel: srcLabel
+              });
             });
-          }
+          });
+          render();
+          renderDrResults();
+        })
+        .catch(function(err) {
+          drLoading = false;
+          drError = 'Failed to load: ' + err.message;
+          drRows = [];
+          render();
+          renderDrResults();
         });
-        render();
-        renderDrResults();
       };
 
       // Auto-run on first load of date range mode
@@ -3599,23 +3688,25 @@ function buildCDReport() {
 
 // ── Quick Underwrite Panel ──
 (function() {
-  var uwBtn    = document.getElementById('uw-btn');
-  var uwScrim  = document.getElementById('uw-scrim');
-  var uwDrawer = document.getElementById('uw-drawer');
-  var uwClose  = document.getElementById('uw-close');
-  if (!uwBtn || !uwDrawer) return;
+  var uwBtn = document.getElementById('uw-btn');
+  if (!uwBtn) return;
 
-  function openDrawer() {
-    uwDrawer.classList.add('open');
-    uwScrim.classList.add('on');
+  function fireResize() { window.dispatchEvent(new Event('resize')); }
+
+  function enterUWMode() {
+    document.body.classList.add('uw-mode');
+    uwBtn.classList.add('on');
+    fireResize();
+    setTimeout(uwAnchorChanged, 80);
   }
-  function closeDrawer() {
-    uwDrawer.classList.remove('open');
-    uwScrim.classList.remove('on');
-  }
-  uwBtn.onclick   = openDrawer;
-  uwClose.onclick = closeDrawer;
-  uwScrim.onclick = closeDrawer;
+  window.uwExit = function() {
+    document.body.classList.remove('uw-mode');
+    uwBtn.classList.remove('on');
+    uwMainLayers.forEach(function(l) { map.removeLayer(l); });
+    uwMainLayers = [];
+    fireResize();
+  };
+  uwBtn.onclick = enterUWMode;
 
   // ── Unit mix sliders ──
   var uwMix = { ST: 25, '1BD': 45, '2BD': 20, '3BD': 10 };
@@ -3630,16 +3721,155 @@ function buildCDReport() {
     lbl.classList.toggle('err', total !== 100);
   };
 
-  // ── Submarket → property type mapping (approximate) ──
-  var subToPt = {
-    manhattan: [], midtown: [], downtown: [],
-    brooklyn: [], queens: [], bronx: []
-  };
-  // We filter by borough from DATA for competing supply
+  // ── Submarket → borough (for competing supply) ──
   var subToBorough = {
     manhattan: 'Manhattan', midtown: 'Manhattan', downtown: 'Manhattan',
     brooklyn: 'Brooklyn', queens: 'Queens', bronx: 'Bronx'
   };
+
+  // ── Haversine distance in miles ──
+  function haversineMi(lat1, lng1, lat2, lng2) {
+    var R = 3958.8;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.asin(Math.sqrt(a));
+  }
+
+  // ── Populate anchor building dropdown ──
+  (function() {
+    var sel = document.getElementById('uw-anchor');
+    if (!sel || !AGG.bldg_stats) return;
+    Object.keys(AGG.bldg_stats).sort().forEach(function(b) {
+      var opt = document.createElement('option');
+      opt.value = b;
+      opt.textContent = b;
+      sel.appendChild(opt);
+    });
+  })();
+
+  // ── Update info text when anchor or radius changes ──
+  window.uwAnchorChanged = function() {
+    var anchor = document.getElementById('uw-anchor').value;
+    var radius = parseFloat(document.getElementById('uw-radius').value);
+    var info   = document.getElementById('uw-anchor-info');
+    if (!anchor) {
+      info.textContent = '';
+      uwMapUpdate();
+      return;
+    }
+    var anchorCoords = COMP_COORDS && COMP_COORDS[anchor];
+    if (!anchorCoords) {
+      info.textContent = anchor + ' — no coordinates on file';
+      uwMapUpdate();
+      return;
+    }
+    if (radius === 0) {
+      info.textContent = 'Using anchor only: ' + anchor;
+    } else {
+      var nearby = [];
+      Object.keys(AGG.bldg_stats).forEach(function(b) {
+        if (b === anchor) return;
+        var c = COMP_COORDS && COMP_COORDS[b];
+        if (!c) return;
+        var d = haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]);
+        if (d <= radius) nearby.push({ name: b, mi: d });
+      });
+      nearby.sort(function(a,b) { return a.mi - b.mi; });
+      var label = radius >= 999 ? 'all buildings' : 'within ' + radius + ' mi';
+      info.textContent = anchor + ' + ' + nearby.length + ' nearby (' + label + ')';
+      if (nearby.length) {
+        info.title = nearby.map(function(n) { return n.name + ' (' + n.mi.toFixed(2) + ' mi)'; }).join(', ');
+      }
+    }
+    uwMapUpdate();
+  };
+
+  // ── UW overlay on main map ──
+  var uwMainLayers = [];
+
+  function uwMapUpdate() {
+    uwMainLayers.forEach(function(l) { map.removeLayer(l); });
+    uwMainLayers = [];
+    var anchor = document.getElementById('uw-anchor').value;
+    if (!anchor || !COMP_COORDS || !COMP_COORDS[anchor]) return;
+    var anchorCoords = COMP_COORDS[anchor];
+    var radius = parseFloat(document.getElementById('uw-radius').value);
+
+    // Radius circle — built as a geographic polygon (avoids L.circle projection issues)
+    var radiusM = radius * 1609.34;
+    if (radius > 0 && radius < 999) {
+      var pts = [], nPts = 72;
+      for (var i = 0; i < nPts; i++) {
+        var ang = (i / nPts) * 2 * Math.PI;
+        var dLat = (radiusM * Math.cos(ang)) / 111320;
+        var dLng = (radiusM * Math.sin(ang)) / (111320 * Math.cos(anchorCoords[0] * Math.PI / 180));
+        pts.push([anchorCoords[0] + dLat, anchorCoords[1] + dLng]);
+      }
+      var circle = L.polygon(pts, {
+        color: '#0d4d3a', fillColor: '#0d4d3a',
+        fillOpacity: 0.07, weight: 3, dashArray: '9 6', opacity: 0.9, interactive: false
+      }).addTo(map);
+      uwMainLayers.push(circle);
+    }
+
+    // Other buildings
+    Object.keys(AGG.bldg_stats).forEach(function(b) {
+      if (b === anchor) return;
+      var c = COMP_COORDS[b];
+      if (!c) return;
+      var d = haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]);
+      var inRange = radius >= 999 || d <= radius;
+      var m = L.circleMarker(c, {
+        radius: 7,
+        fillColor: inRange ? '#2e7d5e' : '#aaa',
+        color: inRange ? '#fff' : '#ccc',
+        weight: 2, fillOpacity: inRange ? 0.92 : 0.4
+      }).addTo(map);
+      m.bindTooltip(b + (inRange ? ' — ' + d.toFixed(2) + ' mi' : ''), {
+        className: 'leaflet-tooltip-own', direction: 'top', sticky: false
+      });
+      uwMainLayers.push(m);
+    });
+
+    // Anchor marker
+    var anchorIcon = L.divIcon({
+      className: '',
+      html: '<div style="width:18px;height:18px;border-radius:50%;background:#0d4d3a;border:3px solid #fff;box-shadow:0 0 0 2px #0d4d3a,0 2px 6px rgba(0,0,0,.4)"></div>',
+      iconSize: [18, 18], iconAnchor: [9, 9]
+    });
+    var anchorM = L.marker(anchorCoords, { icon: anchorIcon, zIndexOffset: 1000 }).addTo(map);
+    anchorM.bindTooltip('★ ' + anchor, {
+      className: 'leaflet-tooltip-own', direction: 'top', permanent: true, offset: [0, -13]
+    });
+    uwMainLayers.push(anchorM);
+
+    // Fit view — use setView to avoid fitBounds projection issues during resize
+    var zoom = radius <= 0.25 ? 16 : radius <= 0.5 ? 15 : radius <= 1 ? 14 : radius <= 2 ? 13 : 12;
+    map.setView(anchorCoords, zoom, { animate: true });
+  }
+
+  // ── Get the active building list for the API call ──
+  function uwBuildingList() {
+    var anchor = document.getElementById('uw-anchor').value;
+    if (!anchor) return null; // no anchor → API uses all
+    var radius = parseFloat(document.getElementById('uw-radius').value);
+    var anchorCoords = COMP_COORDS && COMP_COORDS[anchor];
+    var list = [anchor];
+    if (radius > 0 && anchorCoords) {
+      Object.keys(AGG.bldg_stats).forEach(function(b) {
+        if (b === anchor) return;
+        var c = COMP_COORDS && COMP_COORDS[b];
+        if (!c) return;
+        if (haversineMi(anchorCoords[0], anchorCoords[1], c[0], c[1]) <= radius) {
+          list.push(b);
+        }
+      });
+    }
+    return list;
+  }
 
   var uwLastResult = null;
 
@@ -3657,9 +3887,12 @@ function buildCDReport() {
     btn.textContent = 'Calculating…';
 
     try {
-      var ptSel = document.getElementById('uw-pt').value;
+      var ptSel     = document.getElementById('uw-pt').value;
+      var bldgList  = uwBuildingList();
+      var anchorSel = document.getElementById('uw-anchor').value;
       var body = {};
       if (ptSel) body.propertyTypes = [ptSel];
+      if (bldgList) body.buildings = bldgList;
       body.unitTypes = ['ST', '1BD', '2BD', '3BD'];
 
       var resp = await fetch('/api/underwrite', {
@@ -3712,7 +3945,11 @@ function buildCDReport() {
       document.getElementById('uw-ner-mo').textContent = fmtMo(nerMonthly);
       document.getElementById('uw-ner-yr').textContent = fmtDollar(nerAnnual) + ' / year';
       document.getElementById('uw-psf').textContent = blendedPsf > 0 ? '$' + blendedPsf.toFixed(2) : '—';
-      document.getElementById('uw-comps-n').textContent = compN + ' comp lease records';
+      var anchorInfoEl = document.getElementById('uw-anchor-info');
+      var bldgDesc = bldgList
+        ? (anchorSel + (bldgList.length > 1 ? ' + ' + (bldgList.length - 1) + ' nearby' : ' only'))
+        : 'all buildings';
+      document.getElementById('uw-comps-n').textContent = compN + ' comp lease records (' + bldgDesc + ')';
       document.getElementById('uw-ppu').textContent = fmtMo(blendedRent);
 
       // Competing supply from DATA pipeline
@@ -3768,7 +4005,10 @@ function buildCDReport() {
         nerMonthly: nerMonthly, nerAnnual: nerAnnual,
         blendedRent: blendedRent, blendedPsf: blendedPsf,
         compN: compN, supplyUnits: supplyUnits,
-        stats: stats
+        stats: stats,
+        anchorBldg: anchorSel || null,
+        bldgList: bldgList || null,
+        bldgDesc: bldgDesc
       };
 
       document.getElementById('uw-results').style.display = 'block';
@@ -3789,7 +4029,9 @@ function buildCDReport() {
     var lines = [
       'QUICK UNDERWRITE SUMMARY',
       '========================',
-      'Submarket: ' + subLabel + ' | Property type: ' + r.ptSel,
+      (r.anchorBldg ? 'Anchor building: ' + r.anchorBldg : 'Comp set: all buildings') +
+        (r.bldgList && r.bldgList.length > 1 ? ' + ' + (r.bldgList.length - 1) + ' nearby' : '') +
+        ' | Property type: ' + r.ptSel,
       'Units: ' + r.unitCount + ' | Avg SF: ' + r.avgSf + ' | Delivery: ' + r.deliveryYr,
       'Concession: ' + r.concMo + ' month(s)',
       '',

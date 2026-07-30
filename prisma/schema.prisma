@@ -223,6 +223,25 @@ model Snapshot {
 
 // ─── App config ───
 
+// ─── Admin draft staging ───
+
+model AdminDraft {
+  id          String   @id @default(cuid())
+  resource    String   // "comp-buildings" | "comp-building-stats" | "projects" | etc.
+  entityId    String?  // null for creates
+  method      String   // "POST" | "PUT" | "DELETE"
+  payload     Json?    // full body for POST/PUT
+  entityLabel String?  // human-readable label shown in DraftBar
+  createdAt   DateTime @default(now())
+}
+
+model ImportPreview {
+  id        String   @id @default(cuid())
+  resources Json     // Record<string, Record<string, string>[]>
+  fileName  String
+  createdAt DateTime @default(now())
+}
+
 model SyncConfig {
   id                            Int       @id @default(1)
   projectsSheetUrl              String?

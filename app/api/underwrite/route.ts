@@ -6,18 +6,21 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { propertyTypes, unitTypes } = body as {
+    const { propertyTypes, unitTypes, buildings } = body as {
       propertyTypes?: string[];
       unitTypes?: string[];
+      buildings?: string[];
     };
 
-    // Pull all CompBuildingStat rows joined to their building's propertyType
+    // Pull CompBuildingStat rows — optionally filtered to specific buildings
+    // (anchor + nearby) and/or property type.
     const rows = await prisma.compBuildingStat.findMany({
       where: {
         ...(unitTypes?.length ? { unitType: { in: unitTypes } } : {}),
-        building: propertyTypes?.length
-          ? { propertyType: { in: propertyTypes } }
-          : undefined,
+        building: {
+          ...(buildings?.length ? { name: { in: buildings } } : {}),
+          ...(propertyTypes?.length ? { propertyType: { in: propertyTypes } } : {}),
+        },
         nRent: { gt: 0 },
         medRent: { gt: 0 },
       },

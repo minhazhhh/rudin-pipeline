@@ -1,5 +1,6 @@
 import { prisma } from "@/app/lib/prisma";
 import EditableTable, { Column, Row } from "../components/EditableTable";
+import GeocodeCompBuildingsButton from "./GeocodeCompBuildingsButton";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ const EMPTY_ROW: Row = {
 
 export default async function CompBuildingsAdminPage() {
   const buildings = await prisma.compBuilding.findMany({ orderBy: { name: "asc" } });
+  const missingCoords = buildings.filter((b) => b.lat == null || b.lng == null);
   const rows: Row[] = buildings.map((b) => ({
     id: b.id,
     name: b.name,
@@ -43,7 +45,13 @@ export default async function CompBuildingsAdminPage() {
         The set of comparable rental buildings used in the Rent Comparables tab. Add a building here first, then add
         its per-unit-type stats on the Comp Building Stats page.
       </p>
-      <EditableTable columns={COLUMNS} apiBase="/api/comp-buildings" initialRows={rows} emptyRow={EMPTY_ROW} resource="comp-buildings" />
+      {missingCoords.length > 0 && (
+        <GeocodeCompBuildingsButton
+          missingCount={missingCoords.length}
+          buildings={missingCoords.map((b) => ({ id: b.id, name: b.name }))}
+        />
+      )}
+      <EditableTable columns={COLUMNS} apiBase="/api/comp-buildings" initialRows={rows} emptyRow={EMPTY_ROW} resource="comp-buildings" draftMode />
     </div>
   );
 }

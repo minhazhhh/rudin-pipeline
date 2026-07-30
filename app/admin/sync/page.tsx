@@ -63,6 +63,10 @@ type ImportMode = "replace" | "upsert";
 
 type DiffResult = { newCount: number; updateCount: number; noKeyCount: number; updateKeys: string[] };
 
+type FieldChange = { field: string; before: string; after: string };
+type FieldDiffItem = { key: string; label: string; changes: FieldChange[] };
+type FieldDiffData = { items: FieldDiffItem[]; totalUpdates: number };
+
 type SnapMeta = { id: string; resource: string; label: string; createdAt: string };
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -117,9 +121,43 @@ const SYNC_RESOURCES: { key: string; label: string; urlField: string }[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (!lines.length) return [];
+// Detects the multi-resource format produced by the Claude converter skill.
+// Sections look like:  ###RESOURCE:comp-buildings###\nname,propertyType,...\n...
+const RESOURCE_SECTION_RE = /^###RESOURCE:([a-z-]+)###\s*$/i;
+
+function isMultiResourceCsv(text: string): boolean {
+  return text.split(/\r?\n/).some((l) => RESOURCE_SECTION_RE.test(l.trim()));
+}
+
+function parseMultiResourceCsv(text: string): Record<string, Record<string, string>[]> {
+  const result: Record<string, Record<string, string>[]> = {};
+  const lines = text.split(/\r?\n/);
+  let currentResource: string | null = null;
+  let sectionLines: string[] = [];
+
+  function flushSection() {
+    if (!currentResource || !sectionLines.length) return;
+    const rows = parseCsvLines(sectionLines);
+    if (rows.length) result[currentResource] = rows;
+  }
+
+  for (const line of lines) {
+    const m = line.trim().match(RESOURCE_SECTION_RE);
+    if (m) {
+      flushSection();
+      currentResource = m[1].toLowerCase();
+      sectionLines = [];
+    } else if (currentResource) {
+      sectionLines.push(line);
+    }
+  }
+  flushSection();
+  return result;
+}
+
+function parseCsvLines(lines: string[]): Record<string, string>[] {
+  const nonEmpty = lines.filter((l) => l.trim());
+  if (!nonEmpty.length) return [];
   function split(line: string): string[] {
     const fields: string[] = [];
     let cur = "", inQ = false;
@@ -138,13 +176,17 @@ function parseCsv(text: string): Record<string, string>[] {
     fields.push(cur.trim());
     return fields;
   }
-  const hdrs = split(lines[0]);
-  return lines.slice(1).map((line) => {
+  const hdrs = split(nonEmpty[0]);
+  return nonEmpty.slice(1).map((line) => {
     const vals = split(line);
     const row: Record<string, string> = {};
     hdrs.forEach((h, i) => { row[h.trim()] = vals[i]?.trim() ?? ""; });
     return row;
-  });
+  }).filter((r) => Object.values(r).some((v) => v !== ""));
+}
+
+function parseCsv(text: string): Record<string, string>[] {
+  return parseCsvLines(text.split(/\r?\n/));
 }
 
 function rowScore(row: string[]): number {
@@ -373,6 +415,105 @@ function StatusIcon({ state }: { state: ImportStatus["state"] }) {
   return <span style={{ color: "#dc2626", fontWeight: 700 }}>✗</span>;
 }
 
+// ─── Field diff panel ─────────────────────────────────────────────────────────
+
+function fmtDiffVal(val: string, field: string): string {
+  if (val === "" || val === "null") return "—";
+  const lf = field.toLowerCase();
+  if ((lf.includes("rent") || lf.includes("psf")) && !lf.startsWith("n")) {
+    const n = parseFloat(val);
+    if (!isNaN(n)) return "$" + n.toFixed(lf.includes("psf") ? 2 : 0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  if (["nrent","npsf","nsf","n","units","sqft","totaln"].includes(lf)) {
+    const n = parseInt(val, 10);
+    if (!isNaN(n)) return n.toLocaleString();
+  }
+  if (["avgsf","medsf","minsf","maxsf"].includes(lf)) {
+    const n = parseFloat(val);
+    if (!isNaN(n)) return Math.round(n).toLocaleString() + " sf";
+  }
+  if (val === "true") return "Yes";
+  if (val === "false") return "No";
+  return val;
+}
+
+function FieldDiffPanel({
+  resource, fdr, collapsed, onToggle,
+}: {
+  resource: string;
+  fdr: FieldDiffData | "loading" | "error" | undefined;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const isOpen = !collapsed;
+  const hasData = fdr && fdr !== "loading" && fdr !== "error";
+
+  return (
+    <div style={{ borderBottom: "1px solid var(--line-soft)" }}>
+      {/* Section header — always visible */}
+      <div style={{ padding: "7px 14px", background: "#fffbeb", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }} onClick={onToggle}>
+        <span style={{ fontSize: "12px", color: "#7a5a1a", lineHeight: 1 }}>{isOpen ? "▾" : "▸"}</span>
+        <span style={{ fontSize: "11px", fontWeight: 700, color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Field changes (before / after)
+        </span>
+        <span style={{ fontSize: "11px", color: "#a07830", marginLeft: 4 }}>
+          {fdr === undefined || fdr === "loading" ? "loading…" :
+           fdr === "error" ? "could not load" :
+           fdr.items.length === 0 ? "no differences found" :
+           `${fdr.items.length}${fdr.totalUpdates > fdr.items.length ? `/${fdr.totalUpdates}` : ""} record${fdr.items.length !== 1 ? "s" : ""} changed`}
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: "10px", color: "#7a5a1a", opacity: 0.7 }}>{isOpen ? "collapse" : "expand"}</span>
+      </div>
+
+      {/* Diff table — open by default */}
+      {isOpen && hasData && fdr.items.length > 0 && (
+        <div style={{ background: "#fffdf5", borderTop: "1px solid #f0e8c8", overflowX: "auto", maxHeight: 440, overflowY: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "11.5px" }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+              <tr style={{ background: "#fef3c7" }}>
+                <th style={{ padding: "5px 12px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 160 }}>Record</th>
+                <th style={{ padding: "5px 10px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#7a5a1a", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 110 }}>Field</th>
+                <th style={{ padding: "5px 10px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#b91c1c", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 130 }}>Current (DB)</th>
+                <th style={{ padding: "5px 10px", textAlign: "left", fontWeight: 700, fontSize: "10px", color: "#15803d", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1.5px solid #e8d59a", whiteSpace: "nowrap", minWidth: 130 }}>Incoming (new)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fdr.items.flatMap((item, ii) =>
+                item.changes.map((ch, ci) => (
+                  <tr key={`${resource}-${ii}-${ci}`} style={{ borderBottom: "1px solid #f0e8c8", background: ii % 2 === 0 ? "#fffdf5" : "#fef9e7" }}>
+                    {ci === 0 ? (
+                      <td rowSpan={item.changes.length} style={{ padding: "5px 12px", fontWeight: 600, color: "#5a3a0a", verticalAlign: "top", borderRight: "1px solid #e8d59a", whiteSpace: "nowrap", fontSize: "11px" }}>
+                        {item.label}
+                      </td>
+                    ) : null}
+                    <td style={{ padding: "4px 10px", color: "#7a5a1a", fontWeight: 500, fontSize: "11px", borderRight: "1px solid #f0e8c8", whiteSpace: "nowrap" }}>{ch.field}</td>
+                    <td style={{ padding: "4px 10px", background: "rgba(220,38,38,.06)", color: "#7f1d1d", fontFamily: "monospace", fontSize: "11.5px", borderRight: "1px solid #f0e8c8", whiteSpace: "nowrap" }}>
+                      {fmtDiffVal(ch.before, ch.field)}
+                    </td>
+                    <td style={{ padding: "4px 10px", background: "rgba(22,163,74,.06)", color: "#14532d", fontFamily: "monospace", fontSize: "11.5px", whiteSpace: "nowrap" }}>
+                      {fmtDiffVal(ch.after, ch.field)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          {fdr.totalUpdates > fdr.items.length && (
+            <div style={{ padding: "5px 12px", fontSize: "10.5px", color: "#7a5a1a", background: "#fef3c7", borderTop: "1px solid #e8d59a" }}>
+              + {(fdr.totalUpdates - fdr.items.length).toLocaleString()} more records with changes not shown
+            </div>
+          )}
+        </div>
+      )}
+      {isOpen && hasData && fdr.items.length === 0 && (
+        <div style={{ padding: "7px 14px", fontSize: "11px", color: "var(--ink-faint)", background: "#fffbeb" }}>
+          No field-level differences found — values may already match after normalization.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SyncPage() {
@@ -414,6 +555,15 @@ export default function SyncPage() {
   const [diffErrors, setDiffErrors] = useState<Set<string>>(new Set());
   const [diffLoading, setDiffLoading] = useState(false);
   const [importModes, setImportModes] = useState<Record<string, "all" | "new-only">>({});
+
+  // Field-level before/after diff
+  const [fieldDiffResults, setFieldDiffResults] = useState<Record<string, FieldDiffData | "loading" | "error">>({});
+  const [collapsedDiff, setCollapsedDiff] = useState<Set<string>>(new Set()); // resources the user has manually collapsed
+  const fieldDiffFired = useRef<Set<string>>(new Set()); // tracks in-flight/done fetches to avoid duplicates
+
+  // Import preview
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   // Version history / undo
   const [snapshots, setSnapshots] = useState<SnapMeta[]>([]);
@@ -520,6 +670,32 @@ export default function SyncPage() {
       });
   }
 
+  // ── Field-level diff (auto-fetch once diff shows updates) ─────────────────
+  // Runs after each diffResults update; fires field-diff for any resource with updates not yet fetched.
+  // Uses a ref (not state) to guard against duplicate fetches — state is a stale closure here.
+  useEffect(() => {
+    if (!aiResult) return;
+    for (const [r, diff] of Object.entries(diffResults)) {
+      if (diff.updateCount === 0) continue;
+      if (fieldDiffFired.current.has(r)) continue;
+      const rows = aiResult.resources[r];
+      if (!rows?.length) continue;
+      fieldDiffFired.current.add(r);
+      setFieldDiffResults((prev) => ({ ...prev, [r]: "loading" }));
+      fetch("/api/comps-import/field-diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource: r, rows }),
+      })
+        .then(async (res) => {
+          const data: FieldDiffData | "error" = res.ok ? (await res.json() as FieldDiffData) : "error";
+          setFieldDiffResults((prev) => ({ ...prev, [r]: data }));
+        })
+        .catch(() => setFieldDiffResults((prev) => ({ ...prev, [r]: "error" })));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diffResults]);
+
   // ── AI import flow ─────────────────────────────────────────────────────────
 
   async function runImports(resources: Record<string, Record<string, string>[]>) {
@@ -584,6 +760,69 @@ export default function SyncPage() {
     const isExcel = /\.xlsx?$/i.test(file.name) || file.type.includes("spreadsheetml");
     let sheets: { name: string; headers: string[]; rows: Record<string, string>[] }[];
 
+    // ── Fast path: Claude converter skill output (multi-resource CSV) ──────────
+    if (!isExcel) {
+      const text = new TextDecoder("utf-8").decode(buf);
+      if (isMultiResourceCsv(text)) {
+        const sections = parseMultiResourceCsv(text);
+        const resources = sections as Record<string, Record<string, string>[]>;
+        const validResources: Record<string, Record<string, string>[]> = {};
+        for (const [k, v] of Object.entries(resources)) {
+          if (IMPORT_ORDER.includes(k as typeof IMPORT_ORDER[number]) && v.length > 0) {
+            validResources[k] = v;
+          }
+        }
+        if (!Object.keys(validResources).length) {
+          setNormalizeError("No recognized resource sections found in this file.");
+          setStep("error");
+          return;
+        }
+        const totalRows = Object.values(validResources).reduce((s, r) => s + r.length, 0);
+        const resourceNames = Object.keys(validResources).join(", ");
+        const result: AiResult = {
+          resources: validResources,
+          xlsxBase64: "",
+          fileName: file.name.replace(/\.csv$/i, "") + "-imported",
+          summary: `Pre-formatted import: ${Object.keys(validResources).length} resource type(s), ${totalRows} total rows (${resourceNames})`,
+        };
+        setAiResult(result);
+        setConfirmSelected(new Set(IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0)));
+        setDiffResults({});
+        setDiffErrors(new Set());
+        setImportModes({});
+        setFieldDiffResults({});
+        setCollapsedDiff(new Set());
+        fieldDiffFired.current = new Set();
+        setStep("confirm");
+
+        const diffResources = IMPORT_ORDER.filter((r) => (result.resources[r]?.length ?? 0) > 0);
+        if (diffResources.length > 0) {
+          setDiffLoading(true);
+          let pending = diffResources.length;
+          const finishOne = () => { pending--; if (pending === 0) setDiffLoading(false); };
+          for (const r of diffResources) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 20000);
+            fetch("/api/comps-import/diff", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ resource: r, rows: result.resources[r] }),
+              signal: ctrl.signal,
+            })
+              .then(async (res) => {
+                clearTimeout(timer);
+                if (!res.ok) { setDiffErrors((prev) => new Set([...prev, r])); }
+                else { const data = await res.json(); setDiffResults((prev) => ({ ...prev, [r]: data })); }
+              })
+              .catch(() => { clearTimeout(timer); setDiffErrors((prev) => new Set([...prev, r])); })
+              .finally(finishOne);
+          }
+        }
+        return;
+      }
+    }
+    // ── End fast path ──────────────────────────────────────────────────────────
+
     if (isExcel) {
       sheets = await parseAllSheets(buf);
     } else {
@@ -601,6 +840,9 @@ export default function SyncPage() {
       setDiffResults({});
       setDiffErrors(new Set());
       setImportModes({});
+      setFieldDiffResults({});
+      setCollapsedDiff(new Set());
+      fieldDiffFired.current = new Set();
       setStep("confirm"); // show preview + confirm before importing
 
       // Fetch duplicate detection counts — one request per resource, update UI as each arrives
@@ -749,6 +991,49 @@ export default function SyncPage() {
     setStep("drop"); setAiResult(null); setImportStatuses({}); setNormalizeError(null);
     setRawRows([]); setHeaders([]); setFileName(""); setManualResult(null);
     setAiMappedFields(new Set()); setAiReasoning(null); fileRef.current = null;
+    setFieldDiffResults({}); setCollapsedDiff(new Set()); fieldDiffFired.current = new Set();
+  }
+
+  async function handlePreviewOnDashboard() {
+    if (!aiResult) return;
+    setPreviewError(null);
+    setPreviewing(true);
+    try {
+      // Build the filtered resource set (respect checked resources + new-only mode)
+      const filtered: Record<string, Record<string, string>[]> = {};
+      for (const [r, rows] of Object.entries(aiResult.resources)) {
+        if (!confirmSelected.has(r)) continue;
+        const mode = importModes[r] ?? "all";
+        if (mode === "new-only" && diffResults[r]?.updateKeys?.length) {
+          const skipSet = new Set(diffResults[r].updateKeys);
+          filtered[r] = rows.filter((row) => {
+            const k = clientRowKey(r, row);
+            return k === null || !skipSet.has(k);
+          });
+        } else {
+          filtered[r] = rows;
+        }
+      }
+      if (!Object.keys(filtered).length) {
+        setPreviewError("Select at least one resource to preview.");
+        return;
+      }
+      const res = await fetch("/api/comps-import/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resources: filtered, fileName: aiResult.fileName }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setPreviewError(body.error ?? "Failed to start preview.");
+        return;
+      }
+      window.open("/", "_blank");
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setPreviewing(false);
+    }
   }
 
   // Sheet sync
@@ -785,11 +1070,33 @@ export default function SyncPage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
 
-      <h1 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.25rem" }}>Import &amp; Sync</h1>
-      <p style={{ color: "#555", fontSize: "0.88rem", marginBottom: "2rem", maxWidth: 700 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: "0.25rem" }}>
+        <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Import &amp; Sync</h1>
+        <a
+          href="/rudin-import-converter.md"
+          download="rudin-import-converter.md"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "0.4rem 0.9rem",
+            border: "1px solid var(--accent, #0d4d3a)",
+            color: "var(--accent, #0d4d3a)",
+            fontSize: "0.78rem", fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            background: "transparent",
+          }}
+          title="Download this file, then attach it to a Claude conversation alongside your spreadsheet to get a perfectly formatted CSV ready to import"
+        >
+          ↓ Download Claude converter skill
+        </a>
+      </div>
+      <p style={{ color: "#555", fontSize: "0.88rem", marginBottom: "0.5rem", maxWidth: 700 }}>
         Drop any spreadsheet — the AI reads all sheets, maps every column to the right field,
         auto-imports all data into the database, and gives you a clean normalized XLSX to keep.
         {lastSyncedAt && <>{" "}Last synced {new Date(lastSyncedAt).toLocaleString()}.</>}
+      </p>
+      <p style={{ color: "#777", fontSize: "0.8rem", marginBottom: "2rem", maxWidth: 700 }}>
+        <strong style={{ color: "#555" }}>Prefer manual control?</strong> Download the converter skill above, attach it to a Claude conversation with your spreadsheet, and Claude will output a clean CSV you can drop here directly — no guessing.
       </p>
 
       {/* ── Drop zone ───────────────────────────────────────────────────────── */}
@@ -811,13 +1118,13 @@ export default function SyncPage() {
             Drop your spreadsheet here, or click to browse
           </div>
           <div style={{ color: "#64748b", fontSize: "0.84rem", marginBottom: "0.75rem" }}>
-            .csv · .xlsx · .xls — any layout, any number of sheets
+            .csv · .xlsx · .xls · converter skill output
           </div>
           <div style={{ display: "inline-flex", gap: 12, flexWrap: "wrap", justifyContent: "center", fontSize: "0.78rem", color: "#94a3b8" }}>
             <span>✦ AI reads all sheets</span>
             <span>✦ Maps all columns automatically</span>
             <span>✦ Imports all resources</span>
-            <span>✦ Generates normalized XLSX</span>
+            <span>✦ Converter skill CSV imports instantly</span>
           </div>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
             onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
@@ -980,6 +1287,18 @@ export default function SyncPage() {
                     </div>
                   )}
 
+                  {/* Field-level before/after diff — shown when updates exist, expanded by default */}
+                  {diff && diff.updateCount > 0 && <FieldDiffPanel
+                    resource={r}
+                    fdr={fieldDiffResults[r]}
+                    collapsed={collapsedDiff.has(r)}
+                    onToggle={() => setCollapsedDiff((prev) => {
+                      const next = new Set(prev);
+                      next.has(r) ? next.delete(r) : next.add(r);
+                      return next;
+                    })}
+                  />}
+
                   {/* Data preview */}
                   <div style={{ overflowX: "auto", fontSize: "12px" }}>
                     <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
@@ -1036,12 +1355,22 @@ export default function SyncPage() {
               style={{ padding: "7px 18px", background: confirmSelected.size === 0 ? "var(--ink-faint)" : "var(--accent)", color: "#fff", border: "none", cursor: confirmSelected.size === 0 ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit" }}>
               Import {confirmSelected.size} resource{confirmSelected.size !== 1 ? "s" : ""}
             </button>
+            <button
+              onClick={() => { void handlePreviewOnDashboard(); }}
+              disabled={confirmSelected.size === 0 || previewing}
+              title="See how the dashboard will look with this data before importing"
+              style={{ padding: "7px 16px", background: "#1e3a5f", color: "#93c5fd", border: "1px solid #2d5a9e", cursor: confirmSelected.size === 0 || previewing ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit", opacity: confirmSelected.size === 0 || previewing ? 0.5 : 1 }}>
+              {previewing ? "Opening…" : "Preview on dashboard ↗"}
+            </button>
             <button onClick={resetDrop}
               style={{ padding: "7px 14px", background: "none", border: "1px solid var(--line)", cursor: "pointer", fontSize: "13px", color: "var(--ink-soft)", fontFamily: "inherit" }}>
               ← Start over
             </button>
             {confirmSelected.size === 0 && (
               <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>Select at least one resource to import.</span>
+            )}
+            {previewError && (
+              <span style={{ fontSize: "12px", color: "var(--red)" }}>{previewError}</span>
             )}
           </div>
         </div>
