@@ -1433,20 +1433,24 @@ var selLn = "";
 var mkrs = [];
 var activeIdx = null;
 var bubbleMode = "status"; // "status" | "year"
+var yearVisHidden = {}; // years hidden in "By Year" mode
 
 // Year color ramp — built after YEARS is available (below)
 var YEAR_COLORS = {};
 function buildYearColors() {
-  var palette = ["#88c0d0","#5eb8a8","#4a9a78","#3a7a5a","#2a5a3e","#1a3a28","#8b6a40","#c8a060","#e0c080","#f0e0a0"];
+  var palette = ["#4a7aaa","#e07840","#5eb8a8","#8b2840","#c8a060","#7a6aaa","#3a9a68","#c05090","#6888b8","#a0784a"];
   YEARS.forEach(function(y, i) {
     YEAR_COLORS[y] = palette[i % palette.length];
   });
 }
+function getProjYear(p) {
+  var m = ((p.d || "") + "").match(/\d{4}/);
+  return m ? m[0] : null;
+}
 function getBubbleColor(p) {
   if (bubbleMode === "year") {
-    if (!p.d) return "#aaa";
-    var yr = (p.d + "").match(/\d{4}/);
-    return yr ? (YEAR_COLORS[yr[0]] || "#aaa") : "#aaa";
+    var yr = getProjYear(p);
+    return yr ? (YEAR_COLORS[yr] || "#aaa") : "#aaa";
   }
   return SC[p.st] || "#888";
 }
@@ -1456,7 +1460,13 @@ function updateLegend() {
   if (bubbleMode === "year") {
     var html = "";
     YEARS.forEach(function(y) {
-      html += '<div class="lr"><div class="ld" style="background:' + (YEAR_COLORS[y]||"#aaa") + '"></div><span class="ll">' + y + '</span></div>';
+      var hidden = !!yearVisHidden[y];
+      var col = YEAR_COLORS[y] || "#aaa";
+      html += '<div class="lr" style="cursor:pointer;user-select:none" onclick="toggleYearVis(\'' + y + '\')">'
+        + '<input type="checkbox" ' + (hidden ? '' : 'checked') + ' style="margin:0;cursor:pointer;accent-color:' + col + '" onclick="event.stopPropagation();toggleYearVis(\'' + y + '\')">'
+        + '<div class="ld" style="background:' + (hidden ? '#ccc' : col) + ';flex-shrink:0"></div>'
+        + '<span class="ll" style="' + (hidden ? 'color:#bbb;text-decoration:line-through' : '') + '">' + y + '</span>'
+        + '</div>';
     });
     if (!YEARS.length) html = '<div class="lr"><span class="ll" style="color:#999">No delivery years</span></div>';
     body.innerHTML = html;
@@ -1465,6 +1475,11 @@ function updateLegend() {
   }
   var title = document.getElementById("legend-title");
   if (title) title.textContent = bubbleMode === "year" ? "Delivery Year" : "Conversion Status";
+}
+function toggleYearVis(y) {
+  if (yearVisHidden[y]) delete yearVisHidden[y]; else yearVisHidden[y] = 1;
+  updateLegend();
+  render();
 }
 function setBubbleMode(mode) {
   bubbleMode = mode;
@@ -1540,7 +1555,8 @@ function matchLn(p) { if (!selLn) return true; return normalize(p.ln).indexOf(no
 
 function isVis(p) {
   if (!matchSrch(p) || !inURange(p) || !matchSp(p) || !matchLn(p)) return false;
-  if (Object.keys(yearFx).length > 0 && !yearFx[p.d]) return false;
+  if (Object.keys(yearFx).length > 0) { var _dy = ((p.d||'').match(/\d{4}/)||[])[0]; if (!_dy || !yearFx[_dy]) return false; }
+  if (bubbleMode === "year" && Object.keys(yearVisHidden).length > 0) { var _yh = ((p.d||'').match(/\d{4}/)||[])[0]; if (_yh && yearVisHidden[_yh]) return false; }
   if (excludeFx["s:" + p.st]) return false;
   if (excludeFx["t:" + p.ct]) return false;
   if (excludeFx["m:Manhattan"] && !isOuter(p)) return false;

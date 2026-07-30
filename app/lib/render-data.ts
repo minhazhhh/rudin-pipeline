@@ -330,7 +330,8 @@ export async function loadDashboardData(drafts?: Pick<AdminDraft, "id" | "resour
 
   const yearSet = new Set<string>();
   for (const p of projects) {
-    if (/^\d{4}$/.test(p.deliveryLabel)) yearSet.add(p.deliveryLabel);
+    const m = (p.deliveryLabel || "").match(/\d{4}/);
+    if (m) yearSet.add(m[0]);
   }
   const YEARS = [...yearSet].sort();
 
