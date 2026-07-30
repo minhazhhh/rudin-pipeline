@@ -2714,7 +2714,7 @@ function filterCDBldg() {
     const col = PT_COLORS[pt]||'#4a7aaa';
     const checked = sel.has(b) ? 'checked' : '';
     const isUW = bdata.underwritten || false;
-    rows += `<tr style="${sel.has(b)?'background:var(--accent-soft)':isUW?'background:#fffdf5':''}">
+    rows += `<tr data-bldg="${b.replace(/"/g,'&quot;')}" style="${sel.has(b)?'background:var(--accent-soft)':isUW?'background:#fffdf5':''}">
       <td style="text-align:center"><input type="checkbox" ${checked} style="cursor:pointer;accent-color:var(--accent)" onchange="window._bldgCmpToggle('${b.replace(/'/g,"\\'")}',this.checked)"/></td>
       <td style="font-weight:500;white-space:nowrap;color:var(--ink)">${b}${isUW?` <span style="font-size:8.5px;font-weight:700;color:var(--gold);letter-spacing:.05em">UW</span>`:''} <a href="#" onclick="openBldgModal('${b.replace(/'/g,"\\'")}');return false;" style="display:inline-block;font-size:9px;color:var(--accent);text-decoration:none;font-weight:700;margin-left:6px;padding:2px 7px;border:1px solid var(--accent);border-radius:3px;letter-spacing:.02em;vertical-align:middle;opacity:.85" title="View all unit data for this building">Units ↗</a></td>
       <td><span class="badge-outline" style="border-color:${col}22;color:${col}">${pt}</span></td>`;

@@ -27,7 +27,8 @@ function buildPreviewHighlightScript(changes: PreviewChanges): string {
 .preview-changed-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:5px;background:#facc15;color:#422006;text-transform:uppercase}
 .preview-highlight-new{outline:2px solid #22c55e!important;outline-offset:-2px}
 .preview-highlight-changed{outline:2px solid #facc15!important;outline-offset:-2px}
-.preview-resource-bar{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
+.preview-tab-notice{display:flex;align-items:center;gap:8px;padding:7px 12px;margin-bottom:10px;border-radius:5px;background:rgba(250,204,21,.1);color:#fde047;border:1px solid rgba(250,204,21,.25);font-size:11px;font-weight:600;letter-spacing:.01em}
+.preview-tab-notice-icon{font-style:normal;flex-shrink:0}
 </style>
 <script>
 (function() {
@@ -37,30 +38,90 @@ function buildPreviewHighlightScript(changes: PreviewChanges): string {
   var CHANGED_BUILDINGS = ${changedBuildings};
   var RESOURCES_REPLACED = ${resourcesReplaced};
 
-  function applyHighlights() {
-    // Highlight project list cards (#pi-{i}) by matching DATA[i].n
-    if (typeof DATA !== 'undefined') {
-      DATA.forEach(function(p, i) {
-        var el = document.getElementById('pi-' + i);
-        if (!el) return;
-        var isNew = NEW_PROJECTS.indexOf(p.n) !== -1;
-        var isChanged = CHANGED_PROJECTS.indexOf(p.n) !== -1;
-        if (isNew || isChanged) {
-          el.classList.add(isNew ? 'preview-highlight-new' : 'preview-highlight-changed');
-          // Add badge to the name text node inside the pin div
-          var pinDiv = el.querySelector('.pin');
-          if (pinDiv && !pinDiv.querySelector('.preview-new-badge, .preview-changed-badge')) {
-            var badge = document.createElement('span');
-            badge.className = isNew ? 'preview-new-badge' : 'preview-changed-badge';
-            badge.textContent = isNew ? 'NEW' : 'UPDATED';
-            pinDiv.appendChild(badge);
-          }
-        }
-      });
+  // ── Project card highlights ──────────────────────────────────────────────
+  function applyProjectHighlights() {
+    if (typeof DATA === 'undefined') return;
+    DATA.forEach(function(p, i) {
+      var el = document.getElementById('pi-' + i);
+      if (!el) return;
+      var isNew = NEW_PROJECTS.indexOf(p.n) !== -1;
+      var isChanged = CHANGED_PROJECTS.indexOf(p.n) !== -1;
+      if (!isNew && !isChanged) return;
+      el.classList.add(isNew ? 'preview-highlight-new' : 'preview-highlight-changed');
+      var pinDiv = el.querySelector('.pin');
+      if (pinDiv && !pinDiv.querySelector('.preview-new-badge,.preview-changed-badge')) {
+        var badge = document.createElement('span');
+        badge.className = isNew ? 'preview-new-badge' : 'preview-changed-badge';
+        badge.textContent = isNew ? 'NEW' : 'UPDATED';
+        pinDiv.appendChild(badge);
+      }
+    });
+  }
+
+  // ── Building row highlights (By Building tab) ────────────────────────────
+  function applyBldgHighlights() {
+    document.querySelectorAll('[data-bldg]').forEach(function(tr) {
+      var bName = tr.getAttribute('data-bldg');
+      var isNew = NEW_BUILDINGS.indexOf(bName) !== -1;
+      var isChanged = CHANGED_BUILDINGS.indexOf(bName) !== -1;
+      if (!isNew && !isChanged) return;
+      tr.classList.add(isNew ? 'preview-highlight-new' : 'preview-highlight-changed');
+      var nameCell = tr.querySelector('td:nth-child(2)');
+      if (nameCell && !nameCell.querySelector('.preview-new-badge,.preview-changed-badge')) {
+        var badge = document.createElement('span');
+        badge.className = isNew ? 'preview-new-badge' : 'preview-changed-badge';
+        badge.textContent = isNew ? 'NEW' : 'UPDATED';
+        nameCell.appendChild(badge);
+      }
+    });
+  }
+
+  // ── Per-tab data-change notices ─────────────────────────────────────────
+  function makeNotice(msg) {
+    var d = document.createElement('div');
+    d.className = 'preview-tab-notice';
+    d.innerHTML = '<em class="preview-tab-notice-icon">&#9888;</em><span>' + msg + '</span>';
+    return d;
+  }
+
+  function injectNotice(el, msg) {
+    if (!el || el.querySelector('.preview-tab-notice')) return;
+    el.insertBefore(makeNotice(msg), el.firstChild);
+  }
+
+  function applyTabNotices() {
+    var hasOverall  = RESOURCES_REPLACED.indexOf('overall-stats') !== -1;
+    var hasTypeSt   = RESOURCES_REPLACED.indexOf('type-stats') !== -1;
+    var hasBldgSt   = RESOURCES_REPLACED.indexOf('comp-building-stats') !== -1;
+    var hasTrend    = RESOURCES_REPLACED.indexOf('trend') !== -1;
+    var hasQtrSt    = RESOURCES_REPLACED.indexOf('comp-building-quarter-stats') !== -1;
+
+    if (hasOverall || hasTypeSt) {
+      injectNotice(document.getElementById('cd-overview'),
+        'Market-wide stats updated in this import — figures reflect incoming data');
+    }
+    if (hasTypeSt || hasBldgSt) {
+      injectNotice(document.getElementById('cd-bytype'),
+        'Property type breakdown updated in this import');
+    }
+    if (hasTrend) {
+      injectNotice(document.getElementById('cd-trend'),
+        'Trend data updated in this import');
+    }
+    if (hasQtrSt) {
+      injectNotice(document.getElementById('cd-report'),
+        'Quarterly building stats updated in this import');
+    }
+    if (NEW_BUILDINGS.length || CHANGED_BUILDINGS.length) {
+      var parts = [];
+      if (NEW_BUILDINGS.length) parts.push(NEW_BUILDINGS.length + ' new building' + (NEW_BUILDINGS.length !== 1 ? 's' : ''));
+      if (CHANGED_BUILDINGS.length) parts.push(CHANGED_BUILDINGS.length + ' updated building' + (CHANGED_BUILDINGS.length !== 1 ? 's' : ''));
+      injectNotice(document.getElementById('cd-bybldg'),
+        parts.join(', ') + ' in this import — highlighted rows below');
     }
   }
 
-  // Also update the banner text to show what changed
+  // ── Banner detail text ──────────────────────────────────────────────────
   function updateBannerDetails() {
     var banner = document.getElementById('import-preview-banner');
     if (!banner) return;
@@ -83,14 +144,35 @@ function buildPreviewHighlightScript(changes: PreviewChanges): string {
     }
   }
 
-  // Watch #plist for changes (render() rewrites its innerHTML every call)
+  // ── Wire everything up ──────────────────────────────────────────────────
   function watchAndHighlight() {
+    // Project list re-renders on filter/sort
     var plist = document.getElementById('plist');
     if (plist) {
-      var obs = new MutationObserver(applyHighlights);
-      obs.observe(plist, { childList: true });
-      applyHighlights(); // in case already rendered
+      new MutationObserver(applyProjectHighlights).observe(plist, { childList: true });
     }
+
+    // Building tab: full re-render fires on container; filter fires on tbody
+    var bybldg = document.getElementById('cd-bybldg');
+    if (bybldg) {
+      new MutationObserver(function() { applyTabNotices(); applyBldgHighlights(); })
+        .observe(bybldg, { childList: true });
+    }
+    var bldgTbody = document.getElementById('cd-bldg-tbody');
+    if (bldgTbody) {
+      new MutationObserver(applyBldgHighlights).observe(bldgTbody, { childList: true });
+    }
+
+    // Stat tabs: re-render fires when tab is first opened
+    ['cd-overview', 'cd-bytype', 'cd-trend', 'cd-report'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) new MutationObserver(applyTabNotices).observe(el, { childList: true });
+    });
+
+    // Apply all on initial load
+    applyProjectHighlights();
+    applyBldgHighlights();
+    applyTabNotices();
     updateBannerDetails();
   }
 
