@@ -40,7 +40,9 @@ export async function fetchCsvRows(url: string): Promise<Record<string, string>[
 
 export function csvNum(v: string | undefined): number | null {
   if (v === undefined || v === null || v.trim() === "") return null;
-  const n = Number(v);
+  // Strip currency formatting: $, commas, spaces (e.g. "$3,500.00" → "3500.00")
+  const cleaned = v.trim().replace(/[$,\s]/g, "");
+  const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
